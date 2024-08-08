@@ -1,0 +1,35 @@
+{
+    "name": "roo_windows_wifi",
+    "description": "GUI WiFi configurator for ESP32, using roo_windows.",
+    "keywords": [
+        "roo_windows",
+        "wifi"
+    ],
+    "authors": [
+        {
+            "name": "Dejwk",
+            "email": "dejwk.oss@gmail.com",
+            "maintainer": true
+        }
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/dejwk/roo_windows_wifi"
+    },
+    "version": "1.0.0",
+    "homepage": "https://github.com/dejwk/roo_windows_wifi",
+    "frameworks": [
+        "Arduino"
+    ],
+    "build": {
+        "srcDir": "src",
+        "srcFilter": "+<*> -<examples> -<benchmarks> -<doc> -<test>"
+    },
+    "examples": [
+        "examples/**/*.ino"
+    ],
+    "dependencies": {
+        "dejwk/roo_windows": ">0",
+        "dejwk/roo_wifi": ">0"
+    }
+}
