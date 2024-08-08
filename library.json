@@ -16,7 +16,7 @@
         "type": "git",
         "url": "https://github.com/dejwk/roo_windows_wifi"
     },
-    "version": "1.0.0",
+    "version": "1.0.1",
     "homepage": "https://github.com/dejwk/roo_windows_wifi",
     "frameworks": [
         "Arduino"
@@ -29,7 +29,7 @@
         "examples/**/*.ino"
     ],
     "dependencies": {
-        "dejwk/roo_windows": ">0",
-        "dejwk/roo_wifi": ">0"
+        "dejwk/roo_wifi": ">0",
+        "dejwk/roo_windows": ">0"
     }
 }
