@@ -136,8 +136,8 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
 
   roo_wifi::Controller& wifi_model_;
   roo_windows::menu::Title title_;
-  roo_windows::WifiIndicatorLarge indicator_;
   roo_windows::Icon edit_;
+  roo_windows::WifiIndicatorLarge indicator_;
   roo_windows::TextLabel ssid_;
   roo_windows::TextLabel status_;
   roo_windows::HorizontalDivider d1_;
@@ -194,8 +194,9 @@ class NetworkDetailsActivity : public roo_windows::Activity {
   }
 
  private:
-  std::string ssid_;
   roo_wifi::Controller& wifi_model_;
+
+  std::string ssid_;
   NetworkDetailsActivityContents contents_;
   roo_windows::ScrollablePanel scrollable_container_;
 };
