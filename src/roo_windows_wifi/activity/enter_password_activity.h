@@ -1,6 +1,7 @@
 #pragma once
 
 #include "roo_icons/outlined/navigation.h"
+#include "roo_io/base/string_view.h"
 #include "roo_wifi.h"
 #include "roo_windows/composites/menu/title.h"
 #include "roo_windows/containers/vertical_layout.h"
@@ -54,7 +55,7 @@ class PasswordBar : public roo_windows::HorizontalLayout {
         roo_windows::PreferredSize::WrapContentHeight());
   }
 
-  void edit(roo_display::StringView hint) {
+  void edit(roo_io::string_view hint) {
     text_.setHint(hint);
     text_.edit();
   }
@@ -84,7 +85,7 @@ class EnterPasswordActivityContents : public roo_windows::VerticalLayout {
     add(pwbar_, VerticalLayout::Params());
   }
 
-  void enter(roo_display::StringView ssid, const roo_display::StringView hint) {
+  void enter(roo_io::string_view ssid, const roo_io::string_view hint) {
     title_.setTitle(std::string((const char*)ssid.data(), ssid.size()));
     pwbar_.edit(hint);
   }
@@ -107,7 +108,7 @@ class EnterPasswordActivity : public roo_windows::Activity {
   roo_windows::Widget& getContents() override { return contents_; }
 
   void enter(roo_windows::Task& task, const std::string& ssid,
-             roo_display::StringView hint) {
+             roo_io::string_view hint) {
     task.enterActivity(this);
     ssid_ = &ssid;
     contents_.enter(ssid, hint);
