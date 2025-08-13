@@ -58,7 +58,7 @@ class PasswordBar : public roo_windows::HorizontalLayout {
         roo_windows::PreferredSize::WrapContentHeight());
   }
 
-  void edit(roo_io::string_view hint) {
+  void edit(roo::string_view hint) {
     text_.setHint(hint);
     text_.edit();
   }
@@ -88,7 +88,7 @@ class EnterPasswordActivityContents : public roo_windows::VerticalLayout {
     add(pwbar_, VerticalLayout::Params());
   }
 
-  void enter(roo_io::string_view ssid, const roo_io::string_view hint) {
+  void enter(roo::string_view ssid, const roo::string_view hint) {
     title_.setTitle(std::string((const char*)ssid.data(), ssid.size()));
     pwbar_.edit(hint);
   }
@@ -111,7 +111,7 @@ class EnterPasswordActivity : public roo_windows::Activity {
   roo_windows::Widget& getContents() override { return contents_; }
 
   void enter(roo_windows::Task& task, const std::string& ssid,
-             roo_io::string_view hint) {
+             roo::string_view hint) {
     task.enterActivity(this);
     ssid_ = &ssid;
     contents_.enter(ssid, hint);
