@@ -16,7 +16,7 @@ cc_library(
         "ARDUINO=10805",
     ],
     deps = [
-        "//lib/roo_wifi",
-        "//lib/roo_windows",
+        "@roo_wifi",
+        "@roo_windows",
     ],
 )
