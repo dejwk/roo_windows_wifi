@@ -55,21 +55,21 @@ class WifiListItem : public roo_windows::HorizontalLayout {
   NetworkSelectedFn on_click_;
 };
 
-class WifiListModel : public roo_windows::ListModel<WifiListItem> {
+class WifiListModel : public roo_windows::ListModel {
  public:
   WifiListModel(roo_wifi::Controller& wifi_model);
 
   int elementCount() const override;
-  void set(int idx, WifiListItem& dest) const override;
+  void set(int idx, roo_windows::Widget& dest) const override;
 
  private:
   roo_wifi::Controller& wifi_model_;
 };
 
 // The list of WiFi networks.
-class WifiList : public roo_windows::ListLayout<WifiListItem> {
+class WifiList : public roo_windows::ListLayout {
  public:
-  using roo_windows::ListLayout<WifiListItem>::ListLayout;
+  using roo_windows::ListLayout::ListLayout;
 };
 
 // The main 'enable WiFi' bar.

@@ -40,17 +40,6 @@ WifiListItem::WifiListItem(const roo_windows::Environment& env,
   icon_.setConnectionStatus(roo_windows::WifiIndicator::CONNECTED);
 }
 
-WifiListItem::WifiListItem(const WifiListItem& other)
-    : HorizontalLayout(other),
-      icon_(other.icon_),
-      ssid_(other.ssid_),
-      lock_icon_(other.lock_icon_),
-      on_click_(other.on_click_) {
-  add(icon_);
-  add(ssid_, {weight : 1});
-  add(lock_icon_);
-}
-
 // Sets this item to show the specified network.
 void WifiListItem::set(const roo_wifi::Controller::Network& network) {
   ssid_.setText(network.ssid);
@@ -65,8 +54,8 @@ int WifiListModel::elementCount() const {
   return wifi_model_.otherScannedNetworksCount();
 }
 
-void WifiListModel::set(int idx, WifiListItem& dest) const {
-  dest.set(wifi_model_.otherNetwork(idx));
+void WifiListModel::set(int idx, roo_windows::Widget& dest) const {
+  ((WifiListItem&)dest).set(wifi_model_.otherNetwork(idx));
 }
 
 Enable::Enable(const roo_windows::Environment& env, roo_wifi::Controller& model)
@@ -165,7 +154,10 @@ ListActivityContents::ListActivityContents(
       current_(env, network_selected_fn),
       divider_(env),
       list_model_(wifi_model),
-      list_(env, list_model_, WifiListItem(env, network_selected_fn)) {
+      list_(env, list_model_, [&]() {
+        return std::unique_ptr<WifiListItem>(
+            new WifiListItem(env, network_selected_fn));
+      }) {
   add(title_, VerticalLayout::Params());
   add(enable_, VerticalLayout::Params());
   add(progress_, VerticalLayout::Params());
