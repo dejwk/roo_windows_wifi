@@ -1,5 +1,9 @@
 #pragma once
 
+/// Umbrella header for the roo_windows_wifi module.
+///
+/// Provides Wi-Fi configuration activities for roo_windows.
+
 #include <Arduino.h>
 
 #include "roo_windows_wifi/activity/enter_password_activity.h"
