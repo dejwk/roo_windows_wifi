@@ -23,6 +23,8 @@
 
 namespace roo_windows_wifi {
 
+using roo_windows::Visibility;
+
 WifiListItem::WifiListItem(const roo_windows::Environment& env,
                            NetworkSelectedFn on_click)
     : HorizontalLayout(env),
@@ -33,8 +35,8 @@ WifiListItem::WifiListItem(const roo_windows::Environment& env,
       on_click_(on_click) {
   setGravity(roo_windows::kGravityMiddle);
   add(icon_);
-  ssid_.setMargins(roo_windows::MarginSize::NONE);
-  ssid_.setPadding(roo_windows::PaddingSize::TINY);
+  ssid_.setMargins(roo_windows::MarginSize::kNone);
+  ssid_.setPadding(roo_windows::PaddingSize::kTiny);
   add(ssid_, {weight : 1});
   add(lock_icon_);
   icon_.setConnectionStatus(roo_windows::WifiIndicator::CONNECTED);
@@ -44,7 +46,8 @@ WifiListItem::WifiListItem(const roo_windows::Environment& env,
 void WifiListItem::set(const roo_wifi::Controller::Network& network) {
   ssid_.setText(network.ssid);
   icon_.setWifiSignalStrength(network.rssi);
-  lock_icon_.setVisibility(network.open ? INVISIBLE : VISIBLE);
+  lock_icon_.setVisibility(network.open ? Visibility::kInvisible
+                                        : Visibility::kVisible);
 }
 
 WifiListModel::WifiListModel(roo_wifi::Controller& wifi_model)
@@ -69,21 +72,23 @@ Enable::Enable(const roo_windows::Environment& env, roo_wifi::Controller& model)
   setGravity(roo_windows::kGravityMiddle);
   setPadding(roo_windows::Padding(0, roo_windows::Scaled(-8)));
   add(gap_);
-  label_.setMargins(roo_windows::MarginSize::NONE);
-  label_.setPadding(roo_windows::PaddingSize::TINY);
+  label_.setMargins(roo_windows::MarginSize::kNone);
+  label_.setPadding(roo_windows::PaddingSize::kTiny);
   add(label_, {weight : 1});
   add(switch_);
-  enabled_color_ = env.theme().color.secondary;
+  enabled_color_ = env.theme().color.secondaryContainer;
   disabled_color_.set_a(0xC0);
   disabled_color_ = env.theme().color.onSurface;
   disabled_color_.set_a(0x40);
   switch_.setOnInteractiveChange([&]() { model_.toggleEnabled(); });
-  setBackground(disabled_color_);
+  enabled_ = false;
 }
 
 void Enable::onEnableChanged(bool enabled) {
+  if (enabled_ == enabled) return;
+  enabled_ = enabled;
   switch_.setOn(enabled);
-  setBackground(enabled ? enabled_color_ : disabled_color_);
+  invalidateInterior();
 }
 
 CurrentNetwork::CurrentNetwork(const roo_windows::Environment& env,
@@ -98,20 +103,20 @@ CurrentNetwork::CurrentNetwork(const roo_windows::Environment& env,
       lock_icon_(env, SCALED_ROO_ICON(filled, action_lock)),
       on_click_(on_click) {
   setGravity(roo_windows::kGravityMiddle);
-  setPadding(roo_windows::Padding(roo_windows::PaddingSize::NONE,
-                                  roo_windows::PaddingSize::NONE));
+  setPadding(roo_windows::Padding(roo_windows::PaddingSize::kNone,
+                                  roo_windows::PaddingSize::kNone));
   add(indicator_);
-  ssid_.setPadding(roo_windows::PaddingSize::TINY,
-                   roo_windows::PaddingSize::NONE);
-  ssid_.setMargins(roo_windows::MarginSize::NONE);
-  status_.setPadding(roo_windows::PaddingSize::TINY,
-                     roo_windows::PaddingSize::NONE);
-  status_.setMargins(roo_windows::MarginSize::NONE);
-  ssid_status_.setPadding(roo_windows::Padding(roo_windows::PaddingSize::NONE,
-                                               roo_windows::PaddingSize::NONE));
-  ssid_status_.setMargins(roo_windows::Margins(roo_windows::MarginSize::NONE,
-                                               roo_windows::MarginSize::NONE));
-  // ssid_status_.setMargins(roo_windows::MarginSize::REGULAR);
+  ssid_.setPadding(roo_windows::PaddingSize::kTiny,
+                   roo_windows::PaddingSize::kNone);
+  ssid_.setMargins(roo_windows::MarginSize::kNone);
+  status_.setPadding(roo_windows::PaddingSize::kTiny,
+                     roo_windows::PaddingSize::kNone);
+  status_.setMargins(roo_windows::MarginSize::kNone);
+  ssid_status_.setPadding(roo_windows::Padding(
+      roo_windows::PaddingSize::kNone, roo_windows::PaddingSize::kNone));
+  ssid_status_.setMargins(roo_windows::Margins(roo_windows::MarginSize::kNone,
+                                               roo_windows::MarginSize::kNone));
+  // ssid_status_.setMargins(roo_windows::MarginSize::kRegular);
   ssid_status_.add(ssid_);
   ssid_status_.add(status_);
   add(ssid_status_, {weight : 1});
@@ -140,7 +145,8 @@ void CurrentNetwork::onChange(const roo_wifi::Controller& model) {
   }
   status_.setText(
       StatusAsString(model.currentNetworkStatus(), model.isConnecting()));
-  lock_icon_.setVisibility(model.currentNetwork().open ? INVISIBLE : VISIBLE);
+  lock_icon_.setVisibility(model.currentNetwork().open ? Visibility::kInvisible
+                                                       : Visibility::kVisible);
 }
 
 ListActivityContents::ListActivityContents(
@@ -154,7 +160,7 @@ ListActivityContents::ListActivityContents(
       current_(env, network_selected_fn),
       divider_(env),
       list_model_(wifi_model),
-      list_(env, list_model_, [&]() {
+      list_(env, list_model_, [&, network_selected_fn]() {
         return std::unique_ptr<WifiListItem>(
             new WifiListItem(env, network_selected_fn));
       }) {
@@ -164,36 +170,40 @@ ListActivityContents::ListActivityContents(
   add(current_, VerticalLayout::Params());
   add(divider_, VerticalLayout::Params());
   add(list_, VerticalLayout::Params());
-  current_.setVisibility(GONE);
-  divider_.setVisibility(GONE);
+  current_.setVisibility(Visibility::kGone);
+  divider_.setVisibility(Visibility::kGone);
   progress_.setColor(env.theme().color.secondary);
-  progress_.setVisibility(INVISIBLE);
+  progress_.setVisibility(Visibility::kInvisible);
 }
 
 void ListActivityContents::onEnableChanged(bool enabled) {
   bool hasNetwork = !wifi_model_.currentNetwork().ssid.empty();
-  current_.setVisibility(enabled && hasNetwork ? VISIBLE : GONE);
-  divider_.setVisibility(enabled && hasNetwork ? VISIBLE : GONE);
-  list_.setVisibility(enabled ? VISIBLE : GONE);
-  if (!enabled) progress_.setVisibility(INVISIBLE);
+  current_.setVisibility(enabled && hasNetwork ? Visibility::kVisible
+                                               : Visibility::kGone);
+  divider_.setVisibility(enabled && hasNetwork ? Visibility::kVisible
+                                               : Visibility::kGone);
+  list_.setVisibility(enabled ? Visibility::kVisible : Visibility::kGone);
+  if (!enabled) progress_.setVisibility(Visibility::kInvisible);
   enable_.onEnableChanged(enabled);
 }
 
-void ListActivityContents::onScanStarted() { progress_.setVisibility(VISIBLE); }
+void ListActivityContents::onScanStarted() {
+  progress_.setVisibility(Visibility::kVisible);
+}
 
 void ListActivityContents::onScanCompleted() {
-  progress_.setVisibility(INVISIBLE);
+  progress_.setVisibility(Visibility::kInvisible);
   current_.onChange(wifi_model_);
   list_.modelChanged();
 }
 
 void ListActivityContents::onCurrentNetworkChanged() {
   if (wifi_model_.currentNetwork().ssid.empty() || !wifi_model_.isEnabled()) {
-    current_.setVisibility(GONE);
-    divider_.setVisibility(GONE);
+    current_.setVisibility(Visibility::kGone);
+    divider_.setVisibility(Visibility::kGone);
   } else {
-    current_.setVisibility(VISIBLE);
-    divider_.setVisibility(VISIBLE);
+    current_.setVisibility(Visibility::kVisible);
+    divider_.setVisibility(Visibility::kVisible);
   }
   current_.onChange(wifi_model_);
   list_.modelChanged();

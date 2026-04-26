@@ -46,22 +46,22 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
     edit_.setOnInteractiveChange(edit_fn);
     title_.add(edit_);
     add(title_, {gravity : roo_windows::kGravityLeft});
-    indicator_.setPadding(roo_windows::PaddingSize::TINY);
+    indicator_.setPadding(roo_windows::PaddingSize::kTiny);
     add(indicator_);
-    ssid_.setPadding(roo_windows::PaddingSize::NONE);
-    ssid_.setMargins(roo_windows::MarginSize::NONE);
-    status_.setPadding(roo_windows::PaddingSize::NONE);
-    status_.setMargins(roo_windows::MarginSize::NONE);
+    ssid_.setPadding(roo_windows::PaddingSize::kNone);
+    ssid_.setMargins(roo_windows::MarginSize::kNone);
+    status_.setPadding(roo_windows::PaddingSize::kNone);
+    status_.setMargins(roo_windows::MarginSize::kNone);
     add(ssid_);
     add(status_);
     add(d1_, {weight : 1});
     indicator_.setConnectionStatus(roo_windows::WifiIndicator::DISCONNECTED);
     actions_.setUseLargestChild(true);
-    button_forget_.setPadding(roo_windows::PaddingSize::LARGE,
-                              roo_windows::PaddingSize::SMALL);
+    button_forget_.setPadding(roo_windows::PaddingSize::kLarge,
+                              roo_windows::PaddingSize::kSmall);
     button_forget_.setOnInteractiveChange([this]() { forget(); });
-    button_connect_.setPadding(roo_windows::PaddingSize::LARGE,
-                               roo_windows::PaddingSize::SMALL);
+    button_connect_.setPadding(roo_windows::PaddingSize::kLarge,
+                               roo_windows::PaddingSize::kSmall);
     roo_display::Color pri = env.theme().color.primary;
     button_forget_.setColor(pri);
     button_connect_.setColor(pri);

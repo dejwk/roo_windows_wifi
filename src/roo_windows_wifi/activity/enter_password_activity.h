@@ -40,13 +40,13 @@ class PasswordBar : public roo_windows::HorizontalLayout {
         enter_(env, SCALED_ROO_ICON(outlined, navigation_check)) {
     text_.setContent("");
     text_.setStarred(true);
-    text_.setMargins(roo_windows::MarginSize::NONE);
-    text_.setPadding(roo_windows::PaddingSize::TINY);
+    text_.setMargins(roo_windows::MarginSize::kNone);
+    text_.setPadding(roo_windows::PaddingSize::kTiny);
     visibility_.setOff();
     visibility_.setOnInteractiveChange([this]() { visibilityChanged(); });
     setGravity(roo_windows::kGravityMiddle);
     add(visibility_);
-    add(text_, { weight : 1 });
+    add(text_, {weight : 1});
     add(enter_);
     enter_.setOnInteractiveChange(confirm_fn);
   }

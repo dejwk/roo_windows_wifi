@@ -77,6 +77,10 @@ class Enable : public roo_windows::HorizontalLayout {
  public:
   Enable(const roo_windows::Environment& env, roo_wifi::Controller& model);
 
+  roo_display::Color background() const override {
+    return enabled_ ? enabled_color_ : disabled_color_;
+  }
+
   roo_windows::PreferredSize getPreferredSize() const override {
     return roo_windows::PreferredSize(
         roo_windows::PreferredSize::MatchParentWidth(),
@@ -95,6 +99,8 @@ class Enable : public roo_windows::HorizontalLayout {
   roo_windows::Blank gap_;
   roo_windows::TextLabel label_;
   roo_windows::Switch switch_;
+
+  bool enabled_ = false;
 
   roo_display::Color enabled_color_;
   roo_display::Color disabled_color_;
