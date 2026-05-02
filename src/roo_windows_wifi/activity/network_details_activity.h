@@ -42,7 +42,7 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
         button_forget_(env, SCALED_ROO_ICON(filled, action_delete), kStrForget),
         button_connect_(env, SCALED_ROO_ICON(filled, notification_wifi),
                         kStrConnect) {
-    setGravity(roo_windows::kGravityMiddle);
+    setGravity(roo_windows::kGravityMiddle | roo_windows::kGravityCenter);
     edit_.setOnInteractiveChange(edit_fn);
     title_.add(edit_);
     add(title_, {gravity : roo_windows::kGravityLeft});
