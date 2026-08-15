@@ -20,16 +20,13 @@ void EditedPassword::onEditFinished(bool confirmed) {
 EnterPasswordActivity::EnterPasswordActivity(
     roo_windows::ApplicationContext& env, roo_windows::TextFieldEditor& editor,
     roo_wifi::Controller& wifi_model)
-    : roo_windows::Activity(),
-      wifi_model_(wifi_model),
-      ssid_(nullptr),
-      editor_(editor),
+    : wifi_model_(wifi_model),
       contents_(env, editor, [this]() { confirm(); }) {}
 
 void EnterPasswordActivity::confirm() {
-  editor_.edit(nullptr);
-  wifi_model_.setPassword(*ssid_, passwd());
-  wifi_model_.connect(*ssid_, passwd());
+  contents_.stopEditing();
+  wifi_model_.setPassword(ssid_, passwd());
+  wifi_model_.connect(ssid_, passwd());
   exit();
 }
 

@@ -7,7 +7,6 @@
 #include "roo_windows.h"
 #include "roo_windows/composites/menu/basic_navigation_item.h"
 #include "roo_windows/composites/menu/menu.h"
-#include "roo_windows/containers/aligned_layout.h"
 #include "roo_windows_wifi.h"
 
 using namespace roo_display;
@@ -32,16 +31,18 @@ roo_scheduler::Scheduler scheduler;
 Environment env(scheduler);
 
 roo_windows::Application app(&env, display);
+roo_windows::NavigationHost navigation;
+roo_windows::Task& task = app.addTaskFullScreen(navigation);
 
 roo_wifi::Esp32Wifi wifi(scheduler);
-roo_windows_wifi::Configurator wifi_setup(env, wifi, app.text_field_editor());
+roo_windows_wifi::Configurator wifi_setup(app.context(), wifi, task);
 
 class SettingsMenu : public menu::Menu {
  public:
-  SettingsMenu(const Environment& env)
-      : menu::Menu(env, "Settings"),
-        wifi_item_(env, SCALED_ROO_ICON(filled, notification_wifi),
-                   "WiFi", wifi_setup.main()) {
+  SettingsMenu(ApplicationContext& context)
+      : menu::Menu(context, "Settings"),
+        wifi_item_(context, SCALED_ROO_ICON(filled, notification_wifi),
+                   "WiFi", navigation, wifi_setup.main()) {
     add(wifi_item_);
   }
 
@@ -49,32 +50,16 @@ class SettingsMenu : public menu::Menu {
   menu::BasicNavigationItem wifi_item_;
 };
 
-SettingsMenu settings_menu(env);
-
-class MainPane : public AlignedLayout {
- public:
-  MainPane(const Environment& env)
-      : AlignedLayout(env), button_(env, "Settings") {
-    add(button_, kCenter | kMiddle);
-    button_.setOnInteractiveChange(
-        [this]() { getTask()->enterActivity(&settings_menu); });
-  }
-
- private:
-  SimpleButton button_;
-};
-
-MainPane pane(env);
-SingletonActivity activity(app, pane);
+SettingsMenu settings_menu(app.context());
 
 void setup() {
   SPI.begin();
 
   wifi.begin();
   display.init();
+  navigation.push(settings_menu);
+  app.start();
+  scheduler.run();
 }
 
-void loop() {
-  app.tick();
-  scheduler.executeEligibleTasks();
-}
+void loop() {}

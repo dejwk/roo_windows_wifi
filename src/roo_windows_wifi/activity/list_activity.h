@@ -9,7 +9,9 @@
 #include "roo_windows/containers/list_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/containers/vertical_layout.h"
-#include "roo_windows/core/activity.h"
+#include "roo_windows/core/destination.h"
+#include "roo_windows/core/navigation_host.h"
+#include "roo_windows/core/task.h"
 #include "roo_windows/indicators/wifi.h"
 #include "roo_windows/widgets/blank.h"
 #include "roo_windows/widgets/divider.h"
@@ -20,9 +22,8 @@
 
 namespace roo_windows_wifi {
 
-class WifiSetup;
-
-typedef std::function<void(roo_windows::Task& task, const std::string& ssid)>
+typedef std::function<void(roo_windows::NavigationHost& navigation,
+                           const std::string& ssid)>
     NetworkSelectedFn;
 
 // Single WiFi network in a list.
@@ -43,7 +44,9 @@ class WifiListItem : public roo_windows::HorizontalLayout {
         roo_windows::PreferredSize::WrapContentHeight());
   }
 
-  void onClicked() override { on_click_(*getTask(), ssid_.content()); }
+  void onClicked() override {
+    on_click_(*getTask()->navigationHost(), ssid_.content());
+  }
 
  private:
   bool isOpen() const { return is_open_; }
@@ -114,7 +117,9 @@ class CurrentNetwork : public roo_windows::HorizontalLayout {
 
   bool isClickable() const override { return true; }
 
-  void onClicked() override { on_click_(*getTask(), ssid_.content()); }
+  void onClicked() override {
+    on_click_(*getTask()->navigationHost(), ssid_.content());
+  }
 
   void onChange(const roo_wifi::Controller& model);
 
@@ -167,7 +172,7 @@ class ListActivityContents : public roo_windows::VerticalLayout {
   WifiList list_;
 };
 
-class ListActivity : public roo_windows::Activity {
+class ListActivity : public roo_windows::Destination {
  public:
   ListActivity(roo_windows::ApplicationContext& env,
                roo_wifi::Controller& wifi_model,

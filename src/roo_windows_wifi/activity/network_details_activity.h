@@ -8,7 +8,8 @@
 #include "roo_windows/containers/horizontal_layout.h"
 #include "roo_windows/containers/stacked_layout.h"
 #include "roo_windows/containers/vertical_layout.h"
-#include "roo_windows/core/activity.h"
+#include "roo_windows/core/destination.h"
+#include "roo_windows/core/navigation_host.h"
 #include "roo_windows/core/task.h"
 #include "roo_windows/indicators/wifi.h"
 #include "roo_windows/widgets/divider.h"
@@ -19,7 +20,8 @@
 
 namespace roo_windows_wifi {
 
-typedef std::function<void(roo_windows::Task& task, const std::string& ssid)>
+typedef std::function<void(roo_windows::NavigationHost& navigation,
+                           const std::string& ssid)>
     DetailsEditedFn;
 
 // All of the widgets of the 'enter password' activity.
@@ -27,7 +29,8 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
  public:
   NetworkDetailsActivityContents(roo_windows::ApplicationContext& env,
                                  roo_wifi::Controller& model,
-                                 std::function<void()> edit_fn)
+                                 std::function<void()> edit_fn,
+                                 std::function<void()> exit_fn)
       : roo_windows::VerticalLayout(env),
         wifi_model_(model),
         title_(env, kStrNetworkDetails),
@@ -41,7 +44,8 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
         actions_(env),
         button_forget_(env, SCALED_ROO_ICON(filled, action_delete), kStrForget),
         button_connect_(env, SCALED_ROO_ICON(filled, notification_wifi),
-                        kStrConnect) {
+                        kStrConnect),
+        exit_fn_(exit_fn) {
     setGravity(roo_windows::kGravityMiddle | roo_windows::kGravityCenter);
     edit_.setOnInteractiveChange(edit_fn);
     title_.add(edit_);
@@ -127,7 +131,7 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
   void forget() {
     disconnect();
     wifi_model_.forget(ssid_.content());
-    getTask()->exitActivity();
+    exit_fn_();
   }
 
   roo_wifi::Controller& wifi_model_;
@@ -140,29 +144,32 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
   roo_windows::HorizontalLayout actions_;
   roo_windows::IconWithCaption button_forget_;
   roo_windows::IconWithCaption button_connect_;
+  std::function<void()> exit_fn_;
 };
 
-class NetworkDetailsActivity : public roo_windows::Activity {
+class NetworkDetailsActivity : public roo_windows::Destination {
  public:
   NetworkDetailsActivity(roo_windows::ApplicationContext& env,
                          roo_wifi::Controller& wifi_model,
                          DetailsEditedFn edit_fn)
-      : roo_windows::Activity(),
-        wifi_model_(wifi_model),
+      : wifi_model_(wifi_model),
         ssid_(),
-        contents_(
-            env, wifi_model,
-            [this, edit_fn]() { edit_fn(*getContents().getTask(), ssid_); }),
+        contents_(env, wifi_model,
+                  [this, edit_fn]() {
+                    edit_fn(*getTask()->navigationHost(), ssid_);
+                  },
+                  [this]() { exit(); }),
         scrollable_container_(env, contents_) {}
 
   roo_windows::Widget& getContents() override { return scrollable_container_; }
 
-  void enter(roo_windows::Task& task, const std::string& ssid) {
-    task.enterActivity(this);
+  void enter(roo_windows::NavigationHost& navigation,
+             const std::string& ssid) {
     ssid_ = ssid;
     contents_.enter(ssid_);
     onScanCompleted();
     onCurrentNetworkChanged();
+    navigation.push(*this);
   }
 
   void onStop() override { ssid_ = ""; }

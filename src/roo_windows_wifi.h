@@ -14,26 +14,29 @@ namespace roo_windows_wifi {
 
 class Configurator {
  public:
+  /// The supplied task must be backed by a NavigationHost. Its task-local
+  /// editor is used while entering a password.
   Configurator(roo_windows::ApplicationContext& env,
-               roo_wifi::Controller& controller,
-               roo_windows::TextFieldEditor& editor)
+               roo_wifi::Controller& controller, roo_windows::Task& task)
       : controller_(controller),
         model_listener_(*this),
         list_(env, controller_,
-              [this](roo_windows::Task& task, const std::string& ssid) {
-                networkSelected(task, ssid);
+              [this](roo_windows::NavigationHost& navigation,
+                     const std::string& ssid) {
+                networkSelected(navigation, ssid);
               }),
         details_(env, controller_,
-                 [this](roo_windows::Task& task, const std::string& ssid) {
-                   networkEdited(task, ssid);
+                 [this](roo_windows::NavigationHost& navigation,
+                        const std::string& ssid) {
+                   networkEdited(navigation, ssid);
                  }),
-        enter_password_(env, editor, controller_) {
+        enter_password_(env, task.textFieldEditor(), controller_) {
     controller_.addListener(&model_listener_);
   }
 
-  roo_windows::Activity& main() { return list_; }
+  roo_windows::Destination& main() { return list_; }
 
-  roo_windows::Activity& enter_password() { return enter_password_; }
+  roo_windows::Destination& enter_password() { return enter_password_; }
 
   ~Configurator() { controller_.removeListener(&model_listener_); }
 
@@ -81,7 +84,8 @@ class Configurator {
     details_.onCurrentNetworkChanged();
   }
 
-  void networkSelected(roo_windows::Task& task, const std::string& ssid) {
+  void networkSelected(roo_windows::NavigationHost& navigation,
+                       const std::string& ssid) {
     const roo_wifi::Controller::Network* network =
         controller_.lookupNetwork(ssid);
     std::string password;
@@ -103,14 +107,15 @@ class Configurator {
       return;
     }
     if (need_password) {
-      enter_password_.enter(task, ssid, kStrEnterPassword);
+      enter_password_.enter(navigation, ssid, kStrEnterPassword);
     } else {
-      details_.enter(task, ssid);
+      details_.enter(navigation, ssid);
     }
   }
 
-  void networkEdited(roo_windows::Task& task, const std::string& ssid) {
-    enter_password_.enter(task, ssid, kStrPasswordUnchanged);
+  void networkEdited(roo_windows::NavigationHost& navigation,
+                     const std::string& ssid) {
+    enter_password_.enter(navigation, ssid, kStrPasswordUnchanged);
   }
 
   roo_wifi::Controller& controller_;

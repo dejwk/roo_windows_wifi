@@ -8,8 +8,8 @@
 #include "roo_windows.h"
 #include "roo_windows/composites/menu/title.h"
 #include "roo_windows/containers/vertical_layout.h"
-#include "roo_windows/core/activity.h"
-#include "roo_windows/core/task.h"
+#include "roo_windows/core/destination.h"
+#include "roo_windows/core/navigation_host.h"
 #include "roo_windows/widgets/icon.h"
 #include "roo_windows/widgets/text_field.h"
 
@@ -66,6 +66,8 @@ class PasswordBar : public roo_windows::HorizontalLayout {
 
   const std::string& passwd() const { return text_.content(); }
 
+  void stopEditing() { text_.editor().edit(nullptr); }
+
  private:
   void visibilityChanged() { text_.setStarred(visibility_.isOff()); }
 
@@ -96,12 +98,14 @@ class EnterPasswordActivityContents : public roo_windows::VerticalLayout {
 
   const std::string& passwd() const { return pwbar_.passwd(); }
 
+  void stopEditing() { pwbar_.stopEditing(); }
+
  private:
   roo_windows::menu::Title title_;
   PasswordBar pwbar_;
 };
 
-class EnterPasswordActivity : public roo_windows::Activity {
+class EnterPasswordActivity : public roo_windows::Destination {
  public:
   EnterPasswordActivity(roo_windows::ApplicationContext& env,
                         roo_windows::TextFieldEditor& editor,
@@ -109,14 +113,16 @@ class EnterPasswordActivity : public roo_windows::Activity {
 
   roo_windows::Widget& getContents() override { return contents_; }
 
-  void enter(roo_windows::Task& task, const std::string& ssid,
+  void enter(roo_windows::NavigationHost& navigation, const std::string& ssid,
              roo::string_view hint) {
-    task.enterActivity(this);
-    ssid_ = &ssid;
-    contents_.enter(ssid, hint);
+    ssid_ = ssid;
+    navigation.push(*this);
+    // TextField editing must begin after NavigationHost has attached this
+    // destination's contents to its task.
+    contents_.enter(ssid_, hint);
   }
 
-  void onPause() override { editor_.edit(nullptr); }
+  void onPause() override { contents_.stopEditing(); }
   void onStop() override { contents_.clear(); }
 
  private:
@@ -125,8 +131,7 @@ class EnterPasswordActivity : public roo_windows::Activity {
   void confirm();
 
   roo_wifi::Controller& wifi_model_;
-  const std::string* ssid_;
-  roo_windows::TextFieldEditor& editor_;
+  std::string ssid_;
   EnterPasswordActivityContents contents_;
 };
 
