@@ -14,7 +14,7 @@ namespace roo_windows_wifi {
 
 class Configurator {
  public:
-  Configurator(const roo_windows::Environment& env,
+  Configurator(roo_windows::ApplicationContext& env,
                roo_wifi::Controller& controller,
                roo_windows::TextFieldEditor& editor)
       : controller_(controller),

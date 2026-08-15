@@ -25,7 +25,7 @@ typedef std::function<void(roo_windows::Task& task, const std::string& ssid)>
 // All of the widgets of the 'enter password' activity.
 class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
  public:
-  NetworkDetailsActivityContents(const roo_windows::Environment& env,
+  NetworkDetailsActivityContents(roo_windows::ApplicationContext& env,
                                  roo_wifi::Controller& model,
                                  std::function<void()> edit_fn)
       : roo_windows::VerticalLayout(env),
@@ -33,9 +33,9 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
         title_(env, kStrNetworkDetails),
         edit_(env, SCALED_ROO_ICON(filled, content_create)),
         indicator_(env),
-        ssid_(env, "", roo_windows::font_subtitle1(),
+        ssid_(env, "", roo_windows::material2::text_style_subtitle1(),
               roo_windows::kGravityCenter | roo_windows::kGravityMiddle),
-        status_(env, "", roo_windows::font_caption(),
+        status_(env, "", roo_windows::material2::text_style_caption(),
                 roo_windows::kGravityCenter | roo_windows::kGravityMiddle),
         d1_(env),
         actions_(env),
@@ -62,7 +62,7 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
     button_forget_.setOnInteractiveChange([this]() { forget(); });
     button_connect_.setPadding(roo_windows::PaddingSize::kLarge,
                                roo_windows::PaddingSize::kSmall);
-    roo_display::Color pri = env.theme().color.primary;
+    roo_display::Color pri = env.theme().material3Theme().color.primary;
     button_forget_.setColor(pri);
     button_connect_.setColor(pri);
     actions_.add(button_forget_, {weight : 1});
@@ -102,19 +102,19 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
     if (status == roo_wifi::WL_CONNECTED) {
       button_connect_.setCaption(kStrDisconnect);
       button_connect_.setIcon(SCALED_ROO_ICON(filled, content_clear));
-      button_connect_.setColor(theme().color.primary);
+      button_connect_.setColor(theme().material3Theme().color.primary);
       button_connect_.setOnInteractiveChange([this]() { disconnect(); });
     } else if (connecting) {
       button_connect_.setCaption(kStrConnectingEllipsis);
       button_connect_.setIcon(SCALED_ROO_ICON(filled, content_clear));
-      roo_display::Color disabled = theme().color.onSurface;
+      roo_display::Color disabled = theme().material3Theme().color.onSurface;
       disabled.set_a(0x20);
       button_connect_.setColor(disabled);
       button_connect_.setOnInteractiveChange(nullptr);
     } else {
       button_connect_.setCaption(kStrConnect);
       button_connect_.setIcon(SCALED_ROO_ICON(filled, notification_wifi));
-      button_connect_.setColor(theme().color.primary);
+      button_connect_.setColor(theme().material3Theme().color.primary);
       button_connect_.setOnInteractiveChange([this]() { connect(); });
     }
   }
@@ -144,7 +144,7 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
 
 class NetworkDetailsActivity : public roo_windows::Activity {
  public:
-  NetworkDetailsActivity(const roo_windows::Environment& env,
+  NetworkDetailsActivity(roo_windows::ApplicationContext& env,
                          roo_wifi::Controller& wifi_model,
                          DetailsEditedFn edit_fn)
       : roo_windows::Activity(),

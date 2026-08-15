@@ -19,7 +19,7 @@ class EnterPasswordActivity;
 
 class EditedPassword : public roo_windows::TextField {
  public:
-  EditedPassword(const roo_windows::Environment& env,
+  EditedPassword(roo_windows::ApplicationContext& env,
                  roo_windows::TextFieldEditor& editor,
                  std::function<void()> confirm_fn);
 
@@ -31,7 +31,7 @@ class EditedPassword : public roo_windows::TextField {
 
 class PasswordBar : public roo_windows::HorizontalLayout {
  public:
-  PasswordBar(const roo_windows::Environment& env,
+  PasswordBar(roo_windows::ApplicationContext& env,
               roo_windows::TextFieldEditor& editor,
               std::function<void()> confirm_fn)
       : roo_windows::HorizontalLayout(env),
@@ -77,7 +77,7 @@ class PasswordBar : public roo_windows::HorizontalLayout {
 // All of the widgets of the 'enter password' activity.
 class EnterPasswordActivityContents : public roo_windows::VerticalLayout {
  public:
-  EnterPasswordActivityContents(const roo_windows::Environment& env,
+  EnterPasswordActivityContents(roo_windows::ApplicationContext& env,
                                 roo_windows::TextFieldEditor& editor,
                                 std::function<void()> confirm_fn)
       : roo_windows::VerticalLayout(env),
@@ -103,7 +103,7 @@ class EnterPasswordActivityContents : public roo_windows::VerticalLayout {
 
 class EnterPasswordActivity : public roo_windows::Activity {
  public:
-  EnterPasswordActivity(const roo_windows::Environment& env,
+  EnterPasswordActivity(roo_windows::ApplicationContext& env,
                         roo_windows::TextFieldEditor& editor,
                         roo_wifi::Controller& wifi_model);
 

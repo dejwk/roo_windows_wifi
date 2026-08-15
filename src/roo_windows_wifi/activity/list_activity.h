@@ -28,7 +28,7 @@ typedef std::function<void(roo_windows::Task& task, const std::string& ssid)>
 // Single WiFi network in a list.
 class WifiListItem : public roo_windows::HorizontalLayout {
  public:
-  WifiListItem(const roo_windows::Environment& env, NetworkSelectedFn on_click);
+  WifiListItem(roo_windows::ApplicationContext& env, NetworkSelectedFn on_click);
 
   WifiListItem(const WifiListItem& other);
 
@@ -75,7 +75,7 @@ class WifiList : public roo_windows::ListLayout {
 // The main 'enable WiFi' bar.
 class Enable : public roo_windows::HorizontalLayout {
  public:
-  Enable(const roo_windows::Environment& env, roo_wifi::Controller& model);
+  Enable(roo_windows::ApplicationContext& env, roo_wifi::Controller& model);
 
   roo_display::Color background() const override {
     return enabled_ ? enabled_color_ : disabled_color_;
@@ -109,7 +109,7 @@ class Enable : public roo_windows::HorizontalLayout {
 // Shows the currently selected network.
 class CurrentNetwork : public roo_windows::HorizontalLayout {
  public:
-  CurrentNetwork(const roo_windows::Environment& env,
+  CurrentNetwork(roo_windows::ApplicationContext& env,
                  NetworkSelectedFn on_click);
 
   bool isClickable() const override { return true; }
@@ -136,7 +136,7 @@ class CurrentNetwork : public roo_windows::HorizontalLayout {
 // All of the widgets of the list activity.
 class ListActivityContents : public roo_windows::VerticalLayout {
  public:
-  ListActivityContents(const roo_windows::Environment& env,
+  ListActivityContents(roo_windows::ApplicationContext& env,
                        roo_wifi::Controller& wifi_model,
                        NetworkSelectedFn network_selected_fn);
 
@@ -169,7 +169,7 @@ class ListActivityContents : public roo_windows::VerticalLayout {
 
 class ListActivity : public roo_windows::Activity {
  public:
-  ListActivity(const roo_windows::Environment& env,
+  ListActivity(roo_windows::ApplicationContext& env,
                roo_wifi::Controller& wifi_model,
                NetworkSelectedFn network_selected_fn);
 
