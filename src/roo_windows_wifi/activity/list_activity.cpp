@@ -8,7 +8,6 @@
 #include "roo_windows/containers/list_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/containers/vertical_layout.h"
-#include "roo_windows/core/activity.h"
 #include "roo_windows/core/task.h"
 #include "roo_windows/core/widget.h"
 #include "roo_windows/indicators/wifi.h"
