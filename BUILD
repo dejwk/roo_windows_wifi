@@ -9,10 +9,6 @@ cc_library(
         ],
         exclude = ["test/**"],
     ),
-    defines = [
-        "ROO_TESTING",
-        "ARDUINO=10805",
-    ],
     includes = [
         "src",
     ],
