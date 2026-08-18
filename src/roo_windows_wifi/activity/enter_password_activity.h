@@ -20,7 +20,6 @@ class EnterPasswordActivity;
 class EditedPassword : public roo_windows::TextField {
  public:
   EditedPassword(roo_windows::ApplicationContext& env,
-                 roo_windows::TextFieldEditor& editor,
                  std::function<void()> confirm_fn);
 
   void onEditFinished(bool confirmed) override;
@@ -32,11 +31,10 @@ class EditedPassword : public roo_windows::TextField {
 class PasswordBar : public roo_windows::HorizontalLayout {
  public:
   PasswordBar(roo_windows::ApplicationContext& env,
-              roo_windows::TextFieldEditor& editor,
               std::function<void()> confirm_fn)
       : roo_windows::HorizontalLayout(env),
         visibility_(env),
-        text_(env, editor, confirm_fn),
+        text_(env, confirm_fn),
         enter_(env, SCALED_ROO_ICON(outlined, navigation_check)) {
     text_.setContent("");
     text_.setStarred(true);
@@ -80,11 +78,10 @@ class PasswordBar : public roo_windows::HorizontalLayout {
 class EnterPasswordActivityContents : public roo_windows::VerticalLayout {
  public:
   EnterPasswordActivityContents(roo_windows::ApplicationContext& env,
-                                roo_windows::TextFieldEditor& editor,
                                 std::function<void()> confirm_fn)
       : roo_windows::VerticalLayout(env),
         title_(env, ""),
-        pwbar_(env, editor, confirm_fn) {
+        pwbar_(env, confirm_fn) {
     add(title_, VerticalLayout::Params());
     add(pwbar_, VerticalLayout::Params());
   }
@@ -108,7 +105,6 @@ class EnterPasswordActivityContents : public roo_windows::VerticalLayout {
 class EnterPasswordActivity : public roo_windows::Destination {
  public:
   EnterPasswordActivity(roo_windows::ApplicationContext& env,
-                        roo_windows::TextFieldEditor& editor,
                         roo_wifi::Controller& wifi_model);
 
   roo_windows::Widget& getContents() override { return contents_; }

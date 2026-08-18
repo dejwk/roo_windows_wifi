@@ -9,6 +9,14 @@
 #include "roo_windows/composites/menu/menu.h"
 #include "roo_windows_wifi.h"
 
+#ifdef ROO_TESTING
+#include "roo_testing/devices/display/ili9341/ili9341spi.h"
+#include "roo_testing/devices/touch/xpt2046/xpt2046spi.h"
+#include "roo_testing/microcontrollers/esp32/fake_esp32.h"
+#include "roo_testing/transducers/ui/viewport/flex_viewport.h"
+#include "roo_testing/transducers/ui/viewport/fltk/fltk_viewport.h"
+#endif
+
 using namespace roo_display;
 using namespace roo_windows;
 
@@ -19,6 +27,33 @@ static constexpr int kRstPin = 27;
 static constexpr int kBlPin = 16;
 
 static constexpr int kTouchCsPin = 2;
+
+#ifdef ROO_TESTING
+
+using roo_testing_transducers::FlexViewport;
+using roo_testing_transducers::FltkViewport;
+
+struct Emulator {
+  FltkViewport viewport;
+  FlexViewport flex_viewport;
+  FakeIli9341Spi display;
+  FakeXpt2046Spi touch;
+
+  Emulator()
+      : viewport(), flex_viewport(viewport, 1, FlexViewport::kRotationRight),
+        display(flex_viewport),
+        touch(flex_viewport, FakeXpt2046Spi::Calibration(269, 249, 3829, 3684,
+                                                         true, false, false)) {
+    FakeEsp32().attachSpiDevice(display, 18, 19, 23);
+    FakeEsp32().gpio.attachOutput(kCsPin, display.cs());
+    FakeEsp32().gpio.attachOutput(kDcPin, display.dc());
+    FakeEsp32().gpio.attachOutput(kRstPin, display.rst());
+    FakeEsp32().attachSpiDevice(touch, 18, 19, 23);
+    FakeEsp32().gpio.attachOutput(kTouchCsPin, touch.cs());
+  }
+} emulator;
+
+#endif
 
 Ili9341spi<kCsPin, kDcPin, kRstPin> screen(Orientation().rotateLeft());
 TouchXpt2046<kTouchCsPin> touch;
@@ -35,7 +70,7 @@ roo_windows::NavigationHost navigation;
 roo_windows::Task& task = app.addTaskFullScreen(navigation);
 
 roo_wifi::Esp32Wifi wifi(scheduler);
-roo_windows_wifi::Configurator wifi_setup(app.context(), wifi, task);
+roo_windows_wifi::Configurator wifi_setup(app.context(), wifi);
 
 class SettingsMenu : public menu::Menu {
  public:

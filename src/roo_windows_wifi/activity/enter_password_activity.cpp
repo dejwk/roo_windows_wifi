@@ -3,9 +3,8 @@
 namespace roo_windows_wifi {
 
 EditedPassword::EditedPassword(roo_windows::ApplicationContext& env,
-                               roo_windows::TextFieldEditor& editor,
                                std::function<void()> confirm_fn)
-    : TextField(env, editor, roo_windows::font_subtitle1(), "",
+    : TextField(env, roo_windows::font_subtitle1(), "",
                 roo_display::kLeft | roo_display::kMiddle, UNDERLINE),
       confirm_fn_(confirm_fn) {}
 
@@ -18,10 +17,9 @@ void EditedPassword::onEditFinished(bool confirmed) {
 }
 
 EnterPasswordActivity::EnterPasswordActivity(
-    roo_windows::ApplicationContext& env, roo_windows::TextFieldEditor& editor,
-    roo_wifi::Controller& wifi_model)
+    roo_windows::ApplicationContext& env, roo_wifi::Controller& wifi_model)
     : wifi_model_(wifi_model),
-      contents_(env, editor, [this]() { confirm(); }) {}
+      contents_(env, [this]() { confirm(); }) {}
 
 void EnterPasswordActivity::confirm() {
   contents_.stopEditing();

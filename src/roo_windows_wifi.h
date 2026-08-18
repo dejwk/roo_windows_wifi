@@ -14,10 +14,8 @@ namespace roo_windows_wifi {
 
 class Configurator {
  public:
-  /// The supplied task must be backed by a NavigationHost. Its task-local
-  /// editor is used while entering a password.
   Configurator(roo_windows::ApplicationContext& env,
-               roo_wifi::Controller& controller, roo_windows::Task& task)
+               roo_wifi::Controller& controller)
       : controller_(controller),
         model_listener_(*this),
         list_(env, controller_,
@@ -30,7 +28,7 @@ class Configurator {
                         const std::string& ssid) {
                    networkEdited(navigation, ssid);
                  }),
-        enter_password_(env, task.textFieldEditor(), controller_) {
+        enter_password_(env, controller_) {
     controller_.addListener(&model_listener_);
   }
 
