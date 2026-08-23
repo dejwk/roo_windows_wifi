@@ -11,5 +11,6 @@ roo_arduino_example(
         "@roo_testing//roo_testing/microcontrollers/esp32",
         "@roo_testing//roo_testing/transducers/ui/viewport:flex",
         "@roo_testing//roo_testing/transducers/ui/viewport/fltk",
+        "@roo_testing//roo_testing/transducers/wifi:wifi",
     ],
 )
