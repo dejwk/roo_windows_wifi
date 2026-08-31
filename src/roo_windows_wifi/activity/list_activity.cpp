@@ -4,10 +4,9 @@
 #include "roo_icons/outlined/24/navigation.h"
 #include "roo_scheduler.h"
 #include "roo_windows/config.h"
-#include "roo_windows/containers/horizontal_layout.h"
+#include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/list_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
-#include "roo_windows/containers/vertical_layout.h"
 #include "roo_windows/core/task.h"
 #include "roo_windows/core/widget.h"
 #include "roo_windows/indicators/wifi.h"
@@ -26,18 +25,22 @@ using roo_windows::Visibility;
 
 WifiListItem::WifiListItem(roo_windows::ApplicationContext& env,
                            NetworkSelectedFn on_click)
-    : HorizontalLayout(env),
+    : FlexLayout(env, roo_windows::FlexDirection::kRow),
       icon_(env),
       ssid_(env, "Foo", roo_windows::material2::text_style_subtitle1(),
             roo_windows::kGravityLeft | roo_windows::kGravityMiddle),
       lock_icon_(env, SCALED_ROO_ICON(filled, action_lock)),
       on_click_(on_click) {
-  setGravity(roo_windows::kGravityMiddle);
-  add(icon_);
+  setAlignItems(roo_windows::AlignItems::kCenter);
+  setPadding(roo_windows::Padding(roo_windows::PaddingSize::kSmall,
+                                  roo_windows::PaddingSize::kTiny));
+  setGap(roo_windows::Scaled(8));
+  add(icon_, {.flex_grow = 0, .flex_shrink = 0});
   ssid_.setMargins(roo_windows::MarginSize::kNone);
-  ssid_.setPadding(roo_windows::PaddingSize::kTiny);
-  add(ssid_, {weight : 1});
-  add(lock_icon_);
+  ssid_.setPadding(roo_windows::PaddingSize::kNone,
+                   roo_windows::PaddingSize::kTiny);
+  add(ssid_, {.flex_grow = 1, .flex_shrink = 1});
+  add(lock_icon_, {.flex_grow = 0, .flex_shrink = 0});
   icon_.setConnectionStatus(roo_windows::WifiIndicator::CONNECTED);
 }
 
@@ -60,21 +63,26 @@ void WifiListModel::set(int idx, roo_windows::Widget& dest) const {
   ((WifiListItem&)dest).set(wifi_model_.otherNetwork(idx));
 }
 
-Enable::Enable(roo_windows::ApplicationContext& env, roo_wifi::Controller& model)
-    : HorizontalLayout(env),
+Enable::Enable(roo_windows::ApplicationContext& env,
+               roo_wifi::Controller& model)
+    : FlexLayout(env, roo_windows::FlexDirection::kRow),
       model_(model),
       gap_(env, roo_windows::Dimensions(ROO_WINDOWS_ICON_SIZE,
                                         ROO_WINDOWS_ICON_SIZE)),
-      label_(env, kStrEnableWiFi, roo_windows::material2::text_style_subtitle1(),
+      label_(env, kStrEnableWiFi,
+             roo_windows::material2::text_style_subtitle1(),
              roo_windows::kGravityLeft | roo_windows::kGravityMiddle),
       switch_(env) {
-  setGravity(roo_windows::kGravityMiddle);
-  setPadding(roo_windows::Padding(0, roo_windows::Scaled(-8)));
-  add(gap_);
+  setAlignItems(roo_windows::AlignItems::kCenter);
+  setPadding(roo_windows::Padding(roo_windows::PaddingSize::kSmall,
+                                  roo_windows::PaddingSize::kTiny));
+  setGap(roo_windows::Scaled(8));
+  add(gap_, {.flex_grow = 0, .flex_shrink = 0});
   label_.setMargins(roo_windows::MarginSize::kNone);
-  label_.setPadding(roo_windows::PaddingSize::kTiny);
-  add(label_, {weight : 1});
-  add(switch_);
+  label_.setPadding(roo_windows::PaddingSize::kNone,
+                    roo_windows::PaddingSize::kTiny);
+  add(label_, {.flex_grow = 1, .flex_shrink = 1});
+  add(switch_, {.flex_grow = 0, .flex_shrink = 0});
   enabled_color_ = env.theme().material3Theme().color.secondaryContainer;
   disabled_color_.set_a(0xC0);
   disabled_color_ = env.theme().material3Theme().color.onSurface;
@@ -92,34 +100,29 @@ void Enable::onEnableChanged(bool enabled) {
 
 CurrentNetwork::CurrentNetwork(roo_windows::ApplicationContext& env,
                                NetworkSelectedFn on_click)
-    : HorizontalLayout(env),
+    : FlexLayout(env, roo_windows::FlexDirection::kRow),
       indicator_(env),
       ssid_(env, "", roo_windows::material2::text_style_subtitle1(),
             roo_windows::kGravityLeft | roo_windows::kGravityMiddle),
-      status_(env, kStrStatusDisconnected, roo_windows::material2::text_style_caption(),
+      status_(env, kStrStatusDisconnected,
+              roo_windows::material2::text_style_caption(),
               roo_windows::kGravityLeft | roo_windows::kGravityMiddle),
-      ssid_status_(env),
+      ssid_status_(env, roo_windows::FlexDirection::kColumn),
       lock_icon_(env, SCALED_ROO_ICON(filled, action_lock)),
       on_click_(on_click) {
-  setGravity(roo_windows::kGravityMiddle);
-  setPadding(roo_windows::Padding(roo_windows::PaddingSize::kNone,
-                                  roo_windows::PaddingSize::kNone));
-  add(indicator_);
-  ssid_.setPadding(roo_windows::PaddingSize::kTiny,
-                   roo_windows::PaddingSize::kNone);
+  setAlignItems(roo_windows::AlignItems::kCenter);
+  setPadding(roo_windows::Padding(roo_windows::PaddingSize::kSmall,
+                                  roo_windows::PaddingSize::kTiny));
+  setGap(roo_windows::Scaled(8));
+  add(indicator_, {.flex_grow = 0, .flex_shrink = 0});
+  ssid_.setPadding(roo_windows::PaddingSize::kNone);
   ssid_.setMargins(roo_windows::MarginSize::kNone);
-  status_.setPadding(roo_windows::PaddingSize::kTiny,
-                     roo_windows::PaddingSize::kNone);
+  status_.setPadding(roo_windows::PaddingSize::kNone);
   status_.setMargins(roo_windows::MarginSize::kNone);
-  ssid_status_.setPadding(roo_windows::Padding(
-      roo_windows::PaddingSize::kNone, roo_windows::PaddingSize::kNone));
-  ssid_status_.setMargins(roo_windows::Margins(roo_windows::MarginSize::kNone,
-                                               roo_windows::MarginSize::kNone));
-  // ssid_status_.setMargins(roo_windows::MarginSize::kRegular);
   ssid_status_.add(ssid_);
   ssid_status_.add(status_);
-  add(ssid_status_, {weight : 1});
-  add(lock_icon_);
+  add(ssid_status_, {.flex_grow = 1, .flex_shrink = 1});
+  add(lock_icon_, {.flex_grow = 0, .flex_shrink = 0});
   indicator_.setConnectionStatus(roo_windows::WifiIndicator::DISCONNECTED);
 }
 
@@ -151,7 +154,7 @@ void CurrentNetwork::onChange(const roo_wifi::Controller& model) {
 ListActivityContents::ListActivityContents(
     roo_windows::ApplicationContext& env, roo_wifi::Controller& wifi_model,
     NetworkSelectedFn network_selected_fn)
-    : VerticalLayout(env),
+    : FlexLayout(env, roo_windows::FlexDirection::kColumn),
       wifi_model_(wifi_model),
       title_(env, kStrWiFi),
       enable_(env, wifi_model),
@@ -163,12 +166,12 @@ ListActivityContents::ListActivityContents(
         return std::unique_ptr<WifiListItem>(
             new WifiListItem(env, network_selected_fn));
       }) {
-  add(title_, VerticalLayout::Params());
-  add(enable_, VerticalLayout::Params());
-  add(progress_, VerticalLayout::Params());
-  add(current_, VerticalLayout::Params());
-  add(divider_, VerticalLayout::Params());
-  add(list_, VerticalLayout::Params());
+  add(title_, {.flex_grow = 0, .flex_shrink = 0});
+  add(enable_, {.flex_grow = 0, .flex_shrink = 0});
+  add(progress_, {.flex_grow = 0, .flex_shrink = 0});
+  add(current_, {.flex_grow = 0, .flex_shrink = 0});
+  add(divider_, {.flex_grow = 0, .flex_shrink = 0});
+  add(list_, {.flex_grow = 0, .flex_shrink = 1});
   current_.setVisibility(Visibility::kGone);
   divider_.setVisibility(Visibility::kGone);
   progress_.setColor(env.theme().material3Theme().color.secondary);

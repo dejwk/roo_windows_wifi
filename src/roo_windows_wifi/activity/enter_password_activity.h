@@ -7,7 +7,7 @@
 #include "roo_wifi.h"
 #include "roo_windows.h"
 #include "roo_windows/composites/menu/title.h"
-#include "roo_windows/containers/vertical_layout.h"
+#include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/core/destination.h"
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/widgets/icon.h"
@@ -28,24 +28,28 @@ class EditedPassword : public roo_windows::TextField {
   std::function<void()> confirm_fn_;
 };
 
-class PasswordBar : public roo_windows::HorizontalLayout {
+class PasswordBar : public roo_windows::FlexLayout {
  public:
   PasswordBar(roo_windows::ApplicationContext& env,
               std::function<void()> confirm_fn)
-      : roo_windows::HorizontalLayout(env),
+      : roo_windows::FlexLayout(env, roo_windows::FlexDirection::kRow),
         visibility_(env),
         text_(env, confirm_fn),
         enter_(env, SCALED_ROO_ICON(outlined, navigation_check)) {
     text_.setContent("");
     text_.setStarred(true);
     text_.setMargins(roo_windows::MarginSize::kNone);
-    text_.setPadding(roo_windows::PaddingSize::kTiny);
+    text_.setPadding(roo_windows::PaddingSize::kNone,
+                     roo_windows::PaddingSize::kTiny);
     visibility_.setOff();
     visibility_.setOnInteractiveChange([this]() { visibilityChanged(); });
-    setGravity(roo_windows::kGravityMiddle);
-    add(visibility_);
-    add(text_, {weight : 1});
-    add(enter_);
+    setAlignItems(roo_windows::AlignItems::kCenter);
+    setPadding(roo_windows::Padding(roo_windows::PaddingSize::kSmall,
+                                    roo_windows::PaddingSize::kTiny));
+    setGap(roo_windows::Scaled(8));
+    add(visibility_, {.flex_grow = 0, .flex_shrink = 0});
+    add(text_, {.flex_grow = 1, .flex_shrink = 1});
+    add(enter_, {.flex_grow = 0, .flex_shrink = 0});
     enter_.setOnInteractiveChange(confirm_fn);
   }
 
@@ -75,15 +79,15 @@ class PasswordBar : public roo_windows::HorizontalLayout {
 };
 
 // All of the widgets of the 'enter password' activity.
-class EnterPasswordActivityContents : public roo_windows::VerticalLayout {
+class EnterPasswordActivityContents : public roo_windows::FlexLayout {
  public:
   EnterPasswordActivityContents(roo_windows::ApplicationContext& env,
                                 std::function<void()> confirm_fn)
-      : roo_windows::VerticalLayout(env),
+      : roo_windows::FlexLayout(env, roo_windows::FlexDirection::kColumn),
         title_(env, ""),
         pwbar_(env, confirm_fn) {
-    add(title_, VerticalLayout::Params());
-    add(pwbar_, VerticalLayout::Params());
+    add(title_, {.flex_grow = 0, .flex_shrink = 0});
+    add(pwbar_, {.flex_grow = 0, .flex_shrink = 0});
   }
 
   void enter(roo::string_view ssid, const roo::string_view hint) {

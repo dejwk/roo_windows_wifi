@@ -5,10 +5,9 @@
 #include "roo_scheduler.h"
 #include "roo_wifi.h"
 #include "roo_windows/composites/menu/title.h"
-#include "roo_windows/containers/horizontal_layout.h"
+#include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/list_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
-#include "roo_windows/containers/vertical_layout.h"
 #include "roo_windows/core/destination.h"
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/core/task.h"
@@ -27,9 +26,10 @@ typedef std::function<void(roo_windows::NavigationHost& navigation,
     NetworkSelectedFn;
 
 // Single WiFi network in a list.
-class WifiListItem : public roo_windows::HorizontalLayout {
+class WifiListItem : public roo_windows::FlexLayout {
  public:
-  WifiListItem(roo_windows::ApplicationContext& env, NetworkSelectedFn on_click);
+  WifiListItem(roo_windows::ApplicationContext& env,
+               NetworkSelectedFn on_click);
 
   WifiListItem(const WifiListItem& other);
 
@@ -76,7 +76,7 @@ class WifiList : public roo_windows::ListLayout {
 };
 
 // The main 'enable WiFi' bar.
-class Enable : public roo_windows::HorizontalLayout {
+class Enable : public roo_windows::FlexLayout {
  public:
   Enable(roo_windows::ApplicationContext& env, roo_wifi::Controller& model);
 
@@ -110,7 +110,7 @@ class Enable : public roo_windows::HorizontalLayout {
 };
 
 // Shows the currently selected network.
-class CurrentNetwork : public roo_windows::HorizontalLayout {
+class CurrentNetwork : public roo_windows::FlexLayout {
  public:
   CurrentNetwork(roo_windows::ApplicationContext& env,
                  NetworkSelectedFn on_click);
@@ -133,13 +133,13 @@ class CurrentNetwork : public roo_windows::HorizontalLayout {
   roo_windows::WifiIndicator indicator_;
   roo_windows::TextLabel ssid_;
   roo_windows::TextLabel status_;
-  roo_windows::VerticalLayout ssid_status_;
+  roo_windows::FlexLayout ssid_status_;
   roo_windows::Icon lock_icon_;
   NetworkSelectedFn on_click_;
 };
 
 // All of the widgets of the list activity.
-class ListActivityContents : public roo_windows::VerticalLayout {
+class ListActivityContents : public roo_windows::FlexLayout {
  public:
   ListActivityContents(roo_windows::ApplicationContext& env,
                        roo_wifi::Controller& wifi_model,

@@ -5,9 +5,8 @@
 #include "roo_icons/filled/notification.h"
 #include "roo_windows/composites/menu/title.h"
 #include "roo_windows/config.h"
-#include "roo_windows/containers/horizontal_layout.h"
+#include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/stacked_layout.h"
-#include "roo_windows/containers/vertical_layout.h"
 #include "roo_windows/core/destination.h"
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/core/task.h"
@@ -25,13 +24,13 @@ typedef std::function<void(roo_windows::NavigationHost& navigation,
     DetailsEditedFn;
 
 // All of the widgets of the 'enter password' activity.
-class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
+class NetworkDetailsActivityContents : public roo_windows::FlexLayout {
  public:
   NetworkDetailsActivityContents(roo_windows::ApplicationContext& env,
                                  roo_wifi::Controller& model,
                                  std::function<void()> edit_fn,
                                  std::function<void()> exit_fn)
-      : roo_windows::VerticalLayout(env),
+      : roo_windows::FlexLayout(env, roo_windows::FlexDirection::kColumn),
         wifi_model_(model),
         title_(env, kStrNetworkDetails),
         edit_(env, SCALED_ROO_ICON(filled, content_create)),
@@ -41,15 +40,18 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
         status_(env, "", roo_windows::material2::text_style_caption(),
                 roo_windows::kGravityCenter | roo_windows::kGravityMiddle),
         d1_(env),
-        actions_(env),
+        actions_(env, roo_windows::FlexDirection::kRow),
         button_forget_(env, SCALED_ROO_ICON(filled, action_delete), kStrForget),
         button_connect_(env, SCALED_ROO_ICON(filled, notification_wifi),
                         kStrConnect),
         exit_fn_(exit_fn) {
-    setGravity(roo_windows::kGravityMiddle | roo_windows::kGravityCenter);
+    setAlignItems(roo_windows::AlignItems::kCenter);
+    setGap(roo_windows::Scaled(8));
     edit_.setOnInteractiveChange(edit_fn);
     title_.add(edit_);
-    add(title_, {gravity : roo_windows::kGravityLeft});
+    add(title_, {.flex_grow = 0,
+                 .flex_shrink = 0,
+                 .align_self = roo_windows::AlignSelf::kStretch});
     indicator_.setPadding(roo_windows::PaddingSize::kTiny);
     add(indicator_);
     ssid_.setPadding(roo_windows::PaddingSize::kNone);
@@ -58,9 +60,11 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
     status_.setMargins(roo_windows::MarginSize::kNone);
     add(ssid_);
     add(status_);
-    add(d1_, {weight : 1});
+    add(d1_, {.flex_grow = 1,
+              .flex_shrink = 0,
+              .align_self = roo_windows::AlignSelf::kStretch});
     indicator_.setConnectionStatus(roo_windows::WifiIndicator::DISCONNECTED);
-    actions_.setUseLargestChild(true);
+    actions_.setGap(roo_windows::Scaled(8));
     button_forget_.setPadding(roo_windows::PaddingSize::kLarge,
                               roo_windows::PaddingSize::kSmall);
     button_forget_.setOnInteractiveChange([this]() { forget(); });
@@ -69,10 +73,17 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
     roo_display::Color pri = env.theme().material3Theme().color.primary;
     button_forget_.setColor(pri);
     button_connect_.setColor(pri);
-    actions_.add(button_forget_, {weight : 1});
-    actions_.add(button_connect_, {weight : 1});
+    actions_.add(button_forget_, {.flex_grow = 1,
+                                  .flex_shrink = 1,
+                                  .flex_basis = roo_windows::FlexBasis::kZero});
+    actions_.add(button_connect_,
+                 {.flex_grow = 1,
+                  .flex_shrink = 1,
+                  .flex_basis = roo_windows::FlexBasis::kZero});
 
-    add(actions_, VerticalLayout::Params());
+    add(actions_, {.flex_grow = 0,
+                   .flex_shrink = 0,
+                   .align_self = roo_windows::AlignSelf::kStretch});
   }
 
   roo_windows::PreferredSize getPreferredSize() const override {
@@ -141,7 +152,7 @@ class NetworkDetailsActivityContents : public roo_windows::VerticalLayout {
   roo_windows::TextLabel ssid_;
   roo_windows::TextLabel status_;
   roo_windows::HorizontalDivider d1_;
-  roo_windows::HorizontalLayout actions_;
+  roo_windows::FlexLayout actions_;
   roo_windows::IconWithCaption button_forget_;
   roo_windows::IconWithCaption button_connect_;
   std::function<void()> exit_fn_;
@@ -154,17 +165,15 @@ class NetworkDetailsActivity : public roo_windows::Destination {
                          DetailsEditedFn edit_fn)
       : wifi_model_(wifi_model),
         ssid_(),
-        contents_(env, wifi_model,
-                  [this, edit_fn]() {
-                    edit_fn(*getTask()->navigationHost(), ssid_);
-                  },
-                  [this]() { exit(); }),
+        contents_(
+            env, wifi_model,
+            [this, edit_fn]() { edit_fn(*getTask()->navigationHost(), ssid_); },
+            [this]() { exit(); }),
         scrollable_container_(env, contents_) {}
 
   roo_windows::Widget& getContents() override { return scrollable_container_; }
 
-  void enter(roo_windows::NavigationHost& navigation,
-             const std::string& ssid) {
+  void enter(roo_windows::NavigationHost& navigation, const std::string& ssid) {
     ssid_ = ssid;
     contents_.enter(ssid_);
     onScanCompleted();
