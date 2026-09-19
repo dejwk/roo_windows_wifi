@@ -15,8 +15,9 @@ namespace roo_windows_wifi {
 class Configurator {
  public:
   Configurator(roo_windows::ApplicationContext& env,
-               roo_wifi::Controller& controller)
-      : controller_(controller),
+               roo_wifi::Controller& controller,
+               roo_wifi::ProfileId profile_key = 1)
+      : controller_(controller, profile_key),
         model_listener_(*this),
         list_(env, controller_,
               [this](roo_windows::NavigationHost& navigation,
@@ -39,7 +40,7 @@ class Configurator {
   ~Configurator() { controller_.removeListener(&model_listener_); }
 
  private:
-  class ModelListener : public roo_wifi::Controller::Listener {
+  class ModelListener : public Model::Listener {
    public:
     ModelListener(Configurator& wifi) : wifi_(wifi) {}
 
@@ -52,8 +53,7 @@ class Configurator {
 
     void onCurrentNetworkChanged() override { wifi_.onCurrentNetworkChanged(); }
 
-    void onConnectionStateChanged(
-        roo_wifi::Interface::EventType type) override {
+    void onConnectionStateChanged(const roo_wifi::LinkState& type) override {
       wifi_.onConnectionStateChanged(type);
     }
 
@@ -77,27 +77,26 @@ class Configurator {
     details_.onCurrentNetworkChanged();
   }
 
-  void onConnectionStateChanged(roo_wifi::Interface::EventType type) {
+  void onConnectionStateChanged(const roo_wifi::LinkState& type) {
     list_.onConnectionStateChanged(type);
     details_.onCurrentNetworkChanged();
   }
 
   void networkSelected(roo_windows::NavigationHost& navigation,
                        const std::string& ssid) {
-    const roo_wifi::Controller::Network* network =
-        controller_.lookupNetwork(ssid);
+    const Model::Network* network = controller_.lookupNetwork(ssid);
     std::string password;
     bool same_network = (ssid == controller_.currentNetwork().ssid);
     bool has_password = false;
     if (!same_network ||
-        controller_.currentNetworkStatus() != roo_wifi::WL_CONNECT_FAILED) {
-      has_password = controller_.getStoredPassword(ssid, password);
+        controller_.currentNetworkStatus() != WL_CONNECT_FAILED) {
+      has_password = controller_.hasSavedProfile(ssid);
     }
     bool need_password =
         (network != nullptr && !network->open && !has_password);
     if (!need_password &&
         (!same_network ||
-         (controller_.currentNetworkStatus() == roo_wifi::WL_DISCONNECTED &&
+         (controller_.currentNetworkStatus() == WL_DISCONNECTED &&
           !controller_.isConnecting()))) {
       // Clicked on an open or remembered network to which we are not already
       // connected or connecting. Interpret as a pure 'action' intent.
@@ -116,7 +115,7 @@ class Configurator {
     enter_password_.enter(navigation, ssid, kStrPasswordUnchanged);
   }
 
-  roo_wifi::Controller& controller_;
+  Model controller_;
   ModelListener model_listener_;
   ListActivity list_;
   NetworkDetailsActivity details_;

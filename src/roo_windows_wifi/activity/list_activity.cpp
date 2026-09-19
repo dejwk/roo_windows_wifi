@@ -45,15 +45,14 @@ WifiListItem::WifiListItem(roo_windows::ApplicationContext& env,
 }
 
 // Sets this item to show the specified network.
-void WifiListItem::set(const roo_wifi::Controller::Network& network) {
+void WifiListItem::set(const Model::Network& network) {
   ssid_.setText(network.ssid);
   icon_.setWifiSignalStrength(network.rssi);
   lock_icon_.setVisibility(network.open ? Visibility::kInvisible
                                         : Visibility::kVisible);
 }
 
-WifiListModel::WifiListModel(roo_wifi::Controller& wifi_model)
-    : wifi_model_(wifi_model) {}
+WifiListModel::WifiListModel(Model& wifi_model) : wifi_model_(wifi_model) {}
 
 int WifiListModel::elementCount() const {
   return wifi_model_.otherScannedNetworksCount();
@@ -63,8 +62,7 @@ void WifiListModel::set(int idx, roo_windows::Widget& dest) const {
   ((WifiListItem&)dest).set(wifi_model_.otherNetwork(idx));
 }
 
-Enable::Enable(roo_windows::ApplicationContext& env,
-               roo_wifi::Controller& model)
+Enable::Enable(roo_windows::ApplicationContext& env, Model& model)
     : FlexLayout(env, roo_windows::FlexDirection::kRow),
       model_(model),
       gap_(env, roo_windows::Dimensions(ROO_WINDOWS_ICON_SIZE,
@@ -126,16 +124,16 @@ CurrentNetwork::CurrentNetwork(roo_windows::ApplicationContext& env,
   indicator_.setConnectionStatus(roo_windows::WifiIndicator::DISCONNECTED);
 }
 
-void CurrentNetwork::onChange(const roo_wifi::Controller& model) {
-  const roo_wifi::Controller::Network& current = model.currentNetwork();
+void CurrentNetwork::onChange(const Model& model) {
+  const Model::Network& current = model.currentNetwork();
   indicator_.setWifiSignalStrength(current.rssi);
   ssid_.setText(current.ssid);
   switch (model.currentNetworkStatus()) {
-    case roo_wifi::WL_CONNECTED: {
+    case WL_CONNECTED: {
       indicator_.setConnectionStatus(roo_windows::WifiIndicator::CONNECTED);
       break;
     }
-    case roo_wifi::WL_IDLE_STATUS: {
+    case WL_IDLE_STATUS: {
       indicator_.setConnectionStatus(
           roo_windows::WifiIndicator::CONNECTED_NO_INTERNET);
       break;
@@ -152,7 +150,7 @@ void CurrentNetwork::onChange(const roo_wifi::Controller& model) {
 }
 
 ListActivityContents::ListActivityContents(
-    roo_windows::ApplicationContext& env, roo_wifi::Controller& wifi_model,
+    roo_windows::ApplicationContext& env, Model& wifi_model,
     NetworkSelectedFn network_selected_fn)
     : FlexLayout(env, roo_windows::FlexDirection::kColumn),
       wifi_model_(wifi_model),
@@ -212,7 +210,7 @@ void ListActivityContents::onCurrentNetworkChanged() {
 }
 
 ListActivity::ListActivity(roo_windows::ApplicationContext& env,
-                           roo_wifi::Controller& wifi_model,
+                           Model& wifi_model,
                            NetworkSelectedFn network_selected_fn)
     : wifi_model_(wifi_model),
       contents_(env, wifi_model, network_selected_fn),
@@ -236,8 +234,7 @@ void ListActivity::onCurrentNetworkChanged() {
   contents_.onCurrentNetworkChanged();
 }
 
-void ListActivity::onConnectionStateChanged(
-    roo_wifi::Interface::EventType type) {
+void ListActivity::onConnectionStateChanged(const roo_wifi::LinkState& type) {
   contents_.onConnectionStateChanged(type);
 }
 

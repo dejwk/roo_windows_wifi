@@ -4,6 +4,7 @@
 #include "roo_display.h"
 #include "roo_display/driver/ili9341.h"
 #include "roo_display/driver/touch_xpt2046.h"
+#include "roo_wifi/esp32.h"
 #include "roo_windows.h"
 #include "roo_windows/composites/menu/basic_navigation_item.h"
 #include "roo_windows/composites/menu/menu.h"
@@ -90,8 +91,9 @@ roo_windows::Application app(&env, display);
 roo_windows::Task& task = app.addTaskFullScreen();
 roo_windows::NavigationHost& navigation = task.navigation();
 
-roo_wifi::Esp32Wifi wifi(scheduler);
-roo_windows_wifi::Configurator wifi_setup(app.context(), wifi);
+// Key 1 is the application-owned provisioning slot, also selected at startup.
+roo_wifi::Esp32Wifi wifi(scheduler, {1});
+roo_windows_wifi::Configurator wifi_setup(app.context(), wifi.controller(), 1);
 
 class SettingsMenu : public menu::Menu {
  public:
@@ -111,7 +113,7 @@ SettingsMenu settings_menu(app.context());
 void setup() {
   SPI.begin();
 
-  wifi.begin();
+  wifi.controller().begin();
   display.init();
   navigation.push(settings_menu);
   app.start();

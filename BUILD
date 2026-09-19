@@ -18,3 +18,16 @@ cc_library(
         "@roo_windows",
     ],
 )
+
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+cc_library(
+    name = "model",
+    hdrs = ["src/roo_windows_wifi/model.h"],
+    includes = ["src"],
+    deps = ["@roo_wifi"],
+)
+cc_test(
+    name = "model_test",
+    srcs = ["test/model_test.cpp"],
+    deps = [":model", "@roo_wifi//test:test_support", "@googletest//:gtest_main"],
+)

@@ -18,10 +18,10 @@ const char* kStrDisconnected = "Rozłączono";
 const char* kStrNetworkDetails = "Szczegóły sieci";
 
 const char* kStrStatusConnecting = "Łączenie";
-const char* kStrStatusConnectedNoInternet = "Połączenie, brak Internetu";
+const char* kStrStatusConnectedNoInternet = "Pobieranie adresu IP";
 const char* kStrStatusOutOfRange = "Poza zasięgiem";
 const char* kStrStatusConnected = "Połączono";
-const char* kStrStatusBadPassword = "Sprawdź hasło i spróbuj ponownie";
+const char* kStrStatusBadPassword = "Nie udało się połączyć";
 const char* kStrStatusConnectionLost = "Połączenie przerwane";
 const char* kStrStatusDisconnected = "Rozłączono";
 const char* kStrStatusUnknown = "Nieznany";
@@ -43,10 +43,10 @@ const char* kStrDisconnected = "Disconnected";
 const char* kStrNetworkDetails = "Network details";
 
 const char* kStrStatusConnecting = "Connecting";
-const char* kStrStatusConnectedNoInternet = "Connected, no Internet";
+const char* kStrStatusConnectedNoInternet = "Obtaining IP address";
 const char* kStrStatusOutOfRange = "Out of range";
 const char* kStrStatusConnected = "Connected";
-const char* kStrStatusBadPassword = "Check password and try again";
+const char* kStrStatusBadPassword = "Connection failed";
 const char* kStrStatusConnectionLost = "Connection lost";
 const char* kStrStatusDisconnected = "Disconnected";
 const char* kStrStatusUnknown = "Unknown";

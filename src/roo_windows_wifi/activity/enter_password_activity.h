@@ -4,7 +4,6 @@
 #include "roo_backport/string_view.h"
 #include "roo_icons.h"
 #include "roo_icons/outlined/navigation.h"
-#include "roo_wifi.h"
 #include "roo_windows.h"
 #include "roo_windows/composites/menu/title.h"
 #include "roo_windows/containers/flex_layout.h"
@@ -12,6 +11,7 @@
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/widgets/icon.h"
 #include "roo_windows/widgets/text_field.h"
+#include "roo_windows_wifi/model.h"
 
 namespace roo_windows_wifi {
 
@@ -109,7 +109,7 @@ class EnterPasswordActivityContents : public roo_windows::FlexLayout {
 class EnterPasswordActivity : public roo_windows::Destination {
  public:
   EnterPasswordActivity(roo_windows::ApplicationContext& env,
-                        roo_wifi::Controller& wifi_model);
+                        Model& wifi_model);
 
   roo_windows::Widget& getContents() override { return contents_; }
 
@@ -130,7 +130,7 @@ class EnterPasswordActivity : public roo_windows::Destination {
 
   void confirm();
 
-  roo_wifi::Controller& wifi_model_;
+  Model& wifi_model_;
   std::string ssid_;
   EnterPasswordActivityContents contents_;
 };

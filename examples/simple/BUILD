@@ -6,6 +6,7 @@ roo_arduino_example(
     visibility = ["//visibility:public"],
     deps = [
         "//:roo_windows_wifi",
+        "@roo_wifi//:esp32",
         "@roo_testing//roo_testing/devices/display/ili9341:spi",
         "@roo_testing//roo_testing/devices/touch/xpt2046:spi",
         "@roo_testing//roo_testing/microcontrollers/esp32",

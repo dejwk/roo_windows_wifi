@@ -17,14 +17,12 @@ void EditedPassword::onEditFinished(bool confirmed) {
 }
 
 EnterPasswordActivity::EnterPasswordActivity(
-    roo_windows::ApplicationContext& env, roo_wifi::Controller& wifi_model)
-    : wifi_model_(wifi_model),
-      contents_(env, [this]() { confirm(); }) {}
+    roo_windows::ApplicationContext& env, Model& wifi_model)
+    : wifi_model_(wifi_model), contents_(env, [this]() { confirm(); }) {}
 
 void EnterPasswordActivity::confirm() {
   contents_.stopEditing();
-  wifi_model_.setPassword(ssid_, passwd());
-  wifi_model_.connect(ssid_, passwd());
+  wifi_model_.saveAndConnect(ssid_, passwd());
   exit();
 }
 

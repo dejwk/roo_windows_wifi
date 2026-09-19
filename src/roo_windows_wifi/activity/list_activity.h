@@ -3,7 +3,6 @@
 #include <Arduino.h>
 
 #include "roo_scheduler.h"
-#include "roo_wifi.h"
 #include "roo_windows/composites/menu/title.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/list_layout.h"
@@ -18,6 +17,7 @@
 #include "roo_windows/widgets/progress_bar.h"
 #include "roo_windows/widgets/switch.h"
 #include "roo_windows/widgets/text_label.h"
+#include "roo_windows_wifi/model.h"
 
 namespace roo_windows_wifi {
 
@@ -36,7 +36,7 @@ class WifiListItem : public roo_windows::FlexLayout {
   bool isClickable() const override { return true; }
 
   // Sets this item to show the specified network.
-  void set(const roo_wifi::Controller::Network& network);
+  void set(const Model::Network& network);
 
   roo_windows::PreferredSize getPreferredSize() const override {
     return roo_windows::PreferredSize(
@@ -60,13 +60,13 @@ class WifiListItem : public roo_windows::FlexLayout {
 
 class WifiListModel : public roo_windows::ListModel {
  public:
-  WifiListModel(roo_wifi::Controller& wifi_model);
+  WifiListModel(Model& wifi_model);
 
   int elementCount() const override;
   void set(int idx, roo_windows::Widget& dest) const override;
 
  private:
-  roo_wifi::Controller& wifi_model_;
+  Model& wifi_model_;
 };
 
 // The list of WiFi networks.
@@ -78,7 +78,7 @@ class WifiList : public roo_windows::ListLayout {
 // The main 'enable WiFi' bar.
 class Enable : public roo_windows::FlexLayout {
  public:
-  Enable(roo_windows::ApplicationContext& env, roo_wifi::Controller& model);
+  Enable(roo_windows::ApplicationContext& env, Model& model);
 
   roo_display::Color background() const override {
     return enabled_ ? enabled_color_ : disabled_color_;
@@ -97,7 +97,7 @@ class Enable : public roo_windows::FlexLayout {
   void onEnableChanged(bool enabled);
 
  private:
-  roo_wifi::Controller& model_;
+  Model& model_;
 
   roo_windows::Blank gap_;
   roo_windows::TextLabel label_;
@@ -121,7 +121,7 @@ class CurrentNetwork : public roo_windows::FlexLayout {
     on_click_(*getTask()->navigationHost(), ssid_.content());
   }
 
-  void onChange(const roo_wifi::Controller& model);
+  void onChange(const Model& model);
 
   roo_windows::PreferredSize getPreferredSize() const override {
     return roo_windows::PreferredSize(
@@ -141,8 +141,7 @@ class CurrentNetwork : public roo_windows::FlexLayout {
 // All of the widgets of the list activity.
 class ListActivityContents : public roo_windows::FlexLayout {
  public:
-  ListActivityContents(roo_windows::ApplicationContext& env,
-                       roo_wifi::Controller& wifi_model,
+  ListActivityContents(roo_windows::ApplicationContext& env, Model& wifi_model,
                        NetworkSelectedFn network_selected_fn);
 
   void onEnableChanged(bool enabled);
@@ -151,7 +150,7 @@ class ListActivityContents : public roo_windows::FlexLayout {
   void onScanCompleted();
   void onCurrentNetworkChanged();
 
-  void onConnectionStateChanged(roo_wifi::Interface::EventType type) {
+  void onConnectionStateChanged(const roo_wifi::LinkState& type) {
     current_.onChange(wifi_model_);
   }
 
@@ -162,7 +161,7 @@ class ListActivityContents : public roo_windows::FlexLayout {
   }
 
  private:
-  roo_wifi::Controller& wifi_model_;
+  Model& wifi_model_;
   roo_windows::menu::Title title_;
   Enable enable_;
   roo_windows::ProgressBar progress_;
@@ -174,8 +173,7 @@ class ListActivityContents : public roo_windows::FlexLayout {
 
 class ListActivity : public roo_windows::Destination {
  public:
-  ListActivity(roo_windows::ApplicationContext& env,
-               roo_wifi::Controller& wifi_model,
+  ListActivity(roo_windows::ApplicationContext& env, Model& wifi_model,
                NetworkSelectedFn network_selected_fn);
 
   roo_windows::Widget& getContents() override { return scrollable_container_; }
@@ -192,9 +190,9 @@ class ListActivity : public roo_windows::Destination {
   void onScanStarted();
   void onScanCompleted();
   void onCurrentNetworkChanged();
-  void onConnectionStateChanged(roo_wifi::Interface::EventType type);
+  void onConnectionStateChanged(const roo_wifi::LinkState& type);
 
-  roo_wifi::Controller& wifi_model_;
+  Model& wifi_model_;
 
   ListActivityContents contents_;
   roo_windows::ScrollablePanel scrollable_container_;

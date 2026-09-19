@@ -27,8 +27,7 @@ typedef std::function<void(roo_windows::NavigationHost& navigation,
 class NetworkDetailsActivityContents : public roo_windows::FlexLayout {
  public:
   NetworkDetailsActivityContents(roo_windows::ApplicationContext& env,
-                                 roo_wifi::Controller& model,
-                                 std::function<void()> edit_fn,
+                                 Model& model, std::function<void()> edit_fn,
                                  std::function<void()> exit_fn)
       : roo_windows::FlexLayout(env, roo_windows::FlexDirection::kColumn),
         wifi_model_(model),
@@ -94,15 +93,15 @@ class NetworkDetailsActivityContents : public roo_windows::FlexLayout {
 
   void enter(const std::string& ssid) { ssid_.setText(ssid); }
 
-  void onDetailsChanged(int16_t rssi, roo_wifi::ConnectionStatus status,
+  void onDetailsChanged(int16_t rssi, ConnectionStatus status,
                         bool connecting) {
     indicator_.setWifiSignalStrength(rssi);
     switch (status) {
-      case roo_wifi::WL_CONNECTED: {
+      case WL_CONNECTED: {
         indicator_.setConnectionStatus(roo_windows::WifiIndicator::CONNECTED);
         break;
       }
-      case roo_wifi::WL_IDLE_STATUS: {
+      case WL_IDLE_STATUS: {
         indicator_.setConnectionStatus(
             roo_windows::WifiIndicator::CONNECTED_NO_INTERNET);
         break;
@@ -114,7 +113,7 @@ class NetworkDetailsActivityContents : public roo_windows::FlexLayout {
       }
     }
     status_.setText(StatusAsString(status, connecting));
-    if (status == roo_wifi::WL_CONNECTED) {
+    if (status == WL_CONNECTED) {
       button_connect_.setCaption(kStrDisconnect);
       button_connect_.setIcon(SCALED_ROO_ICON(filled, content_clear));
       button_connect_.setColor(theme().material3Theme().color.primary);
@@ -145,7 +144,7 @@ class NetworkDetailsActivityContents : public roo_windows::FlexLayout {
     exit_fn_();
   }
 
-  roo_wifi::Controller& wifi_model_;
+  Model& wifi_model_;
   roo_windows::menu::Title title_;
   roo_windows::Icon edit_;
   roo_windows::WifiIndicatorLarge indicator_;
@@ -161,8 +160,7 @@ class NetworkDetailsActivityContents : public roo_windows::FlexLayout {
 class NetworkDetailsActivity : public roo_windows::Destination {
  public:
   NetworkDetailsActivity(roo_windows::ApplicationContext& env,
-                         roo_wifi::Controller& wifi_model,
-                         DetailsEditedFn edit_fn)
+                         Model& wifi_model, DetailsEditedFn edit_fn)
       : wifi_model_(wifi_model),
         ssid_(),
         contents_(
@@ -193,20 +191,20 @@ class NetworkDetailsActivity : public roo_windows::Destination {
 
   void onScanCompleted() {
     if (ssid_.empty()) return;  // Not active.
-    const roo_wifi::Controller::Network* net = wifi_model_.lookupNetwork(ssid_);
+    const Model::Network* net = wifi_model_.lookupNetwork(ssid_);
     if (net == nullptr) {
       // Out network is no longer in range.
-      contents_.onDetailsChanged(-128, roo_wifi::WL_NO_SSID_AVAIL, false);
+      contents_.onDetailsChanged(-128, WL_NO_SSID_AVAIL, false);
     } else if (net->ssid == wifi_model_.currentNetwork().ssid) {
       // No change. Our network is still current, and in range.
     } else {
       // Our network is no longer current.
-      contents_.onDetailsChanged(net->rssi, roo_wifi::WL_DISCONNECTED, false);
+      contents_.onDetailsChanged(net->rssi, WL_DISCONNECTED, false);
     }
   }
 
  private:
-  roo_wifi::Controller& wifi_model_;
+  Model& wifi_model_;
 
   std::string ssid_;
   NetworkDetailsActivityContents contents_;
