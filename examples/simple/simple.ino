@@ -87,8 +87,8 @@ roo_scheduler::Scheduler scheduler;
 Environment env(scheduler);
 
 roo_windows::Application app(&env, display);
-roo_windows::NavigationHost navigation;
-roo_windows::Task& task = app.addTaskFullScreen(navigation);
+roo_windows::Task& task = app.addTaskFullScreen();
+roo_windows::NavigationHost& navigation = task.navigation();
 
 roo_wifi::Esp32Wifi wifi(scheduler);
 roo_windows_wifi::Configurator wifi_setup(app.context(), wifi);
