@@ -7,6 +7,7 @@
 #include "roo_icons/outlined/24/navigation.h"
 #include "roo_icons/outlined/36/navigation.h"
 #include "roo_icons/outlined/48/navigation.h"
+#include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/container.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/button.h"
@@ -54,7 +55,10 @@ class EditBody : public roo_windows::Container {
                      roo_windows::HeightSpec::Exactly(field));
     submit.measure(roo_windows::WidthSpec::Exactly(child_width),
                    roo_windows::HeightSpec::Exactly(button));
-    return {width.value(), height.value()};
+    const int16_t gap = roo_windows::Scaled(12);
+    const int16_t content_height = 2 * inset + 2 * field + 2 * gap + button;
+    return {width.resolveSize(width.value()),
+            height.resolveSize(content_height)};
   }
 
   void onLayout(bool, const roo_windows::Rect& rect) override {
@@ -102,17 +106,19 @@ class WifiEditNetworkDestination::Impl {
         back(context, SCALED_ROO_ICON(outlined, navigation_arrow_back),
              roo_windows::material3::IconButtonStyle::kStandard),
         body(context, destination),
+        scroller(context, body),
         scaffold(context) {
     app_bar.setTitle("Add network");
     back.setOnInteractiveChange([this]() { this->destination.exit(); });
     app_bar.setLeading(back);
     scaffold.setTopBar(app_bar);
-    scaffold.setBody(body);
+    scaffold.setBody(scroller);
   }
   WifiEditNetworkDestination& destination;
   roo_windows::material3::AppBar app_bar;
   roo_windows::material3::IconButton back;
   EditBody body;
+  roo_windows::SimpleScrollablePanel scroller;
   roo_windows::material3::LayoutScaffold scaffold;
 };
 
