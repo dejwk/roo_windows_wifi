@@ -46,11 +46,17 @@ TEST(WifiNetworkDetailsDestinationTest, RetainsSelectionOutOfRangeAndUsesId) {
   ASSERT_NE(destination.connect().id, 0u);
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(station.last_config.ssid.size, 5u);
+  station.associated();
+  station.ready();
+  roo_wifi::Pump(scheduler);
 
   // Removing this key must not retarget details to another matching profile.
   ASSERT_NE(controller.saveProfile(9, settings, clear).id, 0u);
   roo_wifi::Pump(scheduler);
   ASSERT_NE(destination.forget().id, 0u);
+  roo_wifi::Pump(scheduler);
+  EXPECT_EQ(station.disconnects, 1);
+  station.disconnected();
   roo_wifi::Pump(scheduler);
   roo_wifi::Profile profile;
   EXPECT_EQ(controller.loadProfile(7, profile), roo_wifi::Status::kNotFound);

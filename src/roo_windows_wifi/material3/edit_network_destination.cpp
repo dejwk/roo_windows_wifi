@@ -16,6 +16,7 @@
 #include "roo_windows/material3/list/list.h"
 #include "roo_windows/material3/typography.h"
 #include "roo_windows/widgets/text_block.h"
+#include "roo_windows_wifi/material3/internal/borrowed_layout.h"
 
 namespace roo_windows_wifi::material3 {
 namespace {
@@ -150,7 +151,7 @@ class WifiEditNetworkDestination::Impl {
   TextBlock message;
   Button save;
   Button connect;
-  VerticalLayout body;
+  internal::BorrowedColumn body;
   SimpleScrollablePanel scroll;
   LayoutScaffold scaffold;
 };

@@ -13,7 +13,7 @@ WifiSettingsFlow::WifiSettingsFlow(roo_windows::ApplicationContext& context,
                                    NetworkPolicyProvider* policies)
     : model_(controller),
       edit_(context, controller, provisioning_key, profile_ids, policies),
-      details_(context, model_, *this),
+      details_(context, model_, *this, policies),
       saved_(context, model_, *this),
       settings_(context, model_, *this),
       provisioning_key_(provisioning_key) {

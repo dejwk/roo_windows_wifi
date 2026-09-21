@@ -4,6 +4,8 @@
 
 #include "roo_windows/core/application_context.h"
 #include "roo_windows/core/destination.h"
+#include "roo_windows/material3/dialog/dialog_types.h"
+#include "roo_windows_wifi/material3/network_policy.h"
 #include "roo_windows_wifi/material3/presentation_model.h"
 
 namespace roo_windows_wifi::material3 {
@@ -23,7 +25,8 @@ class WifiNetworkDetailsDestination : public roo_windows::Destination,
 
   /// Creates a reusable details destination borrowing its model and actions.
   WifiNetworkDetailsDestination(roo_windows::ApplicationContext& context,
-                                WifiPresentationModel& model, Actions& actions);
+                                WifiPresentationModel& model, Actions& actions,
+                                NetworkPolicyProvider* policies = nullptr);
 
   /// Detaches model observation before destroying widgets.
   ~WifiNetworkDetailsDestination() override;
@@ -49,7 +52,19 @@ class WifiNetworkDetailsDestination : public roo_windows::Destination,
   /// Disconnects the active link.
   roo_wifi::Controller::RequestResult disconnect();
 
-  /// Removes the selected saved profile.
+  /// Shows the reusable confirmation dialog in the destination's task.
+  roo_windows::material3::DialogShowResult requestForget();
+
+  /// Returns whether a confirmed operation is pending.
+  bool busy() const;
+
+  /// Returns visible action or failure feedback.
+  const std::string& feedback() const;
+
+  /// Applies auto-connect while preserving unrelated fields and credentials.
+  roo_wifi::Controller::RequestResult setAutoConnect(bool enabled);
+
+  /// Executes a confirmed forget, disconnecting this profile before removal.
   roo_wifi::Controller::RequestResult forget();
 
  private:
@@ -59,6 +74,12 @@ class WifiNetworkDetailsDestination : public roo_windows::Destination,
   void refreshSelection();
 
   void onWifiModelChanged() override;
+  void onWifiOperationFinished(
+      const roo_wifi::OperationResult& result) override;
+  void onWifiScanStateChanged(bool) override;
+  roo_wifi::Controller::RequestResult track(
+      roo_wifi::Controller::RequestResult result);
+  void syncControls();
 
   WifiPresentationModel& model_;
   Actions& actions_;
