@@ -16,6 +16,7 @@ namespace roo_windows_wifi {
 using material3::WifiNetworkRow;
 using material3::WifiNetworkSummary;
 using material3::WifiPresentationModel;
+using material3::WifiSavedNetworksDestination;
 using material3::WifiSettingsDestination;
 using material3::WifiSettingsFlow;
 using material3::WifiSignalGlyph;
