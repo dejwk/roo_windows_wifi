@@ -16,8 +16,8 @@ namespace {
 
 constexpr int16_t kRowHeightDp = 72;
 constexpr int16_t kHorizontalInsetDp = 16;
-constexpr int16_t kIconSlotDp = 40;
-constexpr int16_t kIconTextGapDp = 12;
+constexpr int16_t kIconSlotDp = 24;
+constexpr int16_t kIconTextGapDp = 16;
 
 int SignalBars(int8_t rssi_dbm) {
   if (rssi_dbm > -55) return 4;
@@ -133,7 +133,6 @@ void WifiNetworkRow::paint(roo_windows::PaintContext& ctx) const {
   using roo_windows::Rect;
   using roo_windows::Scaled;
 
-  ctx.clear();
   const auto& colors = theme().material3Theme().color;
   const roo_display::Color foreground =
       summary_.current ? colors.onSecondaryContainer : colors.onSurface;
@@ -150,21 +149,26 @@ void WifiNetworkRow::paint(roo_windows::PaintContext& ctx) const {
       ctx, icon_bounds, summary_.rssi_dbm, !summary_.isOpen(), signalState(),
       signalState() == WifiSignalState::kAvailable ? colors.onSurfaceVariant
                                                    : colors.primary,
-      isInvalidated());
+      true);
+  ctx.addExclusion(icon_bounds);
 
-  const Rect headline_bounds(text_x, 0, width() - inset - 1,
-                             height() / 2 + Scaled(4));
-  const Rect supporting_bounds(text_x, height() / 2 - Scaled(4),
-                               width() - inset - 1, height() - 1);
+  const Rect headline_bounds(text_x, Scaled(12), width() - inset - 1,
+                             height() / 2 - 1);
+  const Rect supporting_bounds(text_x, height() / 2, width() - inset - 1,
+                               height() - Scaled(12) - 1);
   const auto& headline_style = roo_windows::material3::text_style_body_large();
   const auto& supporting_style =
       roo_windows::material3::text_style_body_medium();
   ctx.drawTiled(StringViewLabel(summary_.ssid, headline_style.font(),
                                 foreground, headline_style.fontOptions()),
                 headline_bounds, kLeft | kMiddle);
+  ctx.addExclusion(headline_bounds);
   ctx.drawTiled(StringViewLabel(supportingText(), supporting_style.font(),
                                 supporting, supporting_style.fontOptions()),
                 supporting_bounds, kLeft | kMiddle);
+  ctx.addExclusion(supporting_bounds);
+  // Settle only the remaining surface; never prefill beneath text or icons.
+  ctx.clear();
 }
 
 void WifiNetworkRow::onClicked() { listener_.onWifiNetworkActivated(index_); }
