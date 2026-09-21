@@ -1,5 +1,6 @@
 #pragma once
 
+#include "roo_windows_wifi/material3/network_details_destination.h"
 #include "roo_windows_wifi/material3/saved_networks_destination.h"
 #include "roo_windows_wifi/material3/settings_destination.h"
 
@@ -8,7 +9,8 @@ namespace material3 {
 
 /// Owns the reusable Material 3 Wi-Fi destination graph and model.
 class WifiSettingsFlow : private WifiSettingsDestination::Actions,
-                         private WifiSavedNetworksDestination::Actions {
+                         private WifiSavedNetworksDestination::Actions,
+                         private WifiNetworkDetailsDestination::Actions {
  public:
   /// Creates a flow around an application-owned controller.
   WifiSettingsFlow(roo_windows::ApplicationContext& context,
@@ -28,6 +30,7 @@ class WifiSettingsFlow : private WifiSettingsDestination::Actions,
 
   /// Returns the reusable controller-enumerated saved-networks destination.
   WifiSavedNetworksDestination& savedNetworksDestination() { return saved_; }
+  WifiNetworkDetailsDestination& detailsDestination() { return details_; }
 
   /// Returns the model shared by this flow's destinations.
   WifiPresentationModel& model() { return model_; }
@@ -41,8 +44,10 @@ class WifiSettingsFlow : private WifiSettingsDestination::Actions,
   void addNetwork() override;
   void showSavedNetworks() override;
   void showSavedNetworkDetails(const WifiNetworkSummary& network) override;
+  void editSelectedNetwork(const WifiNetworkSummary& network) override;
 
   WifiPresentationModel model_;
+  WifiNetworkDetailsDestination details_;
   WifiSavedNetworksDestination saved_;
   WifiSettingsDestination settings_;
   WifiNetworkSummary selected_;
