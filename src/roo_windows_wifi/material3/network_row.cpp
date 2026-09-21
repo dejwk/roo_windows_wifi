@@ -102,6 +102,7 @@ WifiSignalState WifiNetworkRow::signalState() const {
 const char* WifiNetworkRow::supportingText() const {
   if (summary_.connecting) return "Connecting\xE2\x80\xA6";
   if (summary_.current) return "Connected";
+  if (!summary_.in_range) return "Out of range";
   if (summary_.profile_ambiguous) return "Multiple saved profiles";
   if (summary_.saved) return "Saved";
   return summary_.isOpen() ? "Open network" : "Secured network";

@@ -85,23 +85,28 @@ roo_wifi::Controller::RequestResult WifiNetworkDetailsDestination::forget() {
 }
 
 void WifiNetworkDetailsDestination::refreshSelection() {
+  const roo_wifi::ProfileId id = selected_.profile_id;
   selected_.in_range = false;
+  selected_.current = false;
+  selected_.connecting = false;
   for (const WifiNetworkSummary& network : model_.networks()) {
     if (network.ssid == selected_.ssid &&
         network.security == selected_.security) {
-      roo_wifi::ProfileId id = selected_.profile_id;
       selected_ = network;
-      if (selected_.profile_id == 0) selected_.profile_id = id;
-      impl_->summary_.bind(0, selected_);
-      return;
+      break;
     }
   }
-  const WifiNetworkSummary* current = model_.current();
-  if (current != nullptr && current->ssid == selected_.ssid &&
-      current->security == selected_.security) {
-    selected_.current = true;
-    selected_.connecting = current->connecting;
+  if (id != 0) {
+    selected_.profile_id = id;
+    roo_wifi::Profile profile;
+    selected_.saved =
+        model_.controller().loadProfile(id, profile) == roo_wifi::Status::kOk;
   }
+  const WifiNetworkSummary* current = model_.current();
+  selected_.current = current != nullptr && current->ssid == selected_.ssid &&
+                      current->security == selected_.security &&
+                      (id == 0 || current->profile_id == id);
+  selected_.connecting = selected_.current && current->connecting;
   impl_->summary_.bind(0, selected_);
 }
 

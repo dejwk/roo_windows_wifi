@@ -125,6 +125,7 @@ class WifiPresentationModel : private roo_wifi::Controller::Listener {
   WifiNetworkSummary current_;
   roo_wifi::Status profile_status_ = roo_wifi::Status::kNotStarted;
   bool has_current_ = false;
+  roo_wifi::ProfileId connected_profile_ = 0;
 };
 
 }  // namespace material3

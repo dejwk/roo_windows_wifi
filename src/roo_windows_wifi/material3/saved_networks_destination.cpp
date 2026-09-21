@@ -106,7 +106,8 @@ WifiNetworkSummary WifiSavedNetworksDestination::profileSummary(
   summary.saved = true;
   const WifiNetworkSummary* current = model_.current();
   if (current != nullptr && current->ssid == summary.ssid &&
-      current->security == summary.security) {
+      current->security == summary.security &&
+      current->profile_id == profile.id) {
     summary.current = true;
     summary.connecting = current->connecting;
     summary.in_range = current->in_range;

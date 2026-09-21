@@ -54,7 +54,7 @@ TEST(WifiNetworkRowTest, RebindsAllPresentationState) {
 
   EXPECT_EQ(row.index(), 3u);
   EXPECT_EQ(row.summary().ssid, "Workshop");
-  EXPECT_STREQ(row.supportingText(), "Saved");
+  EXPECT_STREQ(row.supportingText(), "Out of range");
   EXPECT_EQ(row.signalState(), WifiSignalState::kAvailable);
 
   WifiNetworkSummary second;

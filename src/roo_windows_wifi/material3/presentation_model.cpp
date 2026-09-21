@@ -137,11 +137,27 @@ void WifiPresentationModel::rebuildNetworks() {
                      });
     if (scanned != networks.end()) {
       current_.in_range = true;
-      current_.saved = scanned->saved;
-      current_.profile_id = scanned->profile_id;
-      current_.profile_ambiguous = scanned->profile_ambiguous;
+
       scanned->current = true;
       scanned->connecting = current_.connecting;
+    }
+    for (const WifiSavedProfileSummary& profile : profiles_) {
+      if (profile.ssid != current_.ssid ||
+          profile.settings.connection.security != current_.security)
+        continue;
+      if (profile.id == connected_profile_) {
+        current_.profile_id = profile.id;
+        current_.saved = true;
+        current_.profile_ambiguous = false;
+        break;
+      }
+      if (current_.saved) {
+        current_.profile_id = 0;
+        current_.profile_ambiguous = true;
+      } else {
+        current_.saved = true;
+        current_.profile_id = profile.id;
+      }
     }
   }
 
@@ -181,7 +197,10 @@ void WifiPresentationModel::onEnabledChanged(bool enabled) {
   notifyChanged();
 }
 
-void WifiPresentationModel::onLinkChanged(const roo_wifi::LinkState&) {
+void WifiPresentationModel::onLinkChanged(const roo_wifi::LinkState& state) {
+  if (state.phase == roo_wifi::LinkPhase::kIdle ||
+      state.phase != roo_wifi::LinkPhase::kAddressReady)
+    connected_profile_ = 0;
   rebuildNetworks();
   notifyChanged();
 }
@@ -194,6 +213,12 @@ void WifiPresentationModel::onProfilesChanged() {
 
 void WifiPresentationModel::onOperationFinished(
     const roo_wifi::OperationResult& result) {
+  if (result.kind == roo_wifi::OperationKind::kConnect &&
+      result.status == roo_wifi::Status::kOk) {
+    connected_profile_ = result.profile_id;
+    rebuildNetworks();
+    notifyChanged();
+  }
   for (Listener* listener : listeners_) {
     listener->onWifiOperationFinished(result);
   }

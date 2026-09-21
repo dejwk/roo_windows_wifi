@@ -47,10 +47,17 @@ TEST(WifiNetworkDetailsDestinationTest, RetainsSelectionOutOfRangeAndUsesId) {
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(station.last_config.ssid.size, 5u);
 
+  // Removing this key must not retarget details to another matching profile.
+  ASSERT_NE(controller.saveProfile(9, settings, clear).id, 0u);
+  roo_wifi::Pump(scheduler);
   ASSERT_NE(destination.forget().id, 0u);
   roo_wifi::Pump(scheduler);
   roo_wifi::Profile profile;
   EXPECT_EQ(controller.loadProfile(7, profile), roo_wifi::Status::kNotFound);
+  EXPECT_EQ(destination.network().profile_id, 7u);
+  EXPECT_FALSE(destination.network().saved);
+  EXPECT_EQ(controller.loadProfile(9, profile), roo_wifi::Status::kOk);
+  EXPECT_EQ(destination.connect().status, roo_wifi::Status::kNotFound);
 }
 }  // namespace
 }  // namespace roo_windows_wifi::material3

@@ -158,6 +158,33 @@ TEST(WifiPresentationModelTest, RetainsCurrentOutOfRangeLink) {
   EXPECT_FALSE(model.current()->connecting);
 }
 
+// Verifies saved connection identity survives absent scans and duplicate names.
+TEST(WifiPresentationModelTest, TracksCompletedProfileWithoutScan) {
+  roo_scheduler::Scheduler scheduler;
+  roo_wifi::TestStation station;
+  roo_wifi::OrderedInterface radio(station);
+  roo_wifi::MemoryStore store;
+  store.enabled = true;
+  roo_wifi::Controller controller(radio, store, scheduler);
+  ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo_wifi::ProfileSettings settings;
+  settings.connection = roo_wifi::TestConfig("Saved");
+  roo_wifi::CredentialUpdate clear;
+  clear.intent = roo_wifi::CredentialIntent::kClear;
+  ASSERT_EQ(store.saveProfile(7, settings, clear), roo_wifi::Status::kOk);
+  ASSERT_EQ(store.saveProfile(9, settings, clear), roo_wifi::Status::kOk);
+  WifiPresentationModel model(controller);
+  ASSERT_NE(controller.connect(9).id, 0u);
+  roo_wifi::Pump(scheduler);
+  station.associated();
+  station.ready();
+  roo_wifi::Pump(scheduler);
+  ASSERT_NE(model.current(), nullptr);
+  EXPECT_EQ(model.current()->profile_id, 9u);
+  EXPECT_FALSE(model.current()->profile_ambiguous);
+}
+
 }  // namespace
 }  // namespace material3
 }  // namespace roo_windows_wifi
