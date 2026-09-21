@@ -191,6 +191,8 @@ class SettingsBody : public internal::BorrowedColumn {
 }  // namespace
 
 class WifiSettingsDestination::Impl {
+  friend class WifiSettingsDestination;
+
  public:
   Impl(roo_windows::ApplicationContext& context, WifiPresentationModel& model,
        WifiNetworkRow::Listener& listener, Actions& actions,
@@ -213,6 +215,7 @@ class WifiSettingsDestination::Impl {
     scaffold_.setBody(scroller_);
   }
 
+ private:
   std::string feedback_;
   roo_windows::material3::AppBar app_bar_;
   roo_windows::material3::IconButton refresh_;
@@ -358,7 +361,8 @@ void WifiSettingsDestination::activateNetwork(size_t model_index) {
   if (network.saved && network.profile_id != 0) {
     result = model_.controller().connect(network.profile_id);
     impl_->connect_id_ = result.id;
-    impl_->feedback_ = result.id ? "Connecting…" : WifiStatusText(result.status);
+    impl_->feedback_ =
+        result.id ? "Connecting…" : WifiStatusText(result.status);
   } else {
     roo_wifi::ProfileId id = 0;
     roo_wifi::Status status = nextProfileId(id);
@@ -386,8 +390,8 @@ roo_wifi::Status WifiSettingsDestination::nextProfileId(
   }
   if (candidate == 0) return roo_wifi::Status::kInvalidArgument;
   bool occupied = false;
-  roo_wifi::Status status = model_.controller().forEachProfile(
-      [&](roo_wifi::ProfileId id) {
+  roo_wifi::Status status =
+      model_.controller().forEachProfile([&](roo_wifi::ProfileId id) {
         if (id == candidate) occupied = true;
         return true;
       });
@@ -447,8 +451,8 @@ void WifiSettingsDestination::onWifiOperationFinished(
     if (result.status == roo_wifi::Status::kOk) {
       auto request = model_.controller().connect(result.profile_id);
       impl_->connect_id_ = request.id;
-      impl_->feedback_ = request.id ? "Connecting…"
-                                   : WifiStatusText(request.status);
+      impl_->feedback_ =
+          request.id ? "Connecting…" : WifiStatusText(request.status);
     } else {
       impl_->feedback_ = WifiStatusText(result.status);
     }

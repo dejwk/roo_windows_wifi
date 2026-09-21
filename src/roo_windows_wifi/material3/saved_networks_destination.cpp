@@ -40,6 +40,8 @@ class SavedProfileModel : public roo_windows::ListModel {
 }  // namespace
 
 class WifiSavedNetworksDestination::Impl {
+  friend class WifiSavedNetworksDestination;
+
  public:
   Impl(roo_windows::ApplicationContext& context,
        WifiSavedNetworksDestination& destination)
@@ -90,6 +92,7 @@ class WifiSavedNetworksDestination::Impl {
                              : roo_windows::Visibility::kGone);
   }
 
+ private:
   WifiSavedNetworksDestination& destination_;
   roo_windows::material3::AppBar app_bar_;
   roo_windows::material3::IconButton back_;

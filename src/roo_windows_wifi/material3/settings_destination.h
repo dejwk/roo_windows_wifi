@@ -3,8 +3,8 @@
 #include <memory>
 
 #include "roo_windows/core/destination.h"
-#include "roo_windows_wifi/material3/network_row.h"
 #include "roo_windows_wifi/material3/network_policy.h"
+#include "roo_windows_wifi/material3/network_row.h"
 #include "roo_windows_wifi/material3/presentation_model.h"
 
 namespace roo_windows_wifi {

@@ -131,100 +131,104 @@ bool WifiCanProvision(roo_wifi::AuthMode mode,
 }
 
 class WifiConfigForm::Impl {
+  friend class WifiConfigForm;
+
  public:
   Impl(ApplicationContext& context, WifiConfigForm& form,
        roo_wifi::Support support, NetworkPolicyProvider* policies)
-      : form(form),
-        support(support),
-        policies(policies),
-        hidden(context, "Hidden network"),
-        automatic(context, "Auto-connect"),
-        advanced(context, "Advanced options", ButtonVariant::kText) {
+      : form_(form),
+        support_(support),
+        policies_(policies),
+        hidden_(context, "Hidden network"),
+        automatic_(context, "Auto-connect"),
+        advanced_(context, "Advanced options", ButtonVariant::kText) {
     for (int i = 0; i < kFieldCount; ++i) {
       if (i == kPassword)
-        fields[i] = std::make_unique<ObservedField<SecureTextField>>(
-            context, kLabels[i], changed);
+        fields_[i] = std::make_unique<ObservedField<SecureTextField>>(
+            context, kLabels[i], changed_);
       else
-        fields[i] = std::make_unique<ObservedField<TextField>>(
-            context, kLabels[i], changed);
+        fields_[i] = std::make_unique<ObservedField<TextField>>(
+            context, kLabels[i], changed_);
     }
     for (int i = 0; i < kChoiceCount; ++i) {
-      choices[i] = std::make_unique<ListRow<InvokableListItemBase>>(
+      choices_[i] = std::make_unique<ListRow<InvokableListItemBase>>(
           context, kChoices[i]);
-      choices[i]->item().setOnInvoked([this, i]() {
-        if (choose) choose(static_cast<Choice>(i));
+      choices_[i]->item().setOnInvoked([this, i]() {
+        if (choose_) choose_(static_cast<Choice>(i));
       });
     }
-    form.add(*fields[kSsid]);
-    form.add(*choices[kSecurity]);
-    form.add(*fields[kPassword]);
-    form.add(hidden);
-    form.add(automatic);
-    form.add(advanced);
-    for (int i = kPrivacy; i < kChoiceCount; ++i) form.add(*choices[i]);
-    for (int i = kAddress; i < kFieldCount; ++i) form.add(*fields[i]);
-    hidden.item().setOnInvoked([this]() {
-      if (changed) changed();
+    form_.add(*fields_[kSsid]);
+    form_.add(*choices_[kSecurity]);
+    form_.add(*fields_[kPassword]);
+    form_.add(hidden_);
+    form_.add(automatic_);
+    form_.add(advanced_);
+    for (int i = kPrivacy; i < kChoiceCount; ++i) form_.add(*choices_[i]);
+    for (int i = kAddress; i < kFieldCount; ++i) form_.add(*fields_[i]);
+    hidden_.item().setOnInvoked([this]() {
+      if (changed_) changed_();
     });
-    automatic.item().setOnInvoked([this]() {
-      if (changed) changed();
+    automatic_.item().setOnInvoked([this]() {
+      if (changed_) changed_();
     });
-    advanced.setOnInteractiveChange(
-        [this]() { this->form.setAdvanced(!expanded); });
+    advanced_.setOnInteractiveChange(
+        [this]() { this->form_.setAdvanced(!expanded_); });
   }
 
   void sync() {
     using V = Visibility;
-    fields[kPassword]->setVisibility(
-        values[kSecurity] == static_cast<int>(roo_wifi::AuthMode::kOpen)
+    fields_[kPassword]->setVisibility(
+        values_[kSecurity] == static_cast<int>(roo_wifi::AuthMode::kOpen)
             ? V::kGone
             : V::kVisible);
-    hidden.setVisibility(support.hidden_networks || hidden.item().isOn()
-                             ? V::kVisible
-                             : V::kGone);
+    hidden_.setVisibility(support_.hidden_networks || hidden_.item().isOn()
+                              ? V::kVisible
+                              : V::kGone);
     for (int i = kPrivacy; i < kChoiceCount; ++i) {
       bool supported =
-          i == kPrivacy ? support.randomized_mac
-          : i == kIp    ? support.static_ipv4
-                     : policies && (i == kMetered ? policies->supportsMetered()
-                                                  : policies->supportsProxy());
-      choices[i]->setVisibility(
-          expanded && (supported || values[i] != 0) ? V::kVisible : V::kGone);
+          i == kPrivacy ? support_.randomized_mac
+          : i == kIp
+              ? support_.static_ipv4
+              : policies_ && (i == kMetered ? policies_->supportsMetered()
+                                            : policies_->supportsProxy());
+      choices_[i]->setVisibility(
+          expanded_ && (supported || values_[i] != 0) ? V::kVisible : V::kGone);
     }
     for (int i = kAddress; i < kFieldCount; ++i) {
-      bool visible =
-          expanded && (i < kProxyHost ? values[kIp] != 0 : values[kProxy] != 0);
-      fields[i]->setVisibility(visible ? V::kVisible : V::kGone);
+      bool visible = expanded_ && (i < kProxyHost ? values_[kIp] != 0
+                                                  : values_[kProxy] != 0);
+      fields_[i]->setVisibility(visible ? V::kVisible : V::kGone);
     }
-    choices[kSecurity]->item().setSupportingText(
-        WifiSecurityText(static_cast<roo_wifi::AuthMode>(values[kSecurity])));
-    choices[kPrivacy]->item().setSupportingText(
-        values[kPrivacy] ? "Randomized MAC" : "Device MAC");
-    choices[kIp]->item().setSupportingText(values[kIp] ? "Static" : "DHCP");
-    choices[kProxy]->item().setSupportingText(values[kProxy] ? "Manual"
-                                                             : "None");
-    choices[kMetered]->item().setSupportingText(values[kMetered] == 0 ? "Auto"
-                                                : values[kMetered] == 1
-                                                    ? "Metered"
-                                                    : "Unmetered");
-    for (auto& row : choices) row->refreshFromItem();
-    form.requestLayout();
+    choices_[kSecurity]->item().setSupportingText(
+        WifiSecurityText(static_cast<roo_wifi::AuthMode>(values_[kSecurity])));
+    choices_[kPrivacy]->item().setSupportingText(
+        values_[kPrivacy] ? "Randomized MAC" : "Device MAC");
+    choices_[kIp]->item().setSupportingText(values_[kIp] ? "Static" : "DHCP");
+    choices_[kProxy]->item().setSupportingText(values_[kProxy] ? "Manual"
+                                                               : "None");
+    choices_[kMetered]->item().setSupportingText(values_[kMetered] == 0 ? "Auto"
+                                                 : values_[kMetered] == 1
+                                                     ? "Metered"
+                                                     : "Unmetered");
+    for (auto& row : choices_) row->refreshFromItem();
+    form_.requestLayout();
   }
 
-  WifiConfigForm& form;
-  roo_wifi::Support support;
-  NetworkPolicyProvider* policies;
-  std::function<void()> changed;
-  std::function<void(Choice)> choose;
-  std::unique_ptr<TextField> fields[kFieldCount];
-  std::unique_ptr<ListRow<InvokableListItemBase>> choices[kChoiceCount];
-  ListRow<SwitchListItem> hidden;
-  ListRow<SwitchListItem> automatic;
-  Button advanced;
-  int values[kChoiceCount] = {};
-  bool expanded = false;
-  bool keep = false;
-  roo_wifi::AuthMode original_security = roo_wifi::AuthMode::kUnknown;
+ private:
+  WifiConfigForm& form_;
+  roo_wifi::Support support_;
+  NetworkPolicyProvider* policies_;
+  std::function<void()> changed_;
+  std::function<void(Choice)> choose_;
+  std::unique_ptr<TextField> fields_[kFieldCount];
+  std::unique_ptr<ListRow<InvokableListItemBase>> choices_[kChoiceCount];
+  ListRow<SwitchListItem> hidden_;
+  ListRow<SwitchListItem> automatic_;
+  Button advanced_;
+  int values_[kChoiceCount] = {};
+  bool expanded_ = false;
+  bool keep_ = false;
+  roo_wifi::AuthMode original_security_ = roo_wifi::AuthMode::kUnknown;
 };
 
 WifiConfigForm::WifiConfigForm(ApplicationContext& context,
@@ -237,47 +241,47 @@ WifiConfigForm::~WifiConfigForm() { removeAll(); }
 
 void WifiConfigForm::load(const roo_wifi::ProfileSettings& settings, bool keep,
                           const NetworkPolicy& policy) {
-  std::function<void()> callback = std::move(impl_->changed);
-  impl_->keep = keep;
+  std::function<void()> callback = std::move(impl_->changed_);
+  impl_->keep_ = keep;
   const roo_wifi::ConnectionConfig& c = settings.connection;
-  impl_->original_security = c.security;
-  impl_->fields[kSsid]->setText(
+  impl_->original_security_ = c.security;
+  impl_->fields_[kSsid]->setText(
       std::string(reinterpret_cast<const char*>(c.ssid.bytes), c.ssid.size));
-  impl_->fields[kPassword]->setText({});
-  static_cast<SecureTextField&>(*impl_->fields[kPassword]).setRevealed(false);
-  impl_->fields[kPassword]->setSupportingText(
+  impl_->fields_[kPassword]->setText({});
+  static_cast<SecureTextField&>(*impl_->fields_[kPassword]).setRevealed(false);
+  impl_->fields_[kPassword]->setSupportingText(
       keep ? "Leave blank to keep saved credentials" : "");
-  impl_->values[kSecurity] = static_cast<int>(c.security);
-  impl_->values[kPrivacy] = static_cast<int>(c.mac_policy);
-  impl_->values[kIp] = static_cast<int>(c.ip_mode);
-  impl_->values[kMetered] = static_cast<int>(policy.metered);
-  impl_->values[kProxy] = static_cast<int>(policy.proxy);
-  impl_->hidden.item().setOn(c.hidden);
-  impl_->automatic.item().setOn(settings.auto_connect);
-  impl_->fields[kAddress]->setText(c.ip_mode == roo_wifi::IpMode::kStaticIpv4
-                                       ? AddressText(c.static_ipv4.address)
-                                       : "");
-  impl_->fields[kGateway]->setText(c.ip_mode == roo_wifi::IpMode::kStaticIpv4
-                                       ? AddressText(c.static_ipv4.gateway)
-                                       : "");
-  impl_->fields[kPrefix]->setText(std::to_string(c.static_ipv4.prefix_length));
-  impl_->fields[kDns1]->setText(c.ip_mode == roo_wifi::IpMode::kStaticIpv4
-                                    ? AddressText(c.static_ipv4.dns1)
-                                    : "");
-  impl_->fields[kDns2]->setText(
+  impl_->values_[kSecurity] = static_cast<int>(c.security);
+  impl_->values_[kPrivacy] = static_cast<int>(c.mac_policy);
+  impl_->values_[kIp] = static_cast<int>(c.ip_mode);
+  impl_->values_[kMetered] = static_cast<int>(policy.metered);
+  impl_->values_[kProxy] = static_cast<int>(policy.proxy);
+  impl_->hidden_.item().setOn(c.hidden);
+  impl_->automatic_.item().setOn(settings.auto_connect);
+  impl_->fields_[kAddress]->setText(c.ip_mode == roo_wifi::IpMode::kStaticIpv4
+                                        ? AddressText(c.static_ipv4.address)
+                                        : "");
+  impl_->fields_[kGateway]->setText(c.ip_mode == roo_wifi::IpMode::kStaticIpv4
+                                        ? AddressText(c.static_ipv4.gateway)
+                                        : "");
+  impl_->fields_[kPrefix]->setText(std::to_string(c.static_ipv4.prefix_length));
+  impl_->fields_[kDns1]->setText(c.ip_mode == roo_wifi::IpMode::kStaticIpv4
+                                     ? AddressText(c.static_ipv4.dns1)
+                                     : "");
+  impl_->fields_[kDns2]->setText(
       c.static_ipv4.has_dns2 ? AddressText(c.static_ipv4.dns2) : "");
-  impl_->fields[kProxyHost]->setText(policy.host);
-  impl_->fields[kProxyPort]->setText(policy.port ? std::to_string(policy.port)
-                                                 : "");
-  impl_->fields[kProxyBypass]->setText(policy.bypass);
-  impl_->expanded = c.ip_mode != roo_wifi::IpMode::kDhcp ||
-                    c.mac_policy != roo_wifi::MacPolicy::kDevice ||
-                    policy.proxy != ProxyMode::kNone ||
-                    policy.metered != MeteredMode::kAuto;
-  for (auto& field : impl_->fields) field->clearError();
+  impl_->fields_[kProxyHost]->setText(policy.host);
+  impl_->fields_[kProxyPort]->setText(policy.port ? std::to_string(policy.port)
+                                                  : "");
+  impl_->fields_[kProxyBypass]->setText(policy.bypass);
+  impl_->expanded_ = c.ip_mode != roo_wifi::IpMode::kDhcp ||
+                     c.mac_policy != roo_wifi::MacPolicy::kDevice ||
+                     policy.proxy != ProxyMode::kNone ||
+                     policy.metered != MeteredMode::kAuto;
+  for (auto& field : impl_->fields_) field->clearError();
   impl_->sync();
-  impl_->changed = std::move(callback);
-  if (impl_->changed) impl_->changed();
+  impl_->changed_ = std::move(callback);
+  if (impl_->changed_) impl_->changed_();
 }
 
 roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
@@ -288,10 +292,10 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
   credential = {};
   policy = {};
   if (show)
-    for (auto& field : impl_->fields) field->clearError();
+    for (auto& field : impl_->fields_) field->clearError();
   auto invalid = [this, show](Field field, const char* error) {
     if (show) {
-      impl_->fields[field]->setErrorText(error);
+      impl_->fields_[field]->setErrorText(error);
       if (field >= kAddress) setAdvanced(true);
     }
     return roo_wifi::Status::kInvalidArgument;
@@ -302,12 +306,12 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
   c.ssid.size = text(kSsid).size();
   std::memcpy(c.ssid.bytes, text(kSsid).data(), c.ssid.size);
   c.security = static_cast<roo_wifi::AuthMode>(choice(kSecurity));
-  c.hidden = impl_->hidden.item().isOn();
+  c.hidden = impl_->hidden_.item().isOn();
   c.mac_policy = static_cast<roo_wifi::MacPolicy>(choice(kPrivacy));
   c.ip_mode = static_cast<roo_wifi::IpMode>(choice(kIp));
-  settings.auto_connect = impl_->automatic.item().isOn();
-  if (!WifiCanProvision(c.security, impl_->support) ||
-      roo_wifi::ValidateSupport(c, impl_->support) != Status::kOk)
+  settings.auto_connect = impl_->automatic_.item().isOn();
+  if (!WifiCanProvision(c.security, impl_->support_) ||
+      roo_wifi::ValidateSupport(c, impl_->support_) != Status::kOk)
     return Status::kUnsupported;
   if (c.ip_mode == roo_wifi::IpMode::kStaticIpv4) {
     unsigned prefix;
@@ -327,8 +331,8 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
   roo_wifi::Credentials check;
   if (c.security == roo_wifi::AuthMode::kOpen)
     credential.intent = roo_wifi::CredentialIntent::kClear;
-  else if (impl_->keep && text(kPassword).empty() &&
-           c.security == impl_->original_security) {
+  else if (impl_->keep_ && text(kPassword).empty() &&
+           c.security == impl_->original_security_) {
     credential.intent = roo_wifi::CredentialIntent::kKeep;
     // Backend loads the real secret for Keep. Validate only non-secret fields
     // here.
@@ -368,17 +372,17 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
     policy.port = port;
     policy.bypass = text(kProxyBypass);
   }
-  if (impl_->policies) {
+  if (impl_->policies_) {
     if ((policy.proxy != ProxyMode::kNone &&
-         !impl_->policies->supportsProxy()) ||
+         !impl_->policies_->supportsProxy()) ||
         (policy.metered != MeteredMode::kAuto &&
-         !impl_->policies->supportsMetered()))
+         !impl_->policies_->supportsMetered()))
       return Status::kUnsupported;
-    Status status = impl_->policies->validate(policy);
+    Status status = impl_->policies_->validate(policy);
     if (show && status != Status::kOk) {
       setAdvanced(true);
       if (policy.proxy == ProxyMode::kManual)
-        impl_->fields[kProxyHost]->setErrorText(WifiStatusText(status));
+        impl_->fields_[kProxyHost]->setErrorText(WifiStatusText(status));
     }
     return status;
   }
@@ -389,25 +393,25 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
 }
 
 void WifiConfigForm::requireCredentialReplacement() {
-  impl_->keep = false;
-  impl_->fields[kPassword]->setSupportingText(
+  impl_->keep_ = false;
+  impl_->fields_[kPassword]->setSupportingText(
       "Enter credentials to replace the incomplete profile");
 }
 
 const std::string& WifiConfigForm::text(Field field) const {
-  return impl_->fields[field]->text();
+  return impl_->fields_[field]->text();
 }
 void WifiConfigForm::setText(Field field, std::string text) {
-  impl_->fields[field]->setText(std::move(text));
+  impl_->fields_[field]->setText(std::move(text));
 }
 int WifiConfigForm::choice(Choice choice) const {
-  return impl_->values[choice];
+  return impl_->values_[choice];
 }
 void WifiConfigForm::setChoice(Choice choice, int value) {
   if (!supportsChoice(choice, value)) return;
-  impl_->values[choice] = value;
+  impl_->values_[choice] = value;
   impl_->sync();
-  if (impl_->changed) impl_->changed();
+  if (impl_->changed_) impl_->changed_();
 }
 bool WifiConfigForm::supportsChoice(Choice choice, int value) const {
   if (value < 0) return false;
@@ -415,44 +419,45 @@ bool WifiConfigForm::supportsChoice(Choice choice, int value) const {
     case kSecurity:
       return value <= 7 &&
              WifiCanProvision(static_cast<roo_wifi::AuthMode>(value),
-                              impl_->support);
+                              impl_->support_);
     case kPrivacy:
-      return value == 0 || (value == 1 && impl_->support.randomized_mac);
+      return value == 0 || (value == 1 && impl_->support_.randomized_mac);
     case kIp:
-      return value == 0 || (value == 1 && impl_->support.static_ipv4);
+      return value == 0 || (value == 1 && impl_->support_.static_ipv4);
     case kMetered:
-      return value <= 2 && impl_->policies &&
-             impl_->policies->supportsMetered();
+      return value <= 2 && impl_->policies_ &&
+             impl_->policies_->supportsMetered();
     case kProxy:
-      return value <= 1 && impl_->policies && impl_->policies->supportsProxy();
+      return value <= 1 && impl_->policies_ &&
+             impl_->policies_->supportsProxy();
     default:
       return false;
   }
 }
 void WifiConfigForm::setHidden(bool hidden) {
-  impl_->hidden.item().setOn(hidden);
+  impl_->hidden_.item().setOn(hidden);
   impl_->sync();
-  if (impl_->changed) impl_->changed();
+  if (impl_->changed_) impl_->changed_();
 }
 void WifiConfigForm::setAutoConnect(bool enabled) {
-  impl_->automatic.item().setOn(enabled);
-  if (impl_->changed) impl_->changed();
+  impl_->automatic_.item().setOn(enabled);
+  if (impl_->changed_) impl_->changed_();
 }
 void WifiConfigForm::setAdvanced(bool expanded) {
-  impl_->expanded = expanded;
+  impl_->expanded_ = expanded;
   impl_->sync();
 }
-bool WifiConfigForm::advanced() const { return impl_->expanded; }
+bool WifiConfigForm::advanced() const { return impl_->expanded_; }
 void WifiConfigForm::setOnChanged(std::function<void()> callback) {
-  impl_->changed = std::move(callback);
+  impl_->changed_ = std::move(callback);
 }
 void WifiConfigForm::setOnChoose(std::function<void(Choice)> callback) {
-  impl_->choose = std::move(callback);
+  impl_->choose_ = std::move(callback);
 }
 void WifiConfigForm::setEditingEnabled(bool enabled) {
-  for (auto& field : impl_->fields) field->setEnabled(enabled);
-  for (auto& row : impl_->choices) row->setEnabled(enabled);
-  impl_->hidden.setEnabled(enabled);
-  impl_->automatic.setEnabled(enabled);
+  for (auto& field : impl_->fields_) field->setEnabled(enabled);
+  for (auto& row : impl_->choices_) row->setEnabled(enabled);
+  impl_->hidden_.setEnabled(enabled);
+  impl_->automatic_.setEnabled(enabled);
 }
 }  // namespace roo_windows_wifi::material3
