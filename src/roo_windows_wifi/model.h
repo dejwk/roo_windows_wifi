@@ -67,7 +67,7 @@ class Model : private roo_wifi::Controller::Listener {
   }
   bool hasSavedProfile(const std::string& ssid) const {
     roo_wifi::Profile profile;
-    return backend_.loadProfile(key_, profile) == roo_wifi::Error::kOk &&
+    return backend_.loadProfile(key_, profile) == roo_wifi::Status::kOk &&
            Text(profile.settings.connection.ssid) == ssid;
   }
   void toggleEnabled() { backend_.setEnabled(!backend_.isEnabled()); }
@@ -89,8 +89,9 @@ class Model : private roo_wifi::Controller::Listener {
     roo_wifi::Credentials secret;
     roo_wifi::CredentialUpdate update;
     roo_wifi::Profile saved;
-    bool existing = backend_.loadProfile(key_, saved) == roo_wifi::Error::kOk &&
-                    Text(saved.settings.connection.ssid) == ssid;
+    bool existing =
+        backend_.loadProfile(key_, saved) == roo_wifi::Status::kOk &&
+        Text(saved.settings.connection.ssid) == ssid;
     if (existing) {
       settings = saved.settings;
       if (password.size() > 64) {
@@ -148,7 +149,7 @@ class Model : private roo_wifi::Controller::Listener {
       secret.encoding = roo_wifi::CredentialEncoding::kRawPsk;
     if (config.security == roo_wifi::AuthMode::kWep)
       secret.encoding = roo_wifi::CredentialEncoding::kWepKey;
-    return roo_wifi::Validate(config, secret) == roo_wifi::Error::kOk;
+    return roo_wifi::Validate(config, secret) == roo_wifi::Status::kOk;
   }
   void track(roo_wifi::RequestResult result) {
     connect_id_ = result.id;
@@ -205,16 +206,16 @@ class Model : private roo_wifi::Controller::Listener {
   void onOperationFinished(const roo_wifi::OperationResult& result) override {
     if (result.id == save_id_) {
       save_id_ = 0;
-      if (result.error == roo_wifi::Error::kOk)
+      if (result.status == roo_wifi::Status::kOk)
         connect();
       else
         failure();
     } else if (result.id == connect_id_) {
       connect_id_ = 0;
-      if (result.error != roo_wifi::Error::kOk) failure();
+      if (result.status != roo_wifi::Status::kOk) failure();
     }
     if (result.kind == roo_wifi::OperationKind::kEnable &&
-        result.error == roo_wifi::Error::kOk && backend_.isEnabled())
+        result.status == roo_wifi::Status::kOk && backend_.isEnabled())
       backend_.scan();
   }
   roo_wifi::Controller& backend_;

@@ -29,7 +29,7 @@ TEST(ModelTest, SaveThenConnectKnownKey) {
   EXPECT_EQ(native.connects, 1);
   EXPECT_TRUE(model.hasSavedProfile("network"));
   roo_wifi::Profile profile;
-  EXPECT_EQ(backend.loadProfile(42, profile), roo_wifi::Error::kOk);
+  EXPECT_EQ(backend.loadProfile(42, profile), roo_wifi::Status::kOk);
 }
 // Verifies the old SSID-only UI refuses ambiguous security instead of choosing
 // an open same-SSID AP and accidentally weakening the requested connection.
