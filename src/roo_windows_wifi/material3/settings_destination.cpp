@@ -83,13 +83,7 @@ class SettingsBody : public roo_windows::Container {
              "Add network"),
         saved_(context, SCALED_ROO_ICON(outlined, navigation_apps),
                "Saved networks") {
-    enabled_.item().setOnInvoked([this]() {
-      const bool requested = enabled_.item().isOn();
-      roo_wifi::Controller::RequestResult result =
-          model_.controller().setEnabled(requested);
-      if (result.id == 0)
-        enabled_.item().setOn(model_.controller().isEnabled());
-    });
+    enabled_.item().setOnInvoked([this]() { actions_.toggleWifiRequested(); });
     add_.item().setOnInvoked([this]() { actions_.addNetwork(); });
     saved_.item().setOnInvoked([this]() { actions_.showSavedNetworks(); });
     attachChild(enabled_);
@@ -116,8 +110,9 @@ class SettingsBody : public roo_windows::Container {
                                ? roo_windows::Visibility::kGone
                                : roo_windows::Visibility::kVisible);
     if (current != nullptr) current_.bind(kCurrentNetworkIndex, *current);
-    available_.setVisibility(enabled ? roo_windows::Visibility::kVisible
-                                     : roo_windows::Visibility::kGone);
+    available_.setVisibility(enabled && available_model_.elementCount() > 0
+                                 ? roo_windows::Visibility::kVisible
+                                 : roo_windows::Visibility::kGone);
     available_.modelChanged();
     requestLayout();
   }
@@ -271,6 +266,14 @@ roo_wifi::Controller::RequestResult WifiSettingsDestination::refreshScan() {
   }
   roo_wifi::Controller::RequestResult result = model_.controller().scan();
   if (result.id != 0) impl_->scanning = true;
+  return result;
+}
+
+roo_wifi::Controller::RequestResult WifiSettingsDestination::toggleWifi() {
+  const bool requested = !model_.controller().isEnabled();
+  roo_wifi::Controller::RequestResult result =
+      model_.controller().setEnabled(requested);
+  if (result.id == 0) impl_->body.sync();
   return result;
 }
 

@@ -43,11 +43,13 @@ class RecordingActions : public WifiSettingsDestination::Actions {
   }
   void addNetwork() override { add_count++; }
   void showSavedNetworks() override { saved_count++; }
+  void toggleWifiRequested() override { toggle_count++; }
 
   std::string details;
   std::string edit;
   int add_count = 0;
   int saved_count = 0;
+  int toggle_count = 0;
 };
 
 struct Fixture {
@@ -104,6 +106,18 @@ TEST(WifiSettingsDestinationTest, ResumeScansWhenCacheIsEmpty) {
 
   EXPECT_TRUE(fixture.controller.isScanning());
   EXPECT_TRUE(fixture.destination.scanning());
+}
+
+TEST(WifiSettingsDestinationTest, ToggleRequestUsesObservedControllerState) {
+  Fixture fixture(false);
+  fixture.begin();
+  ASSERT_FALSE(fixture.controller.isEnabled());
+
+  ASSERT_NE(fixture.destination.toggleWifi().id, 0u);
+  roo_wifi::Pump(fixture.scheduler);
+
+  EXPECT_TRUE(fixture.controller.isEnabled());
+  EXPECT_TRUE(fixture.destination.wifiEnabled());
 }
 
 TEST(WifiSettingsDestinationTest, RoutesOpenAndUnknownSecuredNetworks) {

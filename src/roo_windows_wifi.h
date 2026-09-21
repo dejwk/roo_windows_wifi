@@ -13,6 +13,7 @@
 
 namespace roo_windows_wifi {
 
+using material3::WifiEditNetworkDestination;
 using material3::WifiNetworkDetailsDestination;
 using material3::WifiNetworkRow;
 using material3::WifiNetworkSummary;

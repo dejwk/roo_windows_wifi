@@ -30,6 +30,9 @@ class WifiSettingsDestination : public roo_windows::Destination,
 
     /// Opens the saved-profile list.
     virtual void showSavedNetworks() = 0;
+
+    /// Requests a radio-state toggle without relying on affordance timing.
+    virtual void toggleWifiRequested() = 0;
   };
 
   /// Creates a destination borrowing its model and route handler.
@@ -47,6 +50,9 @@ class WifiSettingsDestination : public roo_windows::Destination,
 
   /// Requests an immediate scan when Wi-Fi is enabled.
   roo_wifi::Controller::RequestResult refreshScan();
+
+  /// Requests the opposite of the controller's observed radio state.
+  roo_wifi::Controller::RequestResult toggleWifi();
 
   /// Returns the number of available rows, excluding the current row.
   size_t availableNetworkCount() const;

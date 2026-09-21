@@ -1,5 +1,6 @@
 #pragma once
 
+#include "roo_windows_wifi/material3/edit_network_destination.h"
 #include "roo_windows_wifi/material3/network_details_destination.h"
 #include "roo_windows_wifi/material3/saved_networks_destination.h"
 #include "roo_windows_wifi/material3/settings_destination.h"
@@ -31,6 +32,7 @@ class WifiSettingsFlow : private WifiSettingsDestination::Actions,
   /// Returns the reusable controller-enumerated saved-networks destination.
   WifiSavedNetworksDestination& savedNetworksDestination() { return saved_; }
   WifiNetworkDetailsDestination& detailsDestination() { return details_; }
+  WifiEditNetworkDestination& editDestination() { return edit_; }
 
   /// Returns the model shared by this flow's destinations.
   WifiPresentationModel& model() { return model_; }
@@ -43,10 +45,12 @@ class WifiSettingsFlow : private WifiSettingsDestination::Actions,
   void editNetwork(const WifiNetworkSummary& network) override;
   void addNetwork() override;
   void showSavedNetworks() override;
+  void toggleWifiRequested() override;
   void showSavedNetworkDetails(const WifiNetworkSummary& network) override;
   void editSelectedNetwork(const WifiNetworkSummary& network) override;
 
   WifiPresentationModel model_;
+  WifiEditNetworkDestination edit_;
   WifiNetworkDetailsDestination details_;
   WifiSavedNetworksDestination saved_;
   WifiSettingsDestination settings_;

@@ -80,3 +80,13 @@ cc_test(
         "@roo_wifi//test:test_support",
     ],
 )
+
+cc_test(
+    name = "material3_edit_network_test",
+    srcs = ["test/material3_edit_network_test.cpp"],
+    deps = [
+        ":roo_windows_wifi",
+        "@googletest//:gtest_main",
+        "@roo_wifi//test:test_support",
+    ],
+)

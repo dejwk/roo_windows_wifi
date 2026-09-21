@@ -51,6 +51,14 @@ class WifiSavedNetworksDestination::Impl {
     app_bar.setLeading(back);
     scaffold.setTopBar(app_bar);
     scaffold.setBody(list);
+    sync();
+  }
+
+  void sync() {
+    const bool has_profiles = destination.profileCount() > 0;
+    list.setVisibility(has_profiles ? roo_windows::Visibility::kVisible
+                                    : roo_windows::Visibility::kGone);
+    if (has_profiles) list.modelChanged();
   }
 
   WifiSavedNetworksDestination& destination;
@@ -78,7 +86,7 @@ roo_windows::Widget& WifiSavedNetworksDestination::getContents() {
 
 void WifiSavedNetworksDestination::onResume() {
   model_.refresh();
-  impl_->list.modelChanged();
+  impl_->sync();
 }
 
 size_t WifiSavedNetworksDestination::profileCount() const {
@@ -118,9 +126,7 @@ void WifiSavedNetworksDestination::activateProfile(size_t index) {
     actions_.showSavedNetworkDetails(profileSummary(index));
 }
 
-void WifiSavedNetworksDestination::onWifiModelChanged() {
-  impl_->list.modelChanged();
-}
+void WifiSavedNetworksDestination::onWifiModelChanged() { impl_->sync(); }
 
 void WifiSavedNetworksDestination::onWifiNetworkActivated(size_t index) {
   activateProfile(index);

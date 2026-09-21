@@ -10,6 +10,7 @@ WifiSettingsFlow::WifiSettingsFlow(roo_windows::ApplicationContext& context,
                                    roo_wifi::Controller& controller,
                                    roo_wifi::ProfileId provisioning_key)
     : model_(controller),
+      edit_(context, controller),
       details_(context, model_, *this),
       saved_(context, model_, *this),
       settings_(context, model_, *this),
@@ -26,14 +27,25 @@ void WifiSettingsFlow::showNetworkDetails(const WifiNetworkSummary& network) {
 
 void WifiSettingsFlow::editNetwork(const WifiNetworkSummary& network) {
   selected_ = network;
+  edit_.beginNetwork(network);
+  roo_windows::NavigationHost* navigation = settings_.getNavigationHost();
+  if (navigation == nullptr) navigation = details_.getNavigationHost();
+  if (navigation != nullptr) navigation->push(edit_);
 }
 
-void WifiSettingsFlow::addNetwork() { selected_ = WifiNetworkSummary(); }
+void WifiSettingsFlow::addNetwork() {
+  selected_ = WifiNetworkSummary();
+  edit_.beginAdd();
+  roo_windows::NavigationHost* navigation = settings_.getNavigationHost();
+  if (navigation != nullptr) navigation->push(edit_);
+}
 
 void WifiSettingsFlow::showSavedNetworks() {
   roo_windows::NavigationHost* navigation = settings_.getNavigationHost();
   if (navigation != nullptr) navigation->push(saved_);
 }
+
+void WifiSettingsFlow::toggleWifiRequested() { settings_.toggleWifi(); }
 
 void WifiSettingsFlow::showSavedNetworkDetails(
     const WifiNetworkSummary& network) {

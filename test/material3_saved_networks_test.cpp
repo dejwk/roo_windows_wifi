@@ -1,5 +1,7 @@
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
+#include "roo_display/core/offscreen.h"
+#include "roo_windows/core/application.h"
 #include "roo_windows/core/environment.h"
 #include "roo_windows_wifi/material3/saved_networks_destination.h"
 
@@ -54,6 +56,33 @@ TEST(WifiSavedNetworksDestinationTest, EnumeratesSortsAndSelectsProfiles) {
   EXPECT_EQ(actions.calls, 1);
   EXPECT_EQ(actions.selected.ssid, "Alpha");
   EXPECT_EQ(actions.selected.profile_id, 3u);
+}
+
+TEST(WifiSavedNetworksDestinationTest, EmptyAttachedListPaintsWithoutCrash) {
+  roo_scheduler::Scheduler scheduler;
+  roo_wifi::TestStation station;
+  roo_wifi::OrderedInterface radio(station);
+  roo_wifi::MemoryStore store;
+  roo_wifi::Controller controller(radio, store, scheduler);
+  ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo::byte raster[240 * 320 * 2] = {};
+  roo_display::OffscreenDevice<roo_display::Argb4444> device(
+      240, 320, raster, roo_display::Argb4444());
+  roo_display::Display display(device);
+  roo_windows::Environment environment(scheduler);
+  roo_windows::Application app(&environment, display);
+  WifiPresentationModel model(controller);
+  Actions actions;
+  WifiSavedNetworksDestination destination(app.context(), model, actions);
+
+  roo_windows::NavigationHost& navigation =
+      app.addTaskFullScreen().navigation();
+  navigation.push(destination);
+
+  EXPECT_TRUE(app.refresh());
+  EXPECT_EQ(destination.profileCount(), 0u);
+  navigation.clear();
 }
 
 }  // namespace
