@@ -9,8 +9,17 @@
 #include "roo_windows_wifi/activity/enter_password_activity.h"
 #include "roo_windows_wifi/activity/list_activity.h"
 #include "roo_windows_wifi/activity/network_details_activity.h"
+#include "roo_windows_wifi/material3/settings_flow.h"
 
 namespace roo_windows_wifi {
+
+using material3::WifiNetworkRow;
+using material3::WifiNetworkSummary;
+using material3::WifiPresentationModel;
+using material3::WifiSettingsDestination;
+using material3::WifiSettingsFlow;
+using material3::WifiSignalGlyph;
+using material3::WifiSignalState;
 
 class Configurator {
  public:
