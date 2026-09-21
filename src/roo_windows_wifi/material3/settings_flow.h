@@ -45,7 +45,6 @@ class WifiSettingsFlow : private WifiSettingsDestination::Actions,
   void editNetwork(const WifiNetworkSummary& network) override;
   void addNetwork() override;
   void showSavedNetworks() override;
-  void toggleWifiRequested() override;
   void showSavedNetworkDetails(const WifiNetworkSummary& network) override;
   void editSelectedNetwork(const WifiNetworkSummary& network) override;
 

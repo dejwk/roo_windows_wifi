@@ -66,11 +66,13 @@ class SettingsBody : public roo_windows::Container {
  public:
   SettingsBody(roo_windows::ApplicationContext& context,
                WifiPresentationModel& model, WifiNetworkRow::Listener& listener,
-               WifiSettingsDestination::Actions& actions)
+               WifiSettingsDestination::Actions& actions,
+               WifiSettingsDestination& destination)
       : roo_windows::Container(context),
         model_(model),
         listener_(listener),
         actions_(actions),
+        destination_(destination),
         enabled_(context, "Wi-Fi", "Search for and connect to networks"),
         current_(context, listener),
         available_model_(model),
@@ -83,7 +85,8 @@ class SettingsBody : public roo_windows::Container {
              "Add network"),
         saved_(context, SCALED_ROO_ICON(outlined, navigation_apps),
                "Saved networks") {
-    enabled_.item().setOnInvoked([this]() { actions_.toggleWifiRequested(); });
+    enabled_.item().setOnInvoked(
+        [this]() { destination_.setWifiEnabled(enabled_.item().isOn()); });
     add_.item().setOnInvoked([this]() { actions_.addNetwork(); });
     saved_.item().setOnInvoked([this]() { actions_.showSavedNetworks(); });
     attachChild(enabled_);
@@ -91,7 +94,7 @@ class SettingsBody : public roo_windows::Container {
     attachChild(available_);
     attachChild(add_);
     attachChild(saved_);
-    sync();
+    sync(model_.controller().isEnabled());
   }
 
   ~SettingsBody() override {
@@ -102,8 +105,7 @@ class SettingsBody : public roo_windows::Container {
     detachChild(&enabled_);
   }
 
-  void sync() {
-    const bool enabled = model_.controller().isEnabled();
+  void sync(bool enabled) {
     enabled_.item().setOn(enabled);
     const WifiNetworkSummary* current = enabled ? model_.current() : nullptr;
     current_.setVisibility(current == nullptr
@@ -192,6 +194,7 @@ class SettingsBody : public roo_windows::Container {
   WifiPresentationModel& model_;
   WifiNetworkRow::Listener& listener_;
   WifiSettingsDestination::Actions& actions_;
+  WifiSettingsDestination& destination_;
   roo_windows::material3::ListRow<roo_windows::material3::SwitchListItem>
       enabled_;
   WifiNetworkRow current_;
@@ -213,7 +216,7 @@ class WifiSettingsDestination::Impl {
       : app_bar(context),
         refresh(context, SCALED_ROO_ICON(outlined, navigation_refresh),
                 roo_windows::material3::IconButtonStyle::kStandard),
-        body(context, model, listener, actions),
+        body(context, model, listener, actions, destination),
         destination(destination),
         scaffold(context) {
     app_bar.setTitle("Wi-Fi");
@@ -229,6 +232,9 @@ class WifiSettingsDestination::Impl {
   SettingsBody body;
   WifiSettingsDestination& destination;
   bool scanning = false;
+  bool wifi_request_pending = false;
+  bool desired_wifi_enabled = false;
+  roo_wifi::OperationId wifi_operation_id = 0;
   // Declared last so it detaches its borrowed slots before their destruction.
   roo_windows::material3::LayoutScaffold scaffold;
 };
@@ -252,7 +258,7 @@ roo_windows::Widget& WifiSettingsDestination::getContents() {
 
 void WifiSettingsDestination::onResume() {
   model_.refresh();
-  impl_->body.sync();
+  syncBody();
   if (model_.controller().isEnabled() &&
       model_.controller().scanSnapshot().count == 0 &&
       !model_.controller().isScanning()) {
@@ -270,10 +276,28 @@ roo_wifi::Controller::RequestResult WifiSettingsDestination::refreshScan() {
 }
 
 roo_wifi::Controller::RequestResult WifiSettingsDestination::toggleWifi() {
-  const bool requested = !model_.controller().isEnabled();
+  return setWifiEnabled(!wifiEnabled());
+}
+
+roo_wifi::Controller::RequestResult WifiSettingsDestination::setWifiEnabled(
+    bool enabled) {
+  impl_->desired_wifi_enabled = enabled;
+  impl_->wifi_request_pending = true;
+  impl_->wifi_operation_id = 0;
+  syncBody();
+  return submitPendingWifiState();
+}
+
+roo_wifi::Controller::RequestResult
+WifiSettingsDestination::submitPendingWifiState() {
   roo_wifi::Controller::RequestResult result =
-      model_.controller().setEnabled(requested);
-  if (result.id == 0) impl_->body.sync();
+      model_.controller().setEnabled(impl_->desired_wifi_enabled);
+  if (result.id != 0) {
+    impl_->wifi_operation_id = result.id;
+  } else if (result.status != roo_wifi::Status::kBusy) {
+    impl_->wifi_request_pending = false;
+    syncBody();
+  }
   return result;
 }
 
@@ -286,7 +310,8 @@ bool WifiSettingsDestination::hasCurrentNetwork() const {
 }
 
 bool WifiSettingsDestination::wifiEnabled() const {
-  return model_.controller().isEnabled();
+  return impl_->wifi_request_pending ? impl_->desired_wifi_enabled
+                                     : model_.controller().isEnabled();
 }
 
 bool WifiSettingsDestination::scanning() const { return impl_->scanning; }
@@ -306,12 +331,33 @@ void WifiSettingsDestination::activateNetwork(size_t model_index) {
   }
 }
 
-void WifiSettingsDestination::onWifiModelChanged() { impl_->body.sync(); }
+void WifiSettingsDestination::syncBody() { impl_->body.sync(wifiEnabled()); }
 
-void WifiSettingsDestination::onWifiEnabledChanged(bool) { impl_->body.sync(); }
+void WifiSettingsDestination::onWifiModelChanged() { syncBody(); }
+
+void WifiSettingsDestination::onWifiEnabledChanged(bool enabled) {
+  if (impl_->wifi_request_pending && enabled == impl_->desired_wifi_enabled) {
+    impl_->wifi_request_pending = false;
+    impl_->wifi_operation_id = 0;
+  }
+  syncBody();
+}
 
 void WifiSettingsDestination::onWifiScanStateChanged(bool scanning) {
   impl_->scanning = scanning;
+}
+
+void WifiSettingsDestination::onWifiOperationFinished(
+    const roo_wifi::OperationResult& result) {
+  if (!impl_->wifi_request_pending) return;
+  if (impl_->wifi_operation_id == 0) {
+    submitPendingWifiState();
+    return;
+  }
+  if (result.id != impl_->wifi_operation_id) return;
+  impl_->wifi_operation_id = 0;
+  impl_->wifi_request_pending = false;
+  syncBody();
 }
 
 void WifiSettingsDestination::onWifiNetworkActivated(size_t index) {

@@ -45,8 +45,6 @@ void WifiSettingsFlow::showSavedNetworks() {
   if (navigation != nullptr) navigation->push(saved_);
 }
 
-void WifiSettingsFlow::toggleWifiRequested() { settings_.toggleWifi(); }
-
 void WifiSettingsFlow::showSavedNetworkDetails(
     const WifiNetworkSummary& network) {
   selected_ = network;

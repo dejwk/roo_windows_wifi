@@ -43,13 +43,11 @@ class RecordingActions : public WifiSettingsDestination::Actions {
   }
   void addNetwork() override { add_count++; }
   void showSavedNetworks() override { saved_count++; }
-  void toggleWifiRequested() override { toggle_count++; }
 
   std::string details;
   std::string edit;
   int add_count = 0;
   int saved_count = 0;
-  int toggle_count = 0;
 };
 
 struct Fixture {
@@ -118,6 +116,24 @@ TEST(WifiSettingsDestinationTest, ToggleRequestUsesObservedControllerState) {
 
   EXPECT_TRUE(fixture.controller.isEnabled());
   EXPECT_TRUE(fixture.destination.wifiEnabled());
+}
+
+TEST(WifiSettingsDestinationTest, ToggleStaysChangedAndRetriesAfterScan) {
+  Fixture fixture;
+  fixture.begin();
+  ASSERT_NE(fixture.controller.scan().id, 0u);
+  roo_wifi::Pump(fixture.scheduler);
+
+  EXPECT_EQ(fixture.destination.setWifiEnabled(false).status,
+            roo_wifi::Status::kBusy);
+  EXPECT_FALSE(fixture.destination.wifiEnabled());
+  EXPECT_TRUE(fixture.controller.isEnabled());
+
+  fixture.station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(fixture.scheduler);
+
+  EXPECT_FALSE(fixture.controller.isEnabled());
+  EXPECT_FALSE(fixture.destination.wifiEnabled());
 }
 
 TEST(WifiSettingsDestinationTest, RoutesOpenAndUnknownSecuredNetworks) {
