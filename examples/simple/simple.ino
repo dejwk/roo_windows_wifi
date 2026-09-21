@@ -1,3 +1,6 @@
+// Learning goal: open the reusable Material 3 Wi-Fi flow from an application
+// menu.
+
 #include <Arduino.h>
 #include <SPI.h>
 
@@ -92,8 +95,8 @@ roo_windows::Task& task = app.addTaskFullScreen();
 roo_windows::NavigationHost& navigation = task.navigation();
 
 // Key 1 is the application-owned provisioning slot, also selected at startup.
-roo_wifi::Esp32Wifi wifi(scheduler, {1});
-roo_windows_wifi::Configurator wifi_setup(app.context(), wifi.controller(), 1);
+roo_wifi::Esp32WiFi wifi(scheduler, {1});
+roo_windows_wifi::WifiSettingsFlow wifi_setup(app.context(), wifi, 1);
 
 class SettingsMenu : public menu::Menu {
  public:
@@ -113,7 +116,7 @@ SettingsMenu settings_menu(app.context());
 void setup() {
   SPI.begin();
 
-  wifi.controller().begin();
+  wifi.begin();
   display.init();
   navigation.push(settings_menu);
   app.start();

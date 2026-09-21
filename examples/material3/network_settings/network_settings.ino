@@ -89,7 +89,32 @@ Environment environment(scheduler);
 Application app(&environment, display);
 Task& task = app.addTaskFullScreen();
 roo_wifi::Esp32WiFi wifi(scheduler, {1});
-roo_windows_wifi::WifiSettingsFlow wifi_settings(app.context(), wifi, 1);
+// The application owns persistent keys. This example reserves keys 1..16 for
+// Wi-Fi profiles; the flow independently rejects unreadable or occupied keys.
+class ExampleProfileIds : public roo_windows_wifi::WifiProfileIdAllocator {
+ public:
+  explicit ExampleProfileIds(roo_wifi::Controller& controller)
+      : controller_(controller) {}
+
+  bool nextProfileId(roo_wifi::ProfileId& out) override {
+    for (roo_wifi::ProfileId candidate = 1; candidate <= 16; ++candidate) {
+      roo_wifi::Profile profile;
+      if (controller_.loadProfile(candidate, profile) ==
+          roo_wifi::Status::kNotFound) {
+        out = candidate;
+        return true;
+      }
+    }
+    return false;
+  }
+
+ private:
+  roo_wifi::Controller& controller_;
+};
+
+ExampleProfileIds profile_ids(wifi);
+roo_windows_wifi::WifiSettingsFlow wifi_settings(app.context(), wifi, 1,
+                                                 &profile_ids);
 
 }  // namespace
 

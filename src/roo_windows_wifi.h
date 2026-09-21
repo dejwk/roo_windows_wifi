@@ -13,11 +13,17 @@
 
 namespace roo_windows_wifi {
 
+using material3::MeteredMode;
+using material3::NetworkPolicy;
+using material3::NetworkPolicyProvider;
+using material3::ProxyMode;
+using material3::WifiConfigForm;
 using material3::WifiEditNetworkDestination;
 using material3::WifiNetworkDetailsDestination;
 using material3::WifiNetworkRow;
 using material3::WifiNetworkSummary;
 using material3::WifiPresentationModel;
+using material3::WifiProfileIdAllocator;
 using material3::WifiSavedNetworksDestination;
 using material3::WifiSettingsDestination;
 using material3::WifiSettingsFlow;
