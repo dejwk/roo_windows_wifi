@@ -45,6 +45,9 @@ class WifiConfigForm : public roo_windows::VerticalLayout {
                          roo_wifi::CredentialUpdate& credential,
                          NetworkPolicy& policy, bool show_errors = true);
 
+  /// Disallows Keep after an incomplete save without discarding the draft.
+  void requireCredentialReplacement();
+
   /// Returns the owned field text.
   const std::string& text(Field field) const;
 

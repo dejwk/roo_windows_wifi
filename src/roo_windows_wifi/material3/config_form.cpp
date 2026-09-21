@@ -372,6 +372,12 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
              : Status::kUnsupported;
 }
 
+void WifiConfigForm::requireCredentialReplacement() {
+  impl_->keep = false;
+  impl_->fields[kPassword]->setSupportingText(
+      "Enter credentials to replace the incomplete profile");
+}
+
 const std::string& WifiConfigForm::text(Field field) const {
   return impl_->fields[field]->text();
 }

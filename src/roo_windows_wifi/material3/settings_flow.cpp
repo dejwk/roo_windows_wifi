@@ -8,9 +8,11 @@ namespace material3 {
 
 WifiSettingsFlow::WifiSettingsFlow(roo_windows::ApplicationContext& context,
                                    roo_wifi::Controller& controller,
-                                   roo_wifi::ProfileId provisioning_key)
+                                   roo_wifi::ProfileId provisioning_key,
+                                   WifiProfileIdAllocator* profile_ids,
+                                   NetworkPolicyProvider* policies)
     : model_(controller),
-      edit_(context, controller),
+      edit_(context, controller, provisioning_key, profile_ids, policies),
       details_(context, model_, *this),
       saved_(context, model_, *this),
       settings_(context, model_, *this),
@@ -26,6 +28,7 @@ void WifiSettingsFlow::showNetworkDetails(const WifiNetworkSummary& network) {
 }
 
 void WifiSettingsFlow::editNetwork(const WifiNetworkSummary& network) {
+  if (edit_.busy() || edit_.getNavigationHost()) return;
   selected_ = network;
   edit_.beginNetwork(network);
   roo_windows::NavigationHost* navigation = settings_.getNavigationHost();
@@ -34,6 +37,7 @@ void WifiSettingsFlow::editNetwork(const WifiNetworkSummary& network) {
 }
 
 void WifiSettingsFlow::addNetwork() {
+  if (edit_.busy() || edit_.getNavigationHost()) return;
   selected_ = WifiNetworkSummary();
   edit_.beginAdd();
   roo_windows::NavigationHost* navigation = settings_.getNavigationHost();

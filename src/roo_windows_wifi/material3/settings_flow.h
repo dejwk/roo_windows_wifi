@@ -16,7 +16,9 @@ class WifiSettingsFlow : private WifiSettingsDestination::Actions,
   /// Creates a flow around an application-owned controller.
   WifiSettingsFlow(roo_windows::ApplicationContext& context,
                    roo_wifi::Controller& controller,
-                   roo_wifi::ProfileId provisioning_key = 1);
+                   roo_wifi::ProfileId provisioning_key = 1,
+                   WifiProfileIdAllocator* profile_ids = nullptr,
+                   NetworkPolicyProvider* policies = nullptr);
 
   WifiSettingsFlow(const WifiSettingsFlow&) = delete;
   WifiSettingsFlow& operator=(const WifiSettingsFlow&) = delete;
