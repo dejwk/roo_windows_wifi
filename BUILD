@@ -31,3 +31,13 @@ cc_test(
     srcs = ["test/model_test.cpp"],
     deps = [":model", "@roo_wifi//test:test_support", "@googletest//:gtest_main"],
 )
+
+cc_test(
+    name = "material3_presentation_model_test",
+    srcs = ["test/material3_presentation_model_test.cpp"],
+    deps = [
+        ":roo_windows_wifi",
+        "@googletest//:gtest_main",
+        "@roo_wifi//test:test_support",
+    ],
+)
