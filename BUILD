@@ -50,3 +50,13 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "material3_settings_destination_test",
+    srcs = ["test/material3_settings_destination_test.cpp"],
+    deps = [
+        ":roo_windows_wifi",
+        "@googletest//:gtest_main",
+        "@roo_wifi//test:test_support",
+    ],
+)
