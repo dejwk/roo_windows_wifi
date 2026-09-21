@@ -183,6 +183,11 @@ TEST(WifiPresentationModelTest, TracksCompletedProfileWithoutScan) {
   ASSERT_NE(model.current(), nullptr);
   EXPECT_EQ(model.current()->profile_id, 9u);
   EXPECT_FALSE(model.current()->profile_ambiguous);
+  ASSERT_NE(controller.removeProfile(9).id, 0u);
+  roo_wifi::Pump(scheduler);
+  ASSERT_NE(model.current(), nullptr);
+  EXPECT_EQ(model.current()->profile_id, 0u);
+  EXPECT_FALSE(model.current()->saved);
 }
 
 }  // namespace

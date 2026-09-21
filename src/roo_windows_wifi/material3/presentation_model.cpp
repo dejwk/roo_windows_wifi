@@ -142,6 +142,7 @@ void WifiPresentationModel::rebuildNetworks() {
       scanned->connecting = current_.connecting;
     }
     for (const WifiSavedProfileSummary& profile : profiles_) {
+      if (connected_profile_ != 0 && profile.id != connected_profile_) continue;
       if (profile.ssid != current_.ssid ||
           profile.settings.connection.security != current_.security)
         continue;
