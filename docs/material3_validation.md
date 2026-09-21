@@ -40,8 +40,12 @@ IPv4 and proxy validation, and disconnect-before-forget.
 The full-flow test renders a 320×240 application and navigates through settings,
 editing, save/connect, saved networks, details, confirmation cancellation and
 forget through the production controller with deterministic HAL/storage fakes.
-Rendering baselines cover radio on/off, connected details, static IPv4 editing
-and forget confirmation. They are ordinary PPM files under `test/goldens`.
+Rendering baselines cover radio on/off, scrolled network and navigation rows,
+connected details, static IPv4 editing and forget confirmation. The root uses
+one scrolling body beneath the app bar: the switch, current connection, section
+heading/status, recycled networks and navigation rows all scroll together.
+Only the app bar is pinned. The root scroll regression counts every pixel
+write and requires at most one write per pixel per frame, including row reuse. They are ordinary PPM files under `test/goldens`.
 
 Regenerate baselines explicitly, review the images, then run the normal test:
 
@@ -54,7 +58,9 @@ Resource tests separate row binding, layout-pool growth and flow construction.
 On this x86-64 host ABI the row object is 112 bytes, plus its pre-reserved
 32-byte SSID capacity and allocator overhead. Forty networks in a 320×240
 viewport retain six rows including the prototype, with no further pool growth
-during scrolling. One hundred long-SSID saved-row rebinds perform zero heap
+during scrolling. The complete root layout also checks a forty-network list
+inside its scrolling settings column: logical list height does not allocate a
+widget per network. One hundred long-SSID saved-row rebinds perform zero heap
 allocations. Host flow construction measurements are printed by the resource
 test; allocation byte totals are cumulative, not retained or peak RAM.
 

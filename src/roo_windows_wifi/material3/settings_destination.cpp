@@ -4,24 +4,34 @@
 #include <cstring>
 #include <limits>
 
+#include "roo_icons/outlined/18/content.h"
 #include "roo_icons/outlined/18/navigation.h"
+#include "roo_icons/outlined/24/content.h"
 #include "roo_icons/outlined/24/navigation.h"
+#include "roo_icons/outlined/36/content.h"
 #include "roo_icons/outlined/36/navigation.h"
+#include "roo_icons/outlined/48/content.h"
 #include "roo_icons/outlined/48/navigation.h"
 #include "roo_windows/containers/list_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/container.h"
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
-#include "roo_windows/material3/button/button.h"
 #include "roo_windows/material3/button/icon_button.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
 #include "roo_windows/material3/list/list.h"
+#include "roo_windows/material3/typography.h"
+#include "roo_windows/widgets/text_block.h"
+#include "roo_windows_wifi/material3/internal/borrowed_layout.h"
 #include "roo_windows_wifi/material3/network_policy.h"
 
 namespace roo_windows_wifi {
 namespace material3 {
 namespace {
+
+const roo_display::Pictogram kAddIcon(SCALED_ROO_ICON(outlined, content_add));
+const roo_display::Pictogram kSavedIcon(SCALED_ROO_ICON(outlined,
+                                                        content_save));
 
 constexpr size_t kCurrentNetworkIndex = std::numeric_limits<size_t>::max();
 
@@ -39,7 +49,7 @@ class AvailableNetworkModel : public roo_windows::ListModel {
       : model_(model) {}
 
   int elementCount() const override {
-    int count = model_.current() ? 1 : 0;
+    int count = 0;
     for (const WifiNetworkSummary& network : model_.networks()) {
       if (!network.current) ++count;
     }
@@ -47,14 +57,6 @@ class AvailableNetworkModel : public roo_windows::ListModel {
   }
 
   void set(int index, roo_windows::Widget& destination) const override {
-    if (model_.current()) {
-      if (index == 0) {
-        static_cast<WifiNetworkRow&>(destination)
-            .bind(kCurrentNetworkIndex, *model_.current());
-        return;
-      }
-      --index;
-    }
     for (size_t model_index = 0; model_index < model_.networks().size();
          ++model_index) {
       if (model_.networks()[model_index].current) continue;
@@ -70,162 +72,110 @@ class AvailableNetworkModel : public roo_windows::ListModel {
   WifiPresentationModel& model_;
 };
 
-class SettingsBody : public roo_windows::Container {
+template <typename Item>
+class SettingsRow : public roo_windows::material3::ListRow<Item> {
+ public:
+  using roo_windows::material3::ListRow<Item>::ListRow;
+
+  roo_windows::PreferredSize getPreferredSize() const override {
+    return {roo_windows::PreferredSize::MatchParentWidth(),
+            roo_windows::material3::ListRow<Item>::getPreferredSize().height()};
+  }
+};
+
+class SectionText : public roo_windows::TextBlock {
+ public:
+  using roo_windows::TextBlock::TextBlock;
+
+  roo_windows::Margins getDefaultMargins() const override {
+    return {roo_windows::Scaled(16), roo_windows::Scaled(8)};
+  }
+  roo_windows::PreferredSize getPreferredSize() const override {
+    return {roo_windows::PreferredSize::MatchParentWidth(),
+            roo_windows::PreferredSize::WrapContentHeight()};
+  }
+};
+
+// One scroll coordinate space for settings, recycled results and navigation.
+// ListLayout allocates its row pool from the window viewport, not its logical
+// content height; the surrounding column adds only these fixed-count widgets.
+class SettingsBody : public internal::BorrowedColumn {
  public:
   SettingsBody(roo_windows::ApplicationContext& context,
                WifiPresentationModel& model, WifiNetworkRow::Listener& listener,
-               WifiSettingsDestination& destination)
-      : roo_windows::Container(context),
+               WifiSettingsDestination& destination,
+               WifiSettingsDestination::Actions& actions)
+      : BorrowedColumn(context),
         model_(model),
-        listener_(listener),
-        destination_(destination),
-        enabled_(context, "Wi-Fi", "Search for and connect to networks"),
+        enabled_(context, "Use Wi-Fi", ""),
+        current_(context, listener),
+        heading_(context, "Available networks",
+                 roo_windows::material3::text_style_title_small()),
+        status_(context, "", roo_windows::material3::text_style_body_medium()),
         available_model_(model),
         available_(context, available_model_,
-                   [this, &context]() {
-                     return std::make_unique<WifiNetworkRow>(context,
-                                                             listener_);
+                   [&context, &listener]() {
+                     return std::make_unique<WifiNetworkRow>(context, listener);
                    }),
-        scroller_(context, available_) {
-    enabled_.item().setOnInvoked(
-        [this]() { destination_.setWifiEnabled(enabled_.item().isOn()); });
-    attachChild(enabled_);
-    attachChild(scroller_);
+        add_(context, context, kAddIcon, "Add network"),
+        saved_(context, context, kSavedIcon, "Saved networks") {
+    enabled_.item().setOnInvoked([this, &destination]() {
+      destination.setWifiEnabled(enabled_.item().isOn());
+    });
+    add_.item().setOnInvoked([&actions]() { actions.addNetwork(); });
+    saved_.item().setOnInvoked([&actions]() { actions.showSavedNetworks(); });
+    add(enabled_);
+    add(current_);
+    add(heading_);
+    add(status_);
+    add(available_);
+    add(add_);
+    add(saved_);
     sync(model_.controller().isEnabled());
   }
 
-  ~SettingsBody() override {
-    detachChild(&scroller_);
-    detachChild(&enabled_);
-  }
+  ~SettingsBody() override { removeAll(); }
 
   void sync(bool enabled) {
+    using roo_windows::Visibility;
     enabled_.item().setOn(enabled);
-    scroller_.setVisibility(enabled && available_model_.elementCount() > 0
-                                ? roo_windows::Visibility::kVisible
-                                : roo_windows::Visibility::kGone);
+    enabled_.refreshFromItem();
+    current_.setVisibility(enabled && model_.current() ? Visibility::kVisible
+                                                       : Visibility::kGone);
+    if (enabled && model_.current())
+      current_.bind(kCurrentNetworkIndex, *model_.current());
+    heading_.setVisibility(enabled ? Visibility::kVisible : Visibility::kGone);
+    available_.setVisibility(enabled && availableCount() > 0
+                                 ? Visibility::kVisible
+                                 : Visibility::kGone);
     available_.modelChanged();
     requestLayout();
   }
 
   void setStatus(const std::string& text, bool busy) {
-    enabled_.item().setSupportingText(
-        text.empty() ? roo::string_view("Search for and connect to networks")
-                     : roo::string_view(text));
-    enabled_.refreshFromItem();
+    status_.setText(text);
+    status_.setVisibility(text.empty() || text == "Select a network" ||
+                                  text == "Connected"
+                              ? roo_windows::Visibility::kGone
+                              : roo_windows::Visibility::kVisible);
     available_.setEnabled(!busy);
   }
 
-  size_t availableCount() const {
-    return available_model_.elementCount() - (hasCurrent() ? 1 : 0);
-  }
-
+  size_t availableCount() const { return available_model_.elementCount(); }
   bool hasCurrent() const {
     return model_.controller().isEnabled() && model_.current() != nullptr;
   }
 
- protected:
-  roo_windows::Dimensions onMeasure(roo_windows::WidthSpec width,
-                                    roo_windows::HeightSpec height) override {
-    const int16_t control_row = roo_windows::Scaled(64);
-    enabled_.measure(roo_windows::WidthSpec::Exactly(width.value()),
-                     roo_windows::HeightSpec::Exactly(control_row));
-    const int16_t list_height =
-        std::max<int16_t>(0, height.value() - control_row);
-    scroller_.measure(roo_windows::WidthSpec::Exactly(width.value()),
-                      roo_windows::HeightSpec::Exactly(list_height));
-    return roo_windows::Dimensions(width.value(), height.value());
-  }
-
-  void onLayout(bool changed, const roo_windows::Rect& rect) override {
-    (void)changed;
-    const int16_t control_row = roo_windows::Scaled(64);
-    enabled_.layout(roo_windows::Rect(0, 0, rect.width() - 1, control_row - 1));
-    scroller_.layout(
-        roo_windows::Rect(0, control_row, rect.width() - 1, rect.height() - 1));
-  }
-
-  int getChildrenCount() const override { return 2; }
-  const roo_windows::Widget& getChild(int index) const override {
-    return index == 0 ? static_cast<const roo_windows::Widget&>(enabled_)
-                      : static_cast<const roo_windows::Widget&>(scroller_);
-  }
-  roo_windows::Widget& getChild(int index) override {
-    return index == 0 ? static_cast<roo_windows::Widget&>(enabled_)
-                      : static_cast<roo_windows::Widget&>(scroller_);
-  }
-
  private:
   WifiPresentationModel& model_;
-  WifiNetworkRow::Listener& listener_;
-  WifiSettingsDestination& destination_;
-  roo_windows::material3::ListRow<roo_windows::material3::SwitchListItem>
-      enabled_;
+  SettingsRow<roo_windows::material3::SwitchListItem> enabled_;
+  WifiNetworkRow current_;
+  SectionText heading_;
+  SectionText status_;
   AvailableNetworkModel available_model_;
   roo_windows::ListLayout available_;
-  roo_windows::SimpleScrollablePanel scroller_;
-};
-
-/// Places the persistent navigation actions in compact scaffold chrome.
-class SettingsFooter : public roo_windows::Container {
- public:
-  SettingsFooter(roo_windows::ApplicationContext& context,
-                 WifiSettingsDestination::Actions& actions)
-      : roo_windows::Container(context),
-        actions_(actions),
-        add_(context, "Add network",
-             roo_windows::material3::ButtonVariant::kText),
-        saved_(context, "Saved networks",
-               roo_windows::material3::ButtonVariant::kText) {
-    add_.setOnInteractiveChange([this]() { actions_.addNetwork(); });
-    saved_.setOnInteractiveChange([this]() { actions_.showSavedNetworks(); });
-    attachChild(add_);
-    attachChild(saved_);
-  }
-
-  ~SettingsFooter() override {
-    detachChild(&saved_);
-    detachChild(&add_);
-  }
-
- protected:
-  roo_windows::Dimensions onMeasure(roo_windows::WidthSpec width,
-                                    roo_windows::HeightSpec height) override {
-    const int16_t footer_height = roo_windows::Scaled(56);
-    const int16_t measured_height = height.resolveSize(footer_height);
-    const int16_t leading_width = width.value() / 2;
-    add_.measure(roo_windows::WidthSpec::Exactly(leading_width),
-                 roo_windows::HeightSpec::Exactly(measured_height));
-    saved_.measure(
-        roo_windows::WidthSpec::Exactly(width.value() - leading_width),
-        roo_windows::HeightSpec::Exactly(measured_height));
-    return {width.value(), measured_height};
-  }
-
-  void onLayout(bool, const roo_windows::Rect& rect) override {
-    const int16_t leading_width = rect.width() / 2;
-    add_.layout({0, 0, static_cast<int16_t>(leading_width - 1),
-                 static_cast<int16_t>(rect.height() - 1)});
-    saved_.layout({leading_width, 0, static_cast<int16_t>(rect.width() - 1),
-                   static_cast<int16_t>(rect.height() - 1)});
-  }
-
-  int getChildrenCount() const override { return 2; }
-
-  const roo_windows::Widget& getChild(int index) const override {
-    return index == 0 ? static_cast<const roo_windows::Widget&>(add_)
-                      : static_cast<const roo_windows::Widget&>(saved_);
-  }
-
-  roo_windows::Widget& getChild(int index) override {
-    return index == 0 ? static_cast<roo_windows::Widget&>(add_)
-                      : static_cast<roo_windows::Widget&>(saved_);
-  }
-
- private:
-  WifiSettingsDestination::Actions& actions_;
-  roo_windows::material3::Button add_;
-  roo_windows::material3::Button saved_;
+  SettingsRow<roo_windows::material3::NavigationListItem> add_;
+  SettingsRow<roo_windows::material3::NavigationListItem> saved_;
 };
 
 }  // namespace
@@ -238,27 +188,26 @@ class WifiSettingsDestination::Impl {
       : app_bar_(context),
         refresh_(context, SCALED_ROO_ICON(outlined, navigation_refresh),
                  roo_windows::material3::IconButtonStyle::kStandard),
-        body_(context, model, listener, destination),
-        footer_(context, actions),
+        body_(context, model, listener, destination, actions),
+        scroller_(context, body_),
         destination_(destination),
         wifi_request_pending_(false),
         desired_wifi_enabled_(false),
         scaffold_(context) {
-    // The switch row borrows these bounded status messages across updates.
+    // Reserve storage for bounded operation feedback.
     feedback_.reserve(128);
     app_bar_.setTitle("Wi-Fi");
     refresh_.setOnInteractiveChange([this]() { destination_.refreshScan(); });
     app_bar_.setTrailing(0, refresh_);
     scaffold_.setTopBar(app_bar_);
-    scaffold_.setBottomBar(footer_);
-    scaffold_.setBody(body_);
+    scaffold_.setBody(scroller_);
   }
 
   std::string feedback_;
   roo_windows::material3::AppBar app_bar_;
   roo_windows::material3::IconButton refresh_;
   SettingsBody body_;
-  SettingsFooter footer_;
+  internal::FormScroll scroller_;
   WifiSettingsDestination& destination_;
   uint8_t wifi_request_pending_ : 1;
   uint8_t desired_wifi_enabled_ : 1;
@@ -405,7 +354,7 @@ void WifiSettingsDestination::syncBody() {
               phase == roo_wifi::LinkPhase::kConnecting ||
               phase == roo_wifi::LinkPhase::kAssociated;
   impl_->body_.setStatus(impl_->feedback_, busy);
-  impl_->scaffold_.invalidateInterior();
+
   impl_->refresh_.setEnabled(
       wifiEnabled() && !busy &&
       (!model_.current() ||

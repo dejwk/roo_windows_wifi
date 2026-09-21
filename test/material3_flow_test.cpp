@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -6,13 +7,82 @@
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
 #include "roo_display/core/offscreen.h"
+#include "roo_windows/containers/list_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/application.h"
 #include "roo_windows/core/environment.h"
+#include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
+#include "roo_windows_wifi/material3/internal/borrowed_layout.h"
 #include "roo_windows_wifi/material3/settings_flow.h"
 
 namespace roo_windows_wifi::material3 {
 namespace {
+using roo_display::Color;
+
+class CountingDisplay
+    : public roo_display::OffscreenDevice<roo_display::Argb4444> {
+ public:
+  explicit CountingDisplay(roo::byte* data)
+      : OffscreenDevice(320, 240, data, roo_display::Argb4444()),
+        writes(320 * 240) {}
+  void reset() { std::fill(writes.begin(), writes.end(), 0); }
+  void setAddress(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
+                  roo_display::BlendingMode mode) override {
+    left = x = x0;
+    right = x1;
+    y = y0;
+    OffscreenDevice::setAddress(x0, y0, x1, y1, mode);
+  }
+  void count(uint32_t n) {
+    while (n--) {
+      ++writes[y * 320 + x];
+      if (++x > right) {
+        x = left;
+        ++y;
+      }
+    }
+  }
+  void write(Color* colors, uint32_t n) override {
+    count(n);
+    OffscreenDevice::write(colors, n);
+  }
+  void fill(Color color, uint32_t n) override {
+    count(n);
+    OffscreenDevice::fill(color, n);
+  }
+  void writePixels(roo_display::BlendingMode mode, Color* colors, int16_t* xs,
+                   int16_t* ys, uint16_t n) override {
+    for (int i = 0; i < n; ++i) {
+      setAddress(xs[i], ys[i], xs[i], ys[i], mode);
+      write(colors + i, 1);
+    }
+  }
+  void fillPixels(roo_display::BlendingMode mode, Color color, int16_t* xs,
+                  int16_t* ys, uint16_t n) override {
+    for (int i = 0; i < n; ++i) {
+      setAddress(xs[i], ys[i], xs[i], ys[i], mode);
+      fill(color, 1);
+    }
+  }
+  void writeRects(roo_display::BlendingMode mode, Color* colors, int16_t* x0,
+                  int16_t* y0, int16_t* x1, int16_t* y1, uint16_t n) override {
+    for (int i = 0; i < n; ++i) {
+      setAddress(x0[i], y0[i], x1[i], y1[i], mode);
+      fill(colors[i], (x1[i] - x0[i] + 1) * (y1[i] - y0[i] + 1));
+    }
+  }
+  void fillRects(roo_display::BlendingMode mode, Color color, int16_t* x0,
+                 int16_t* y0, int16_t* x1, int16_t* y1, uint16_t n) override {
+    for (int i = 0; i < n; ++i) {
+      setAddress(x0[i], y0[i], x1[i], y1[i], mode);
+      fill(color, (x1[i] - x0[i] + 1) * (y1[i] - y0[i] + 1));
+    }
+  }
+  std::vector<uint8_t> writes;
+
+ private:
+  int left = 0, right = 0, x = 0, y = 0;
+};
 
 // Stores reviewable RGB snapshots; updates require an explicit repository path.
 void Golden(const roo_display::Rasterizable& raster, const char* name) {
@@ -57,17 +127,21 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   roo::byte pixels[320 * 240 * 2] = {};
-  roo_display::OffscreenDevice<roo_display::Argb4444> device(
-      320, 240, pixels, roo_display::Argb4444());
+  CountingDisplay device(pixels);
   roo_display::Display display(device);
   roo_windows::Environment environment(scheduler);
   roo_windows::Application app(&environment, display);
+  // Initialize the display before counting a logical UI paint.
+  ASSERT_TRUE(app.refresh());
   WifiSettingsFlow flow(app.context(), controller, 7);
   auto& task = app.addTaskFullScreen();
   auto& navigation = task.navigation();
   navigation.push(flow.main());
+  device.reset();
   ASSERT_TRUE(app.refresh());
   Golden(device.raster(), "wifi_off");
+  EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
+  device.reset();
 
   roo_wifi::ScanRecord ap;
   ap.ssid = roo_wifi::TestConfig("Workshop").ssid;
@@ -80,6 +154,7 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   roo_wifi::Pump(scheduler);
   ASSERT_TRUE(app.refresh());
   Golden(device.raster(), "wifi_on");
+  EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
 
   flow.settingsDestination().activateNetwork(0);
   EXPECT_TRUE(navigation.isCurrent(flow.editDestination()));
@@ -110,6 +185,7 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   task.requestBack();
   EXPECT_TRUE(navigation.isCurrent(flow.main()));
   ASSERT_TRUE(app.refresh());
+  Golden(device.raster(), "wifi_connected");
 
   navigation.push(flow.savedNetworksDestination());
   ASSERT_TRUE(app.refresh());
@@ -133,6 +209,71 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   EXPECT_EQ(controller.loadProfile(7, profile), roo_wifi::Status::kNotFound);
   EXPECT_FALSE(details.network().current);
   EXPECT_EQ(flow.savedNetworksDestination().profileCount(), 0u);
+  navigation.clear();
+}
+// Exercises actual root composition, recycling and final-pixel writes together.
+TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
+  roo_scheduler::Scheduler scheduler;
+  roo_wifi::TestStation station;
+  roo_wifi::OrderedInterface radio(station);
+  roo_wifi::MemoryStore store;
+  store.enabled = true;
+  for (int i = 0; i < 40; ++i) {
+    roo_wifi::ScanRecord ap;
+    ap.ssid =
+        roo_wifi::TestConfig(("Network " + std::to_string(i)).c_str()).ssid;
+    ap.security = roo_wifi::AuthMode::kWpa2Personal;
+    ap.rssi_dbm = -45;
+    station.aps.push_back(ap);
+  }
+  roo_wifi::Controller controller(radio, store, scheduler);
+  ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo::byte pixels[320 * 240 * 2] = {};
+  CountingDisplay device(pixels);
+  roo_display::Display display(device);
+  roo_windows::Environment environment(scheduler);
+  roo_windows::Application app(&environment, display);
+  // Initialize the display before counting a logical UI paint.
+  ASSERT_TRUE(app.refresh());
+  WifiSettingsFlow flow(app.context(), controller, 7);
+  auto& navigation = app.addTaskFullScreen().navigation();
+  navigation.push(flow.main());
+  roo_wifi::Pump(scheduler);
+  station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(scheduler);
+  ASSERT_TRUE(app.refresh());
+  auto& scaffold = static_cast<roo_windows::material3::LayoutScaffold&>(
+      flow.main().getContents());
+  auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
+      *static_cast<roo_windows::Widget&>(scaffold).focusChildAt(1));
+  auto& column = static_cast<internal::BorrowedColumn&>(*scroll.contents());
+  auto& list = static_cast<roo_windows::ListLayout&>(column.child_at(4));
+  EXPECT_EQ(scroll.height(), 240 - roo_windows::Scaled(64));
+  EXPECT_EQ(list.height(), 40 * roo_windows::Scaled(72));
+  EXPECT_LT(list.children().size(), 8u);
+  for (int offset : {40, 120, 300, 800, 1400, 2200, 100}) {
+    device.reset();
+    scroll.scrollTo(0, -offset);
+    ASSERT_TRUE(app.refresh());
+    EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1)
+        << "scroll offset=" << offset;
+    EXPECT_LT(list.children().size(), 8u);
+  }
+  Golden(device.raster(), "wifi_networks_scrolled");
+  scroll.scrollToBottom();
+  device.reset();
+  ASSERT_TRUE(app.refresh());
+  EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
+  Golden(device.raster(), "wifi_navigation_scrolled");
+  EXPECT_EQ(column.child_at(0).width(), scroll.width());
+  EXPECT_EQ(column.child_at(5).width(), scroll.width());
+  EXPECT_EQ(column.child_at(6).width(), scroll.width());
+  column.child_at(6).onClicked();
+  EXPECT_TRUE(navigation.isCurrent(flow.savedNetworksDestination()));
+  navigation.pop();
+  column.child_at(5).onClicked();
+  EXPECT_TRUE(navigation.isCurrent(flow.editDestination()));
   navigation.clear();
 }
 }  // namespace
