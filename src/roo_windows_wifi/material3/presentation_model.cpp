@@ -129,6 +129,7 @@ void WifiPresentationModel::rebuildNetworks() {
     current_.channel = link.channel;
     current_.current = true;
     current_.connecting = link.phase != roo_wifi::LinkPhase::kAddressReady;
+    current_.link_phase = link.phase;
     std::vector<WifiNetworkSummary>::iterator scanned =
         std::find_if(networks.begin(), networks.end(),
                      [&](const WifiNetworkSummary& summary) {
@@ -140,6 +141,7 @@ void WifiPresentationModel::rebuildNetworks() {
 
       scanned->current = true;
       scanned->connecting = current_.connecting;
+      scanned->link_phase = current_.link_phase;
     }
     for (const WifiSavedProfileSummary& profile : profiles_) {
       if (connected_profile_ != 0 && profile.id != connected_profile_) continue;

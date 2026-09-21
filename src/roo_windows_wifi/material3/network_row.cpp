@@ -103,7 +103,12 @@ WifiSignalState WifiNetworkRow::signalState() const {
 }
 
 const char* WifiNetworkRow::supportingText() const {
-  if (summary_.connecting) return "Connecting\xE2\x80\xA6";
+  if (summary_.connecting) {
+    if (summary_.link_phase == roo_wifi::LinkPhase::kAssociated) {
+      return "Acquiring IP address\xE2\x80\xA6";
+    }
+    return "Connecting\xE2\x80\xA6";
+  }
   if (summary_.current) return "Connected";
   if (!summary_.in_range) return "Out of range";
   if (summary_.profile_ambiguous) return "Multiple saved profiles";

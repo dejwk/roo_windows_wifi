@@ -22,6 +22,7 @@ struct WifiNetworkSummary {
   bool profile_ambiguous = false;
   bool current = false;
   bool connecting = false;
+  roo_wifi::LinkPhase link_phase = roo_wifi::LinkPhase::kIdle;
   bool in_range = false;
 
   /// Returns true when the network does not require credentials.
