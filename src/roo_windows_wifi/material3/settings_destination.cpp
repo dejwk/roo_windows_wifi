@@ -112,7 +112,7 @@ class SettingsBody : public roo_windows::Container {
     enabled_.item().setSupportingText(
         text.empty() ? roo::string_view("Search for and connect to networks")
                      : roo::string_view(text));
-    enabled_.invalidateInterior();
+    enabled_.refreshFromItem();
     available_.setEnabled(!busy);
   }
 
@@ -244,6 +244,8 @@ class WifiSettingsDestination::Impl {
         wifi_request_pending_(false),
         desired_wifi_enabled_(false),
         scaffold_(context) {
+    // The switch row borrows these bounded status messages across updates.
+    feedback_.reserve(128);
     app_bar_.setTitle("Wi-Fi");
     refresh_.setOnInteractiveChange([this]() { destination_.refreshScan(); });
     app_bar_.setTrailing(0, refresh_);
@@ -252,6 +254,7 @@ class WifiSettingsDestination::Impl {
     scaffold_.setBody(body_);
   }
 
+  std::string feedback_;
   roo_windows::material3::AppBar app_bar_;
   roo_windows::material3::IconButton refresh_;
   SettingsBody body_;
@@ -263,7 +266,6 @@ class WifiSettingsDestination::Impl {
   roo_wifi::OperationId scan_id_ = 0;
   roo_wifi::OperationId connect_id_ = 0;
   WifiNetworkSummary requested_;
-  std::string feedback_;
   roo_time::Duration scan_max_age_ = roo_time::Seconds(30);
   // Declared last so it detaches its borrowed slots before their destruction.
   roo_windows::material3::LayoutScaffold scaffold_;
@@ -403,6 +405,7 @@ void WifiSettingsDestination::syncBody() {
               phase == roo_wifi::LinkPhase::kConnecting ||
               phase == roo_wifi::LinkPhase::kAssociated;
   impl_->body_.setStatus(impl_->feedback_, busy);
+  impl_->scaffold_.invalidateInterior();
   impl_->refresh_.setEnabled(
       wifiEnabled() && !busy &&
       (!model_.current() ||

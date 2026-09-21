@@ -53,6 +53,14 @@ TEST(WifiNetworkDetailsDestinationTest, RetainsSelectionOutOfRangeAndUsesId) {
   // Removing this key must not retarget details to another matching profile.
   ASSERT_NE(controller.saveProfile(9, settings, clear).id, 0u);
   roo_wifi::Pump(scheduler);
+  roo_wifi::ScanRecord record;
+  record.ssid = settings.connection.ssid;
+  record.security = settings.connection.security;
+  station.aps.push_back(record);
+  ASSERT_NE(controller.scan().id, 0u);
+  roo_wifi::Pump(scheduler);
+  station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(scheduler);
   ASSERT_NE(destination.forget().id, 0u);
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(station.disconnects, 1);

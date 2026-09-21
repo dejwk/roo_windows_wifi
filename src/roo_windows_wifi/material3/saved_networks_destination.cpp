@@ -5,9 +5,14 @@
 #include "roo_icons/outlined/36/navigation.h"
 #include "roo_icons/outlined/48/navigation.h"
 #include "roo_windows/containers/list_layout.h"
+#include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
+#include "roo_windows/material3/button/button.h"
 #include "roo_windows/material3/button/icon_button.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
+#include "roo_windows/material3/typography.h"
+#include "roo_windows/widgets/text_block.h"
+#include "roo_windows_wifi/material3/internal/borrowed_layout.h"
 
 namespace roo_windows_wifi {
 namespace material3 {
@@ -16,17 +21,20 @@ namespace {
 class SavedProfileModel : public roo_windows::ListModel {
  public:
   explicit SavedProfileModel(WifiSavedNetworksDestination& destination)
-      : destination_(destination) {}
+      : destination_(destination) {
+    scratch_.ssid.reserve(32);
+  }
 
   int elementCount() const override { return destination_.profileCount(); }
 
   void set(int index, roo_windows::Widget& widget) const override {
-    static_cast<WifiNetworkRow&>(widget).bind(
-        index, destination_.profileSummary(static_cast<size_t>(index)));
+    destination_.profileSummary(static_cast<size_t>(index), scratch_);
+    static_cast<WifiNetworkRow&>(widget).bind(index, scratch_);
   }
 
  private:
   WifiSavedNetworksDestination& destination_;
+  mutable WifiNetworkSummary scratch_;
 };
 
 }  // namespace
@@ -46,20 +54,40 @@ class WifiSavedNetworksDestination::Impl {
                     context,
                     static_cast<WifiNetworkRow::Listener&>(destination_));
               }),
+        scroller_(context, list_),
+        status_(context, "", roo_windows::material3::text_style_body_medium()),
+        retry_(context, "Retry", roo_windows::material3::ButtonVariant::kText),
+        footer_(context),
         scaffold_(context) {
     app_bar_.setTitle("Saved networks");
     back_.setOnInteractiveChange([this]() { destination_.exit(); });
     app_bar_.setLeading(back_);
     scaffold_.setTopBar(app_bar_);
-    scaffold_.setBody(list_);
+    scaffold_.setBody(scroller_);
+    footer_.add(status_);
+    footer_.add(retry_);
+    retry_.setOnInteractiveChange([this]() { destination_.onResume(); });
+    scaffold_.setBottomBar(footer_);
     sync();
   }
 
   void sync() {
     const bool has_profiles = destination_.profileCount() > 0;
-    list_.setVisibility(has_profiles ? roo_windows::Visibility::kVisible
-                                     : roo_windows::Visibility::kGone);
+    scroller_.setVisibility(has_profiles ? roo_windows::Visibility::kVisible
+                                         : roo_windows::Visibility::kGone);
     if (has_profiles) list_.modelChanged();
+    bool failed = destination_.model_.profileStatus() != roo_wifi::Status::kOk;
+    bool unreadable = !destination_.model_.unreadableProfileIds().empty();
+    status_.setText(failed         ? "Saved networks could not be refreshed"
+                    : unreadable   ? "Some saved networks could not be loaded"
+                    : has_profiles ? ""
+                                   : "No saved networks");
+    status_.setVisibility(failed || unreadable || !has_profiles
+                              ? roo_windows::Visibility::kVisible
+                              : roo_windows::Visibility::kGone);
+    retry_.setVisibility(failed || unreadable
+                             ? roo_windows::Visibility::kVisible
+                             : roo_windows::Visibility::kGone);
   }
 
   WifiSavedNetworksDestination& destination_;
@@ -67,6 +95,10 @@ class WifiSavedNetworksDestination::Impl {
   roo_windows::material3::IconButton back_;
   SavedProfileModel list_model_;
   roo_windows::ListLayout list_;
+  roo_windows::SimpleScrollablePanel scroller_;
+  roo_windows::TextBlock status_;
+  roo_windows::material3::Button retry_;
+  internal::BorrowedColumn footer_;
   roo_windows::material3::LayoutScaffold scaffold_;
 };
 
@@ -98,8 +130,26 @@ size_t WifiSavedNetworksDestination::profileCount() const {
 
 WifiNetworkSummary WifiSavedNetworksDestination::profileSummary(
     size_t index) const {
-  const WifiSavedProfileSummary& profile = model_.savedProfiles()[index];
   WifiNetworkSummary summary;
+  profileSummary(index, summary);
+  return summary;
+}
+
+const std::string& WifiSavedNetworksDestination::feedback() const {
+  return impl_->status_.text();
+}
+
+void WifiSavedNetworksDestination::profileSummary(
+    size_t index, WifiNetworkSummary& summary) const {
+  const WifiSavedProfileSummary& profile = model_.savedProfiles()[index];
+  // Clear every scalar while preserving the retained string's capacity.
+  summary.bssid = {};
+  summary.rssi_dbm = -128;
+  summary.channel = 0;
+  summary.profile_ambiguous = false;
+  summary.current = false;
+  summary.connecting = false;
+  summary.in_range = false;
   summary.ssid = profile.ssid;
   summary.security = profile.settings.connection.security;
   summary.profile_id = profile.id;
@@ -122,7 +172,6 @@ WifiNetworkSummary WifiSavedNetworksDestination::profileSummary(
       break;
     }
   }
-  return summary;
 }
 
 void WifiSavedNetworksDestination::activateProfile(size_t index) {

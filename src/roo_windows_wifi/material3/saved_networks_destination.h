@@ -42,6 +42,13 @@ class WifiSavedNetworksDestination : public roo_windows::Destination,
   /// Returns an owned row summary for a sorted saved-profile index.
   WifiNetworkSummary profileSummary(size_t index) const;
 
+  /// Fills retained row storage; reserve its SSID capacity to 32 before
+  /// binding.
+  void profileSummary(size_t index, WifiNetworkSummary& summary) const;
+
+  /// Returns the current empty-state or enumeration-error message.
+  const std::string& feedback() const;
+
   /// Opens one saved profile by sorted presentation index.
   void activateProfile(size_t index);
 

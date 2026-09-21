@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "roo_windows/core/environment.h"
+#include "roo_windows/material3/text_field/text_field.h"
 #include "roo_windows_wifi/material3/config_form.h"
 
 namespace roo_windows_wifi::material3 {
@@ -85,5 +86,57 @@ TEST_F(FormTest, FiltersCapabilities) {
   ASSERT_EQ(build(), roo_wifi::Status::kOk);
   EXPECT_TRUE(settings.connection.hidden);
 }
+// Verifies correcting an invalid field clears the Material 3 error state.
+TEST_F(FormTest, ClearsFieldErrorAfterCorrection) {
+  form.setText(WifiConfigForm::kSsid, "");
+  EXPECT_EQ(build(), roo_wifi::Status::kInvalidArgument);
+  auto& ssid =
+      static_cast<roo_windows::material3::TextField&>(form.child_at(0));
+  EXPECT_TRUE(ssid.hasError());
+  form.setText(WifiConfigForm::kSsid, "Corrected");
+  EXPECT_EQ(build(), roo_wifi::Status::kOk);
+  EXPECT_FALSE(ssid.hasError());
+}
+
+class Policy : public NetworkPolicyProvider {
+ public:
+  bool supportsMetered() const override { return true; }
+  bool supportsProxy() const override { return true; }
+  roo_wifi::Status read(roo_wifi::ProfileId, NetworkPolicy&) override {
+    return roo_wifi::Status::kNotFound;
+  }
+  roo_wifi::Status validate(const NetworkPolicy&) const override {
+    return roo_wifi::Status::kOk;
+  }
+  roo_wifi::Status apply(roo_wifi::ProfileId, const NetworkPolicy&) override {
+    return roo_wifi::Status::kOk;
+  }
+  roo_wifi::Status remove(roo_wifi::ProfileId) override {
+    return roo_wifi::Status::kOk;
+  }
+};
+
+// Verifies manual proxy is validated independently of Wi-Fi/IP settings.
+TEST_F(FormTest, ValidatesProxyPortAndBypassDraft) {
+  Policy provider;
+  WifiConfigForm proxy(context, support, &provider);
+  settings.connection.security = roo_wifi::AuthMode::kOpen;
+  proxy.load(settings, false);
+  proxy.setText(WifiConfigForm::kSsid, "Proxy network");
+  proxy.setChoice(WifiConfigForm::kProxy, 1);
+  proxy.setChoice(WifiConfigForm::kMetered, 1);
+  proxy.setText(WifiConfigForm::kProxyHost, "proxy.local");
+  proxy.setText(WifiConfigForm::kProxyPort, "65536");
+  EXPECT_EQ(proxy.build(settings, credential, policy),
+            roo_wifi::Status::kInvalidArgument);
+  EXPECT_TRUE(proxy.advanced());
+  proxy.setText(WifiConfigForm::kProxyPort, "8080");
+  proxy.setText(WifiConfigForm::kProxyBypass, "*.local,localhost");
+  ASSERT_EQ(proxy.build(settings, credential, policy), roo_wifi::Status::kOk);
+  EXPECT_EQ(policy.port, 8080);
+  EXPECT_EQ(policy.bypass, "*.local,localhost");
+  EXPECT_EQ(policy.metered, MeteredMode::kMetered);
+}
+
 }  // namespace
 }  // namespace roo_windows_wifi::material3

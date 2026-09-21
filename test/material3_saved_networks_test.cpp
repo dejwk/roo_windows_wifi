@@ -86,6 +86,11 @@ TEST(WifiSavedNetworksDestinationTest, EmptyAttachedListPaintsWithoutCrash) {
 
   EXPECT_TRUE(app.refresh());
   EXPECT_EQ(destination.profileCount(), 0u);
+  EXPECT_EQ(destination.feedback(), "No saved networks");
+  store.enumeration_error = roo_wifi::Status::kStorageFailure;
+  destination.onResume();
+  EXPECT_NE(destination.feedback().find("could not be refreshed"),
+            std::string::npos);
   navigation.clear();
 }
 

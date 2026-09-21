@@ -80,6 +80,22 @@ class WifiNetworkRow : public roo_windows::BasicSurfaceWidget {
   /// Returns true because every bound network row supports activation.
   bool isClickable() const override { return true; }
 
+  /// Uses internal row insets instead of adding margins to its 72dp height.
+  roo_windows::Margins getDefaultMargins() const override {
+    return roo_windows::Margins(0);
+  }
+
+  /// Paint already accounts for the row's complete internal insets.
+  roo_windows::Padding getDefaultPadding() const override {
+    return roo_windows::Padding(0);
+  }
+
+  /// Fills its column while retaining the fixed row height.
+  roo_windows::PreferredSize getPreferredSize() const override {
+    return {roo_windows::PreferredSize::MatchParentWidth(),
+            roo_windows::PreferredSize::ExactHeight(roo_windows::Scaled(72))};
+  }
+
   /// Returns the fixed dimensions used by the recycled list.
   roo_windows::Dimensions getSuggestedMinimumDimensions() const override;
 

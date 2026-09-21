@@ -96,3 +96,16 @@ cc_test(
     srcs = ["test/material3_config_form_test.cpp"],
     deps = [":roo_windows_wifi", "@googletest//:gtest_main"],
 )
+
+cc_test(
+    name = "material3_resource_test",
+    srcs = ["test/material3_resource_test.cpp"],
+    deps = [":roo_windows_wifi", "@googletest//:gtest_main", "@roo_wifi//test:test_support"],
+)
+
+cc_test(
+    name = "material3_flow_test",
+    srcs = ["test/material3_flow_test.cpp"],
+    data = glob(["test/goldens/*.ppm"], allow_empty = True),
+    deps = [":roo_windows_wifi", "@googletest//:gtest_main", "@roo_wifi//test:test_support"],
+)

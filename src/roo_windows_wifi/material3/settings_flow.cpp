@@ -21,6 +21,7 @@ WifiSettingsFlow::WifiSettingsFlow(roo_windows::ApplicationContext& context,
 }
 
 void WifiSettingsFlow::showNetworkDetails(const WifiNetworkSummary& network) {
+  if (details_.getNavigationHost() || details_.busy()) return;
   selected_ = network;
   details_.setNetwork(network);
   if (settings_.getNavigationHost() != nullptr)
@@ -45,12 +46,14 @@ void WifiSettingsFlow::addNetwork() {
 }
 
 void WifiSettingsFlow::showSavedNetworks() {
+  if (saved_.getNavigationHost()) return;
   roo_windows::NavigationHost* navigation = settings_.getNavigationHost();
   if (navigation != nullptr) navigation->push(saved_);
 }
 
 void WifiSettingsFlow::showSavedNetworkDetails(
     const WifiNetworkSummary& network) {
+  if (details_.getNavigationHost() || details_.busy()) return;
   selected_ = network;
   details_.setNetwork(network);
   if (saved_.getNavigationHost() != nullptr)

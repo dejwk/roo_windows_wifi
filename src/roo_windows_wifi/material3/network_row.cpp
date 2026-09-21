@@ -85,7 +85,10 @@ void WifiSignalGlyph::paint(roo_windows::PaintContext& ctx) const {
 
 WifiNetworkRow::WifiNetworkRow(roo_windows::ApplicationContext& context,
                                Listener& listener)
-    : roo_windows::BasicSurfaceWidget(context), listener_(listener) {}
+    : roo_windows::BasicSurfaceWidget(context), listener_(listener) {
+  // SSIDs are backend-bounded at 32 bytes. Reserve once, outside row rebind.
+  summary_.ssid.reserve(32);
+}
 
 void WifiNetworkRow::bind(size_t index, const WifiNetworkSummary& summary) {
   index_ = index;

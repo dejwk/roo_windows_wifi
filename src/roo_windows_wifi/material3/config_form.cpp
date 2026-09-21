@@ -51,6 +51,11 @@ class ObservedField : public Base {
                 std::function<void()>& changed)
       : Base(context, label, TextFieldVariant::kOutlined), changed_(changed) {}
 
+  PreferredSize getPreferredSize() const override {
+    return {PreferredSize::MatchParentWidth(),
+            PreferredSize::WrapContentHeight()};
+  }
+
  protected:
   void onTextChanged() override {
     if (changed_) changed_();
@@ -204,7 +209,7 @@ class WifiConfigForm::Impl {
                                                 : values[kMetered] == 1
                                                     ? "Metered"
                                                     : "Unmetered");
-    for (auto& row : choices) row->invalidateInterior();
+    for (auto& row : choices) row->refreshFromItem();
     form.requestLayout();
   }
 
@@ -271,7 +276,7 @@ void WifiConfigForm::load(const roo_wifi::ProfileSettings& settings, bool keep,
                     c.mac_policy != roo_wifi::MacPolicy::kDevice ||
                     policy.proxy != ProxyMode::kNone ||
                     policy.metered != MeteredMode::kAuto;
-  for (auto& field : impl_->fields) field->setErrorText({});
+  for (auto& field : impl_->fields) field->clearError();
   impl_->sync();
   impl_->changed = std::move(callback);
   if (impl_->changed) impl_->changed();
@@ -285,7 +290,7 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
   credential = {};
   policy = {};
   if (show)
-    for (auto& field : impl_->fields) field->setErrorText({});
+    for (auto& field : impl_->fields) field->clearError();
   auto invalid = [this, show](Field field, const char* error) {
     if (show) {
       impl_->fields[field]->setErrorText(error);
@@ -365,7 +370,20 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
     policy.port = port;
     policy.bypass = text(kProxyBypass);
   }
-  if (impl_->policies) return impl_->policies->validate(policy);
+  if (impl_->policies) {
+    if ((policy.proxy != ProxyMode::kNone &&
+         !impl_->policies->supportsProxy()) ||
+        (policy.metered != MeteredMode::kAuto &&
+         !impl_->policies->supportsMetered()))
+      return Status::kUnsupported;
+    Status status = impl_->policies->validate(policy);
+    if (show && status != Status::kOk) {
+      setAdvanced(true);
+      if (policy.proxy == ProxyMode::kManual)
+        impl_->fields[kProxyHost]->setErrorText(WifiStatusText(status));
+    }
+    return status;
+  }
   return policy.proxy == ProxyMode::kNone &&
                  policy.metered == MeteredMode::kAuto
              ? Status::kOk

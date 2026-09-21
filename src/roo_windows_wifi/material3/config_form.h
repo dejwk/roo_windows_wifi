@@ -36,6 +36,12 @@ class WifiConfigForm : public roo_windows::VerticalLayout {
   /// Detaches borrowed widgets before destroying the owned field storage.
   ~WifiConfigForm() override;
 
+  /// Fills the scrolling body's width without fixing its content height.
+  roo_windows::PreferredSize getPreferredSize() const override {
+    return {roo_windows::PreferredSize::MatchParentWidth(),
+            roo_windows::PreferredSize::WrapContentHeight()};
+  }
+
   /// Loads saved settings and policy, clearing any previous credential text.
   void load(const roo_wifi::ProfileSettings& settings, bool keep_credentials,
             const NetworkPolicy& policy = {});

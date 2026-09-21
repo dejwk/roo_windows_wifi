@@ -157,7 +157,7 @@ class WifiNetworkDetailsDestination::Impl {
   List info;
   TextBlock message;
   internal::BorrowedColumn body;
-  SimpleScrollablePanel scroll;
+  internal::FormScroll scroll;
   ForgetDialog dialog;
   LayoutScaffold scaffold;
 };
@@ -348,7 +348,12 @@ void WifiNetworkDetailsDestination::syncControls() {
                                               : Visibility::kVisible);
     impl_->setting_rows[i]->setEnabled(idle && can_edit && supported);
     impl_->setting_rows[i]->item().setSupportingText(values[i]);
-    impl_->setting_rows[i]->invalidateInterior();
+    impl_->setting_rows[i]->refreshFromItem();
+  }
+  // Unbind borrowed diagnostic text before replacing its owning strings.
+  for (auto& row : impl_->info_rows) {
+    row->item().setSupportingText({});
+    row->refreshFromItem();
   }
   auto link = model_.controller().linkState();
   impl_->info_values[0] = WifiSecurityText(selected_.security);
@@ -373,7 +378,7 @@ void WifiNetworkDetailsDestination::syncControls() {
     impl_->info_rows[i]->setVisibility(visible[i] ? Visibility::kVisible
                                                   : Visibility::kGone);
     impl_->info_rows[i]->item().setSupportingText(impl_->info_values[i]);
-    impl_->info_rows[i]->invalidateInterior();
+    impl_->info_rows[i]->refreshFromItem();
   }
 }
 void WifiNetworkDetailsDestination::refreshSelection() {

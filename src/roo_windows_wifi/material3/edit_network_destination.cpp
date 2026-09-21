@@ -29,7 +29,8 @@ class ChoiceDestination : public Destination {
   ChoiceDestination(ApplicationContext& context, WifiConfigForm& form)
       : form_(form),
         bar_(context),
-        back_(context, SCALED_ROO_ICON(outlined, navigation_arrow_back)),
+        back_(context, SCALED_ROO_ICON(outlined, navigation_arrow_back),
+              IconButtonStyle::kStandard),
         list_(context),
         scroll_(context, list_),
         scaffold_(context) {
@@ -71,7 +72,7 @@ class ChoiceDestination : public Destination {
                                              : "Unmetered";
       rows_[i]->item().setHeadline(label);
       rows_[i]->item().setSelected(i == form_.choice(choice));
-      rows_[i]->invalidateInterior();
+      rows_[i]->refreshFromItem();
     }
   }
 
@@ -97,7 +98,8 @@ class WifiEditNetworkDestination::Impl {
         ids(ids),
         policies(policies),
         bar(context),
-        back(context, SCALED_ROO_ICON(outlined, navigation_arrow_back)),
+        back(context, SCALED_ROO_ICON(outlined, navigation_arrow_back),
+             IconButtonStyle::kStandard),
         form(context, controller.support(), policies),
         choice(context, form),
         message(context, "", text_style_body_medium()),
@@ -152,7 +154,7 @@ class WifiEditNetworkDestination::Impl {
   Button save;
   Button connect;
   internal::BorrowedColumn body;
-  SimpleScrollablePanel scroll;
+  internal::FormScroll scroll;
   LayoutScaffold scaffold;
 };
 
