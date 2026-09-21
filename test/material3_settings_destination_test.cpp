@@ -160,8 +160,8 @@ TEST(WifiSettingsDestinationTest, ToggleStaysChangedAndRetriesAfterScan) {
   EXPECT_FALSE(fixture.destination.wifiEnabled());
 }
 
-// Verifies open networks connect directly while unknown secured networks open
-// the credential editor.
+// Verifies open networks are saved before connecting, while unknown secured
+// networks open the credential editor.
 TEST(WifiSettingsDestinationTest, RoutesOpenAndUnknownSecuredNetworks) {
   Fixture fixture;
   fixture.begin();
@@ -179,8 +179,19 @@ TEST(WifiSettingsDestinationTest, RoutesOpenAndUnknownSecuredNetworks) {
   fixture.destination.activateNetwork(open);
   EXPECT_EQ(fixture.controller.linkState().phase, roo_wifi::LinkPhase::kIdle);
   roo_wifi::Pump(fixture.scheduler);
+
+  roo_wifi::Profile profile;
+  ASSERT_EQ(fixture.store.loadProfile(1, profile), roo_wifi::Status::kOk);
+  EXPECT_EQ(profile.settings.connection.security, roo_wifi::AuthMode::kOpen);
   EXPECT_EQ(fixture.station.last_config.ssid.size, 4u);
   EXPECT_EQ(std::memcmp(fixture.station.last_config.ssid.bytes, "Open", 4), 0);
+
+  fixture.station.associated();
+  fixture.station.ready();
+  roo_wifi::Pump(fixture.scheduler);
+  roo_wifi::ProfileId last = 0;
+  ASSERT_EQ(fixture.store.readLastProfile(last), roo_wifi::Status::kOk);
+  EXPECT_EQ(last, 1u);
 }
 
 // Verifies a scanned network matched to one saved profile connects by its ID.

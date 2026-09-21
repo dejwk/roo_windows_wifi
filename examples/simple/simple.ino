@@ -94,8 +94,8 @@ roo_windows::Application app(&env, display);
 roo_windows::Task& task = app.addTaskFullScreen();
 roo_windows::NavigationHost& navigation = task.navigation();
 
-// Key 1 is the application-owned provisioning slot, also selected at startup.
-roo_wifi::Esp32WiFi wifi(scheduler, {1});
+// Key 1 is the application-owned fallback slot for a newly saved network.
+roo_wifi::Esp32WiFi wifi(scheduler);
 roo_windows_wifi::WifiSettingsFlow wifi_setup(app.context(), wifi, 1);
 
 class SettingsMenu : public menu::Menu {

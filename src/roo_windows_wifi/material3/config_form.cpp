@@ -103,8 +103,6 @@ const char* WifiStatusText(roo_wifi::Status status) {
       return "Operation cancelled";
     case roo_wifi::Status::kCommitUnknown:
       return "Save outcome unknown. Reload before retrying";
-    case roo_wifi::Status::kIncomplete:
-      return "Incomplete profile. Enter credentials to replace it";
     case roo_wifi::Status::kCorrupt:
       return "Saved network could not be read";
     default:

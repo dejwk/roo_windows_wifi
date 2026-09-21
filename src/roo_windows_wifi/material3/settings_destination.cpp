@@ -223,6 +223,7 @@ class WifiSettingsDestination::Impl {
   uint8_t desired_wifi_enabled_ : 1;
   roo_wifi::OperationId wifi_operation_id_ = 0;
   roo_wifi::OperationId scan_id_ = 0;
+  roo_wifi::OperationId save_id_ = 0;
   roo_wifi::OperationId connect_id_ = 0;
   WifiNetworkSummary requested_;
   roo_time::Duration scan_max_age_ = roo_time::Seconds(30);
@@ -232,9 +233,12 @@ class WifiSettingsDestination::Impl {
 
 WifiSettingsDestination::WifiSettingsDestination(
     roo_windows::ApplicationContext& context, WifiPresentationModel& model,
-    Actions& actions)
+    Actions& actions, roo_wifi::ProfileId provisioning_key,
+    WifiProfileIdAllocator* profile_ids)
     : model_(model),
       actions_(actions),
+      provisioning_key_(provisioning_key),
+      profile_ids_(profile_ids),
       impl_(std::make_unique<Impl>(
           context, model, static_cast<WifiNetworkRow::Listener&>(*this),
           actions, *this)) {
@@ -343,24 +347,65 @@ void WifiSettingsDestination::activateNetwork(size_t model_index) {
     actions_.editNetwork(network);
     return;
   }
-  if (impl_->connect_id_) {
+  if (impl_->save_id_ || impl_->connect_id_ ||
+      model_.controller().isScanning()) {
     impl_->feedback_ = WifiStatusText(roo_wifi::Status::kBusy);
     syncBody();
     return;
   }
-  auto result = network.saved && network.profile_id != 0
-                    ? model_.controller().connect(network.profile_id)
-                    : model_.controller().connect(ConnectionFor(network), {});
   impl_->requested_ = network;
-  impl_->connect_id_ = result.id;
-  impl_->feedback_ = result.id ? "Connecting…" : WifiStatusText(result.status);
+  roo_wifi::Controller::RequestResult result;
+  if (network.saved && network.profile_id != 0) {
+    result = model_.controller().connect(network.profile_id);
+    impl_->connect_id_ = result.id;
+    impl_->feedback_ = result.id ? "Connecting…" : WifiStatusText(result.status);
+  } else {
+    roo_wifi::ProfileId id = 0;
+    roo_wifi::Status status = nextProfileId(id);
+    if (status != roo_wifi::Status::kOk) {
+      impl_->feedback_ = WifiStatusText(status);
+      syncBody();
+      return;
+    }
+    roo_wifi::ProfileSettings settings;
+    settings.connection = ConnectionFor(network);
+    roo_wifi::CredentialUpdate credential;
+    credential.intent = roo_wifi::CredentialIntent::kClear;
+    result = model_.controller().saveProfile(id, settings, credential);
+    impl_->save_id_ = result.id;
+    impl_->feedback_ = result.id ? "Saving…" : WifiStatusText(result.status);
+  }
   syncBody();
+}
+
+roo_wifi::Status WifiSettingsDestination::nextProfileId(
+    roo_wifi::ProfileId& out) {
+  roo_wifi::ProfileId candidate = provisioning_key_;
+  if (profile_ids_ && !profile_ids_->nextProfileId(candidate)) {
+    return roo_wifi::Status::kNotFound;
+  }
+  if (candidate == 0) return roo_wifi::Status::kInvalidArgument;
+  bool occupied = false;
+  roo_wifi::Status status = model_.controller().forEachProfile(
+      [&](roo_wifi::ProfileId id) {
+        if (id == candidate) occupied = true;
+        return true;
+      });
+  if (status != roo_wifi::Status::kOk) return status;
+  roo_wifi::Profile existing;
+  if (occupied || model_.controller().loadProfile(candidate, existing) !=
+                      roo_wifi::Status::kNotFound) {
+    return roo_wifi::Status::kNotFound;
+  }
+  out = candidate;
+  return roo_wifi::Status::kOk;
 }
 
 void WifiSettingsDestination::syncBody() {
   impl_->body_.sync(wifiEnabled());
   auto phase = model_.controller().linkState().phase;
-  bool busy = impl_->connect_id_ || model_.controller().isScanning() ||
+  bool busy = impl_->save_id_ || impl_->connect_id_ ||
+              model_.controller().isScanning() ||
               phase == roo_wifi::LinkPhase::kConnecting ||
               phase == roo_wifi::LinkPhase::kAssociated;
   impl_->body_.setStatus(impl_->feedback_, busy);
@@ -396,6 +441,17 @@ void WifiSettingsDestination::onWifiOperationFinished(
                    ? "No networks found. Try Refresh or Add network"
                    : "Select a network")
             : WifiStatusText(result.status);
+  }
+  if (result.id == impl_->save_id_) {
+    impl_->save_id_ = 0;
+    if (result.status == roo_wifi::Status::kOk) {
+      auto request = model_.controller().connect(result.profile_id);
+      impl_->connect_id_ = request.id;
+      impl_->feedback_ = request.id ? "Connecting…"
+                                   : WifiStatusText(request.status);
+    } else {
+      impl_->feedback_ = WifiStatusText(result.status);
+    }
   }
   if (result.id == impl_->connect_id_) {
     impl_->connect_id_ = 0;

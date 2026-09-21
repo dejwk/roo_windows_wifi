@@ -88,7 +88,7 @@ roo_scheduler::Scheduler scheduler;
 Environment environment(scheduler);
 Application app(&environment, display);
 Task& task = app.addTaskFullScreen();
-roo_wifi::Esp32WiFi wifi(scheduler, {1});
+roo_wifi::Esp32WiFi wifi(scheduler);
 // The application owns persistent keys. This example reserves keys 1..16 for
 // Wi-Fi profiles; the flow independently rejects unreadable or occupied keys.
 class ExampleProfileIds : public roo_windows_wifi::WifiProfileIdAllocator {

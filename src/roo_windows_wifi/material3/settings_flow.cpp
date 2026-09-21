@@ -15,7 +15,7 @@ WifiSettingsFlow::WifiSettingsFlow(roo_windows::ApplicationContext& context,
       edit_(context, controller, provisioning_key, profile_ids, policies),
       details_(context, model_, *this, policies),
       saved_(context, model_, *this),
-      settings_(context, model_, *this),
+      settings_(context, model_, *this, provisioning_key, profile_ids),
       provisioning_key_(provisioning_key) {
   CHECK_NE(provisioning_key_, 0u);
 }

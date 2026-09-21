@@ -101,7 +101,7 @@ TEST(WifiPresentationModelTest, MatchesEnumeratedProfilesWithoutGuessing) {
 }
 
 // Verifies failed enumeration retains the last complete profile model while a
-// committed profile with unreadable metadata remains available for repair.
+// persisted profile with unreadable metadata remains available for repair.
 TEST(WifiPresentationModelTest, HandlesEnumerationAndMetadataFailures) {
   roo_scheduler::Scheduler scheduler;
   roo_wifi::TestStation station;
@@ -126,7 +126,7 @@ TEST(WifiPresentationModelTest, HandlesEnumerationAndMetadataFailures) {
   EXPECT_EQ(model.savedProfiles()[0].id, 5u);
 
   store.enumeration_error = roo_wifi::Status::kOk;
-  store.values["00000007state"] = {0x11};
+  store.values["p-00000007"] = {0xff};
   EXPECT_EQ(model.refresh(), roo_wifi::Status::kOk);
   ASSERT_EQ(model.savedProfiles().size(), 1u);
   ASSERT_EQ(model.unreadableProfileIds().size(), 1u);

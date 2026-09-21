@@ -4,6 +4,7 @@
 
 #include "roo_windows/core/destination.h"
 #include "roo_windows_wifi/material3/network_row.h"
+#include "roo_windows_wifi/material3/network_policy.h"
 #include "roo_windows_wifi/material3/presentation_model.h"
 
 namespace roo_windows_wifi {
@@ -34,7 +35,9 @@ class WifiSettingsDestination : public roo_windows::Destination,
 
   /// Creates a destination borrowing its model and route handler.
   WifiSettingsDestination(roo_windows::ApplicationContext& context,
-                          WifiPresentationModel& model, Actions& actions);
+                          WifiPresentationModel& model, Actions& actions,
+                          roo_wifi::ProfileId provisioning_key = 1,
+                          WifiProfileIdAllocator* profile_ids = nullptr);
 
   /// Detaches model observation before destroying widgets.
   ~WifiSettingsDestination() override;
@@ -96,8 +99,13 @@ class WifiSettingsDestination : public roo_windows::Destination,
   /// Attempts to admit the retained radio-state request.
   roo_wifi::Controller::RequestResult submitPendingWifiState();
 
+  /// Selects an unused application profile key for an open network.
+  roo_wifi::Status nextProfileId(roo_wifi::ProfileId& out);
+
   WifiPresentationModel& model_;
   Actions& actions_;
+  roo_wifi::ProfileId provisioning_key_;
+  WifiProfileIdAllocator* profile_ids_;
   std::unique_ptr<Impl> impl_;
 };
 
