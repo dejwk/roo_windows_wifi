@@ -70,6 +70,12 @@ class WifiSettingsDestination : public roo_windows::Destination,
   /// Returns whether scanning progress is currently presented.
   bool scanning() const;
 
+  /// Returns current scan, connection, or rejection feedback.
+  const std::string& feedback() const;
+
+  /// Selects the successful-scan cache lifetime (30 seconds by default).
+  void setScanMaxAge(roo_time::Duration age);
+
   /// Activates a row by presentation-model index; intended for input adapters
   /// and focused tests in addition to recycled-row callbacks.
   void activateNetwork(size_t model_index);
@@ -78,6 +84,7 @@ class WifiSettingsDestination : public roo_windows::Destination,
   class Impl;
 
   void onWifiModelChanged() override;
+  void onWifiScanStateChanged(bool scanning) override;
   void onWifiEnabledChanged(bool enabled) override;
   void onWifiOperationFinished(
       const roo_wifi::OperationResult& result) override;

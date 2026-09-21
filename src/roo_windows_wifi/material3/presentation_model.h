@@ -97,6 +97,9 @@ class WifiPresentationModel : private roo_wifi::Controller::Listener {
   /// Returns the last profile-enumeration outcome.
   roo_wifi::Status profileStatus() const { return profile_status_; }
 
+  /// Returns whether the last observed successful publication needs refreshing.
+  bool scanStale(roo_time::Duration max_age = roo_time::Seconds(30)) const;
+
   /// Returns the borrowed controller.
   roo_wifi::Controller& controller() const { return controller_; }
 
@@ -124,6 +127,8 @@ class WifiPresentationModel : private roo_wifi::Controller::Listener {
   std::vector<roo_wifi::ProfileId> unreadable_profile_ids_;
   WifiNetworkSummary current_;
   roo_wifi::Status profile_status_ = roo_wifi::Status::kNotStarted;
+  roo_time::Uptime last_scan_;
+  bool observed_scan_ = false;
   bool has_current_ = false;
   roo_wifi::ProfileId connected_profile_ = 0;
 };

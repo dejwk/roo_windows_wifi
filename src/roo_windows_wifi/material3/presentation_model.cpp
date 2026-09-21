@@ -177,7 +177,13 @@ void WifiPresentationModel::notifyChanged() {
   for (Listener* listener : listeners_) listener->onWifiModelChanged();
 }
 
+bool WifiPresentationModel::scanStale(roo_time::Duration max_age) const {
+  return !observed_scan_ || roo_time::Uptime::Now() - last_scan_ >= max_age;
+}
+
 void WifiPresentationModel::onScanChanged() {
+  last_scan_ = roo_time::Uptime::Now();
+  observed_scan_ = true;
   rebuildNetworks();
   notifyChanged();
 }
@@ -189,6 +195,7 @@ void WifiPresentationModel::onScanStateChanged(bool scanning) {
 }
 
 void WifiPresentationModel::onEnabledChanged(bool enabled) {
+  if (!enabled) observed_scan_ = false;
   if (profile_status_ == roo_wifi::Status::kNotStarted) refreshProfiles();
   rebuildNetworks();
   for (Listener* listener : listeners_) {

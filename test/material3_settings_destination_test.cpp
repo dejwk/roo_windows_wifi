@@ -204,6 +204,47 @@ TEST(WifiSettingsDestinationTest, RoutesSavedNetworksByProfileId) {
   EXPECT_EQ(std::memcmp(fixture.station.last_config.ssid.bytes, "Saved", 5), 0);
 }
 
+// Verifies nonempty cached scans refresh after the configured lifetime expires.
+TEST(WifiSettingsDestinationTest, RefreshesStaleNonemptyScanAndShowsBusyState) {
+  Fixture fixture;
+  fixture.begin();
+  fixture.station.aps.push_back(Record("Cafe", roo_wifi::AuthMode::kOpen, -45));
+  PublishScan(fixture.controller, fixture.station, fixture.scheduler);
+  fixture.destination.onResume();
+  EXPECT_FALSE(fixture.controller.isScanning());
+  fixture.destination.setScanMaxAge(roo_time::Seconds(0));
+  fixture.destination.onResume();
+  EXPECT_TRUE(fixture.controller.isScanning());
+  EXPECT_NE(fixture.destination.feedback().find("Scanning"), std::string::npos);
+}
+
+// Verifies unsupported enterprise provisioning routes to read-only details.
+TEST(WifiSettingsDestinationTest, UnsupportedSecurityDoesNotOpenEditor) {
+  Fixture fixture;
+  fixture.begin();
+  fixture.station.aps.push_back(
+      Record("Enterprise", roo_wifi::AuthMode::kEnterprise, -45));
+  PublishScan(fixture.controller, fixture.station, fixture.scheduler);
+  fixture.destination.activateNetwork(0);
+  EXPECT_EQ(fixture.actions.details_, "Enterprise");
+  EXPECT_TRUE(fixture.actions.edit_.empty());
+  EXPECT_EQ(fixture.station.connects, 0);
+}
+
+// Verifies immediate connection rejection remains visible instead of being
+// lost.
+TEST(WifiSettingsDestinationTest, ShowsRejectedConnection) {
+  Fixture fixture;
+  fixture.begin();
+  fixture.station.aps.push_back(Record("Cafe", roo_wifi::AuthMode::kOpen, -45));
+  PublishScan(fixture.controller, fixture.station, fixture.scheduler);
+  ASSERT_NE(fixture.controller.scan().id, 0u);
+  fixture.destination.activateNetwork(0);
+  EXPECT_EQ(fixture.station.connects, 0);
+  EXPECT_NE(fixture.destination.feedback().find("operation"),
+            std::string::npos);
+}
+
 }  // namespace
 }  // namespace material3
 }  // namespace roo_windows_wifi
