@@ -18,7 +18,7 @@
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
 #include "roo_windows/material3/list/list.h"
 #include "roo_windows/material3/typography.h"
-#include "roo_windows/widgets/text_block.h"
+#include "roo_windows/widgets/text_label.h"
 #include "roo_windows_wifi/material3/internal/borrowed_layout.h"
 #include "roo_windows_wifi/material3/network_row.h"
 
@@ -31,6 +31,19 @@ using namespace roo_windows::material3;
 class NoopRowListener : public WifiNetworkRow::Listener {
  public:
   void onWifiNetworkActivated(size_t) override {}
+};
+
+// Diagnostic rows form a full-width section within the details column.
+class FullWidthList : public List {
+ public:
+  explicit FullWidthList(ApplicationContext& context) : List(context) {}
+
+  PreferredSize getPreferredSize() const override {
+    return {PreferredSize::MatchParentWidth(),
+            PreferredSize::WrapContentHeight()};
+  }
+
+  Margins getMargins() const override { return Margins(Scaled(8)); }
 };
 
 constexpr DialogActionSpec kForgetActions[] = {
@@ -90,8 +103,8 @@ class WifiNetworkDetailsDestination::Impl {
         buttons_(context),
         automatic_(context, "Auto-connect"),
         settings_(context),
+        details_caption_(context, "Details", text_style_title_small()),
         info_(context),
-        message_(context, "", text_style_body_medium()),
         body_(context),
         scroll_(context, body_),
         dialog_(context, owner),
@@ -124,6 +137,9 @@ class WifiNetworkDetailsDestination::Impl {
       });
       settings_.add(*setting_rows_[i]);
     }
+    settings_.setVariant(ListVariant::kExpressive);
+    settings_.setStyle(ListStyle::kSegmented);
+    details_caption_.setPadding(PaddingSize::kLarge, PaddingSize::kNone);
     static const char* const info_labels[] = {
         "Security", "BSSID",       "Station MAC",   "IP address",
         "Gateway",  "Primary DNS", "Secondary DNS", "Channel / Signal"};
@@ -132,17 +148,18 @@ class WifiNetworkDetailsDestination::Impl {
           context, info_labels[i]);
       info_.add(*info_rows_[i]);
     }
+    info_.setVariant(ListVariant::kExpressive);
+    info_.setStyle(ListStyle::kSegmented);
     body_.add(summary_);
     body_.add(buttons_);
-    body_.add(message_);
     body_.add(settings_);
+    body_.add(details_caption_);
     body_.add(info_);
     scaffold_.setTopBar(bar_);
     scaffold_.setBody(scroll_);
   }
   void report(roo_wifi::Status status, const char* text = nullptr) {
     feedback_ = text ? text : WifiStatusText(status);
-    message_.setText(feedback_);
   }
 
  private:
@@ -161,11 +178,11 @@ class WifiNetworkDetailsDestination::Impl {
   internal::BorrowedRow buttons_;
   ListRow<SwitchListItem> automatic_;
   std::unique_ptr<ListRow<InvokableListItemBase>> setting_rows_[4];
-  List settings_;
+  FullWidthList settings_;
+  StringViewLabel details_caption_;
   std::string info_values_[8];
   std::unique_ptr<ListRow<SupportingTextListItem>> info_rows_[8];
-  List info_;
-  TextBlock message_;
+  FullWidthList info_;
   internal::BorrowedColumn body_;
   internal::FormScroll scroll_;
   ForgetDialog dialog_;
