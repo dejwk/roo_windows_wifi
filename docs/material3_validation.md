@@ -17,7 +17,8 @@ bazel test //:model_test //:material3_config_form_test \
   //:material3_edit_network_test //:material3_details_test \
   //:material3_settings_destination_test //:material3_saved_networks_test \
   //:material3_presentation_model_test //:material3_network_row_test \
-  //:material3_resource_test //:material3_flow_test --config=asan \
+  //:material3_resource_test //:material3_flow_test \
+  //:material3_static_initialization_test --config=asan \
   --override_module=roo_wifi=../roo_wifi \
   --override_module=roo_windows=../roo_windows \
   --override_module=roo_testing=../roo_testing \
@@ -29,6 +30,9 @@ Use the persistent default Bazel output root and the global disk cache. Do not
 put Bazel outputs in `/tmp` or run concurrent builds on the shared WSL VM.
 
 ## Acceptance coverage
+
+The statically linked startup test constructs the flow before `main()`, matching
+Arduino sketches and catching cross-translation-unit initialization dependencies.
 
 Tests cover exact network grouping, selected-key retention when another profile
 has the same SSID/security, current-profile correlation without scans, failed

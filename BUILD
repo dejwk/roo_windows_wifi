@@ -109,3 +109,10 @@ cc_test(
     data = glob(["test/goldens/*.ppm"], allow_empty = True),
     deps = [":roo_windows_wifi", "@googletest//:gtest_main", "@roo_wifi//test:test_support"],
 )
+
+cc_test(
+    name = "material3_static_initialization_test",
+    srcs = ["test/material3_static_initialization_test.cpp"],
+    linkstatic = True,
+    deps = [":roo_windows_wifi", "@googletest//:gtest_main", "@roo_wifi//test:test_support"],
+)

@@ -29,9 +29,19 @@ namespace roo_windows_wifi {
 namespace material3 {
 namespace {
 
-const roo_display::Pictogram kAddIcon(SCALED_ROO_ICON(outlined, content_add));
-const roo_display::Pictogram kSavedIcon(SCALED_ROO_ICON(outlined,
-                                                        content_save));
+// NavigationListItem borrows its pictogram. Construct these on first use so
+// globally constructed Arduino flows do not depend on translation-unit order.
+const roo_display::Pictogram& AddIcon() {
+  static const roo_display::Pictogram icon(
+      SCALED_ROO_ICON(outlined, content_add));
+  return icon;
+}
+
+const roo_display::Pictogram& SavedIcon() {
+  static const roo_display::Pictogram icon(
+      SCALED_ROO_ICON(outlined, content_save));
+  return icon;
+}
 
 constexpr size_t kCurrentNetworkIndex = std::numeric_limits<size_t>::max();
 
@@ -117,8 +127,8 @@ class SettingsBody : public internal::BorrowedColumn {
                    [&context, &listener]() {
                      return std::make_unique<WifiNetworkRow>(context, listener);
                    }),
-        add_(context, context, kAddIcon, "Add network"),
-        saved_(context, context, kSavedIcon, "Saved networks") {
+        add_(context, context, AddIcon(), "Add network"),
+        saved_(context, context, SavedIcon(), "Saved networks") {
     enabled_.item().setOnInvoked([this, &destination]() {
       destination.setWifiEnabled(enabled_.item().isOn());
     });
