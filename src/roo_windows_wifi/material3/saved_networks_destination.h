@@ -18,15 +18,22 @@ class WifiSavedNetworksDestination : public roo_windows::Destination,
   class Actions {
    public:
     virtual ~Actions() = default;
+
+    /// Opens details for the selected saved profile.
     virtual void showSavedNetworkDetails(const WifiNetworkSummary& network) = 0;
   };
 
   /// Creates a reusable saved-networks destination.
   WifiSavedNetworksDestination(roo_windows::ApplicationContext& context,
                                WifiPresentationModel& model, Actions& actions);
+
+  /// Detaches model observation before destroying widgets.
   ~WifiSavedNetworksDestination() override;
 
+  /// Returns the retained scaffold for navigation presentation.
   roo_windows::Widget& getContents() override;
+
+  /// Refreshes controller-enumerated profiles when navigation resumes.
   void onResume() override;
 
   /// Returns the number of successfully loaded saved profiles.

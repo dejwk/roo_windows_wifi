@@ -9,11 +9,13 @@ namespace roo_windows_wifi {
 namespace material3 {
 namespace {
 
+/// Builds the widget context shared by one settings fixture.
 roo_windows::ApplicationContext MakeContext(roo_windows::Environment& env) {
   return roo_windows::ApplicationContext(env.scheduler(), env.theme(),
                                          env.keyboardColorTheme());
 }
 
+/// Builds a scan record with the fields consumed by the settings page.
 roo_wifi::ScanRecord Record(const char* ssid, roo_wifi::AuthMode security,
                             int8_t rssi) {
   roo_wifi::ScanRecord record;
@@ -24,11 +26,14 @@ roo_wifi::ScanRecord Record(const char* ssid, roo_wifi::AuthMode security,
   return record;
 }
 
+/// Completes an active scan, admitting one first when necessary.
 void PublishScan(roo_wifi::Controller& controller,
                  roo_wifi::TestStation& station,
                  roo_scheduler::Scheduler& scheduler) {
-  ASSERT_NE(controller.scan().id, 0u);
-  roo_wifi::Pump(scheduler);
+  if (!controller.isScanning()) {
+    ASSERT_NE(controller.scan().id, 0u);
+    roo_wifi::Pump(scheduler);
+  }
   station.emit({roo_wifi::NativeStation::Event::kScanDone});
   roo_wifi::Pump(scheduler);
 }
@@ -36,18 +41,18 @@ void PublishScan(roo_wifi::Controller& controller,
 class RecordingActions : public WifiSettingsDestination::Actions {
  public:
   void showNetworkDetails(const WifiNetworkSummary& network) override {
-    details = network.ssid;
+    details_ = network.ssid;
   }
   void editNetwork(const WifiNetworkSummary& network) override {
-    edit = network.ssid;
+    edit_ = network.ssid;
   }
-  void addNetwork() override { add_count++; }
-  void showSavedNetworks() override { saved_count++; }
+  void addNetwork() override { add_count_++; }
+  void showSavedNetworks() override { saved_count_++; }
 
-  std::string details;
-  std::string edit;
-  int add_count = 0;
-  int saved_count = 0;
+  std::string details_;
+  std::string edit_;
+  int add_count_ = 0;
+  int saved_count_ = 0;
 };
 
 struct Fixture {
@@ -79,6 +84,7 @@ struct Fixture {
   WifiSettingsDestination destination;
 };
 
+// Verifies radio state controls the current and available-network sections.
 TEST(WifiSettingsDestinationTest, PresentsEnabledAndDisabledSections) {
   Fixture fixture;
   fixture.begin();
@@ -96,6 +102,8 @@ TEST(WifiSettingsDestinationTest, PresentsEnabledAndDisabledSections) {
   EXPECT_FALSE(fixture.destination.hasCurrentNetwork());
 }
 
+// Verifies entering an enabled destination discovers networks with an empty
+// cache.
 TEST(WifiSettingsDestinationTest, ResumeScansWhenCacheIsEmpty) {
   Fixture fixture;
   fixture.begin();
@@ -106,6 +114,7 @@ TEST(WifiSettingsDestinationTest, ResumeScansWhenCacheIsEmpty) {
   EXPECT_TRUE(fixture.destination.scanning());
 }
 
+// Verifies programmatic toggling requests the opposite physical radio state.
 TEST(WifiSettingsDestinationTest, ToggleRequestUsesObservedControllerState) {
   Fixture fixture(false);
   fixture.begin();
@@ -118,11 +127,26 @@ TEST(WifiSettingsDestinationTest, ToggleRequestUsesObservedControllerState) {
   EXPECT_TRUE(fixture.destination.wifiEnabled());
 }
 
+// Verifies a successful enable transition starts discovery after the radio
+// operation releases its backend slot.
+TEST(WifiSettingsDestinationTest, EnablingStartsScanAfterTransition) {
+  Fixture fixture(false);
+  fixture.begin();
+
+  ASSERT_NE(fixture.destination.setWifiEnabled(true).id, 0u);
+  roo_wifi::Pump(fixture.scheduler);
+
+  EXPECT_TRUE(fixture.controller.isEnabled());
+  EXPECT_TRUE(fixture.controller.isScanning());
+  EXPECT_TRUE(fixture.destination.scanning());
+}
+
+// Verifies a radio request made during discovery remains presented and is
+// admitted once the scan releases the backend slot.
 TEST(WifiSettingsDestinationTest, ToggleStaysChangedAndRetriesAfterScan) {
   Fixture fixture;
   fixture.begin();
-  ASSERT_NE(fixture.controller.scan().id, 0u);
-  roo_wifi::Pump(fixture.scheduler);
+  ASSERT_TRUE(fixture.controller.isScanning());
 
   EXPECT_EQ(fixture.destination.setWifiEnabled(false).status,
             roo_wifi::Status::kBusy);
@@ -136,6 +160,8 @@ TEST(WifiSettingsDestinationTest, ToggleStaysChangedAndRetriesAfterScan) {
   EXPECT_FALSE(fixture.destination.wifiEnabled());
 }
 
+// Verifies open networks connect directly while unknown secured networks open
+// the credential editor.
 TEST(WifiSettingsDestinationTest, RoutesOpenAndUnknownSecuredNetworks) {
   Fixture fixture;
   fixture.begin();
@@ -148,7 +174,7 @@ TEST(WifiSettingsDestinationTest, RoutesOpenAndUnknownSecuredNetworks) {
   size_t secure = fixture.model.networks()[0].isOpen() ? 1 : 0;
   size_t open = secure == 0 ? 1 : 0;
   fixture.destination.activateNetwork(secure);
-  EXPECT_EQ(fixture.actions.edit, "Secure");
+  EXPECT_EQ(fixture.actions.edit_, "Secure");
 
   fixture.destination.activateNetwork(open);
   EXPECT_EQ(fixture.controller.linkState().phase, roo_wifi::LinkPhase::kIdle);
@@ -157,6 +183,7 @@ TEST(WifiSettingsDestinationTest, RoutesOpenAndUnknownSecuredNetworks) {
   EXPECT_EQ(std::memcmp(fixture.station.last_config.ssid.bytes, "Open", 4), 0);
 }
 
+// Verifies a scanned network matched to one saved profile connects by its ID.
 TEST(WifiSettingsDestinationTest, RoutesSavedNetworksByProfileId) {
   Fixture fixture;
   fixture.begin();

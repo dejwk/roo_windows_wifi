@@ -31,7 +31,11 @@ class WifiSettingsFlow : private WifiSettingsDestination::Actions,
 
   /// Returns the reusable controller-enumerated saved-networks destination.
   WifiSavedNetworksDestination& savedNetworksDestination() { return saved_; }
+
+  /// Returns the reusable retained network-details destination.
   WifiNetworkDetailsDestination& detailsDestination() { return details_; }
+
+  /// Returns the reusable add/edit destination.
   WifiEditNetworkDestination& editDestination() { return edit_; }
 
   /// Returns the model shared by this flow's destinations.

@@ -7,6 +7,7 @@ namespace roo_windows_wifi {
 namespace material3 {
 namespace {
 
+/// Builds the widget context shared by one row test.
 roo_windows::ApplicationContext MakeContext(roo_windows::Environment& env) {
   return roo_windows::ApplicationContext(env.scheduler(), env.theme(),
                                          env.keyboardColorTheme());
@@ -15,14 +16,15 @@ roo_windows::ApplicationContext MakeContext(roo_windows::Environment& env) {
 class RecordingListener : public WifiNetworkRow::Listener {
  public:
   void onWifiNetworkActivated(size_t index) override {
-    activated_index = index;
-    activation_count++;
+    activated_index_ = index;
+    activation_count_++;
   }
 
-  size_t activated_index = 0;
-  int activation_count = 0;
+  size_t activated_index_ = 0;
+  int activation_count_ = 0;
 };
 
+// Verifies the glyph retains all semantic state supplied by its latest bind.
 TEST(WifiSignalGlyphTest, RetainsBoundSemanticState) {
   roo_scheduler::Scheduler scheduler;
   roo_windows::Environment environment(scheduler);
@@ -36,6 +38,7 @@ TEST(WifiSignalGlyphTest, RetainsBoundSemanticState) {
   EXPECT_EQ(glyph.signalState(), WifiSignalState::kConnecting);
 }
 
+// Verifies recycling replaces every model-derived row property.
 TEST(WifiNetworkRowTest, RebindsAllPresentationState) {
   roo_scheduler::Scheduler scheduler;
   roo_windows::Environment environment(scheduler);
@@ -67,6 +70,7 @@ TEST(WifiNetworkRowTest, RebindsAllPresentationState) {
   EXPECT_EQ(row.signalState(), WifiSignalState::kConnecting);
 }
 
+// Verifies activation reports the model index from the latest bind.
 TEST(WifiNetworkRowTest, RoutesActivationByCurrentModelIndex) {
   roo_scheduler::Scheduler scheduler;
   roo_windows::Environment environment(scheduler);
@@ -79,8 +83,8 @@ TEST(WifiNetworkRowTest, RoutesActivationByCurrentModelIndex) {
 
   row.onClicked();
 
-  EXPECT_EQ(listener.activation_count, 1);
-  EXPECT_EQ(listener.activated_index, 11u);
+  EXPECT_EQ(listener.activation_count_, 1);
+  EXPECT_EQ(listener.activated_index_, 11u);
 }
 
 }  // namespace

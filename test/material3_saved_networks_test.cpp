@@ -12,13 +12,15 @@ namespace {
 class Actions : public WifiSavedNetworksDestination::Actions {
  public:
   void showSavedNetworkDetails(const WifiNetworkSummary& network) override {
-    selected = network;
-    calls++;
+    selected_ = network;
+    calls_++;
   }
-  WifiNetworkSummary selected;
-  int calls = 0;
+  WifiNetworkSummary selected_;
+  int calls_ = 0;
 };
 
+// Verifies saved profiles are enumerated, sorted, and activated with their
+// persistent identity.
 TEST(WifiSavedNetworksDestinationTest, EnumeratesSortsAndSelectsProfiles) {
   roo_scheduler::Scheduler scheduler;
   roo_wifi::TestStation station;
@@ -53,11 +55,13 @@ TEST(WifiSavedNetworksDestinationTest, EnumeratesSortsAndSelectsProfiles) {
   EXPECT_FALSE(destination.profileSummary(0).in_range);
 
   destination.activateProfile(0);
-  EXPECT_EQ(actions.calls, 1);
-  EXPECT_EQ(actions.selected.ssid, "Alpha");
-  EXPECT_EQ(actions.selected.profile_id, 3u);
+  EXPECT_EQ(actions.calls_, 1);
+  EXPECT_EQ(actions.selected_.ssid, "Alpha");
+  EXPECT_EQ(actions.selected_.profile_id, 3u);
 }
 
+// Verifies an empty recycled list can be attached and painted without
+// dereferencing a missing row.
 TEST(WifiSavedNetworksDestinationTest, EmptyAttachedListPaintsWithoutCrash) {
   roo_scheduler::Scheduler scheduler;
   roo_wifi::TestStation station;

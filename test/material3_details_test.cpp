@@ -10,6 +10,8 @@ class Actions : public WifiNetworkDetailsDestination::Actions {
   void editSelectedNetwork(const WifiNetworkSummary&) override {}
 };
 
+// Verifies retained details survive scan loss and operate on the selected
+// persistent profile ID.
 TEST(WifiNetworkDetailsDestinationTest, RetainsSelectionOutOfRangeAndUsesId) {
   roo_scheduler::Scheduler scheduler;
   roo_wifi::TestStation station;

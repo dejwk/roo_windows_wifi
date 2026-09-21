@@ -35,44 +35,47 @@ class WifiSavedNetworksDestination::Impl {
  public:
   Impl(roo_windows::ApplicationContext& context,
        WifiSavedNetworksDestination& destination)
-      : destination(destination),
-        app_bar(context),
-        back(context, SCALED_ROO_ICON(outlined, navigation_arrow_back),
-             roo_windows::material3::IconButtonStyle::kStandard),
-        list_model(destination),
-        list(context, list_model,
-             [this, &context]() {
-               return std::unique_ptr<roo_windows::Widget>(
-                   new WifiNetworkRow(context, this->destination));
-             }),
-        scaffold(context) {
-    app_bar.setTitle("Saved networks");
-    back.setOnInteractiveChange([this]() { this->destination.exit(); });
-    app_bar.setLeading(back);
-    scaffold.setTopBar(app_bar);
-    scaffold.setBody(list);
+      : destination_(destination),
+        app_bar_(context),
+        back_(context, SCALED_ROO_ICON(outlined, navigation_arrow_back),
+              roo_windows::material3::IconButtonStyle::kStandard),
+        list_model_(destination),
+        list_(context, list_model_,
+              [this, &context]() {
+                return std::make_unique<WifiNetworkRow>(
+                    context,
+                    static_cast<WifiNetworkRow::Listener&>(destination_));
+              }),
+        scaffold_(context) {
+    app_bar_.setTitle("Saved networks");
+    back_.setOnInteractiveChange([this]() { destination_.exit(); });
+    app_bar_.setLeading(back_);
+    scaffold_.setTopBar(app_bar_);
+    scaffold_.setBody(list_);
     sync();
   }
 
   void sync() {
-    const bool has_profiles = destination.profileCount() > 0;
-    list.setVisibility(has_profiles ? roo_windows::Visibility::kVisible
-                                    : roo_windows::Visibility::kGone);
-    if (has_profiles) list.modelChanged();
+    const bool has_profiles = destination_.profileCount() > 0;
+    list_.setVisibility(has_profiles ? roo_windows::Visibility::kVisible
+                                     : roo_windows::Visibility::kGone);
+    if (has_profiles) list_.modelChanged();
   }
 
-  WifiSavedNetworksDestination& destination;
-  roo_windows::material3::AppBar app_bar;
-  roo_windows::material3::IconButton back;
-  SavedProfileModel list_model;
-  roo_windows::ListLayout list;
-  roo_windows::material3::LayoutScaffold scaffold;
+  WifiSavedNetworksDestination& destination_;
+  roo_windows::material3::AppBar app_bar_;
+  roo_windows::material3::IconButton back_;
+  SavedProfileModel list_model_;
+  roo_windows::ListLayout list_;
+  roo_windows::material3::LayoutScaffold scaffold_;
 };
 
 WifiSavedNetworksDestination::WifiSavedNetworksDestination(
     roo_windows::ApplicationContext& context, WifiPresentationModel& model,
     Actions& actions)
-    : model_(model), actions_(actions), impl_(new Impl(context, *this)) {
+    : model_(model),
+      actions_(actions),
+      impl_(std::make_unique<Impl>(context, *this)) {
   model_.addListener(*this);
 }
 
@@ -81,7 +84,7 @@ WifiSavedNetworksDestination::~WifiSavedNetworksDestination() {
 }
 
 roo_windows::Widget& WifiSavedNetworksDestination::getContents() {
-  return impl_->scaffold;
+  return impl_->scaffold_;
 }
 
 void WifiSavedNetworksDestination::onResume() {

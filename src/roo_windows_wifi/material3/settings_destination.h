@@ -42,7 +42,10 @@ class WifiSettingsDestination : public roo_windows::Destination,
   WifiSettingsDestination(const WifiSettingsDestination&) = delete;
   WifiSettingsDestination& operator=(const WifiSettingsDestination&) = delete;
 
+  /// Returns the retained scaffold for navigation presentation.
   roo_windows::Widget& getContents() override;
+
+  /// Refreshes presentation state and starts discovery when needed.
   void onResume() override;
 
   /// Requests an immediate scan when Wi-Fi is enabled.
@@ -76,12 +79,14 @@ class WifiSettingsDestination : public roo_windows::Destination,
 
   void onWifiModelChanged() override;
   void onWifiEnabledChanged(bool enabled) override;
-  void onWifiScanStateChanged(bool scanning) override;
   void onWifiOperationFinished(
       const roo_wifi::OperationResult& result) override;
   void onWifiNetworkActivated(size_t index) override;
 
+  /// Synchronizes every visible section with the effective radio state.
   void syncBody();
+
+  /// Attempts to admit the retained radio-state request.
   roo_wifi::Controller::RequestResult submitPendingWifiState();
 
   WifiPresentationModel& model_;

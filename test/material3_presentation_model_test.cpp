@@ -8,6 +8,7 @@ namespace roo_windows_wifi {
 namespace material3 {
 namespace {
 
+/// Builds a scan record with the presentation fields relevant to these tests.
 roo_wifi::ScanRecord Record(const char* ssid, roo_wifi::AuthMode security,
                             int8_t rssi, uint8_t bssid) {
   roo_wifi::ScanRecord record;
@@ -19,6 +20,7 @@ roo_wifi::ScanRecord Record(const char* ssid, roo_wifi::AuthMode security,
   return record;
 }
 
+/// Completes one fake scan and publishes its records through the controller.
 void PublishScan(roo_wifi::Controller& controller,
                  roo_wifi::TestStation& station,
                  roo_scheduler::Scheduler& scheduler) {

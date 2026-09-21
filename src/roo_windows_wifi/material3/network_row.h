@@ -35,7 +35,10 @@ class WifiSignalGlyph : public roo_windows::BasicWidget {
   /// Returns the semantic connection state.
   WifiSignalState signalState() const { return state_; }
 
+  /// Returns the glyph's fixed Material 3 dimensions.
   roo_windows::Dimensions getSuggestedMinimumDimensions() const override;
+
+  /// Paints the signal/security glyph for the bound semantic state.
   void paint(roo_windows::PaintContext& ctx) const override;
 
  private:
@@ -74,11 +77,22 @@ class WifiNetworkRow : public roo_windows::BasicSurfaceWidget {
   /// Returns the secondary line displayed for the current state.
   const char* supportingText() const;
 
+  /// Returns true because every bound network row supports activation.
   bool isClickable() const override { return true; }
+
+  /// Returns the fixed dimensions used by the recycled list.
   roo_windows::Dimensions getSuggestedMinimumDimensions() const override;
+
+  /// Returns the row's Material 3 container color role.
   roo_windows::material3::ColorToken containerRole() const override;
+
+  /// Returns the resolved row background color.
   roo_display::Color background() const override;
+
+  /// Paints row text and the signal glyph in one surface pass.
   void paint(roo_windows::PaintContext& ctx) const override;
+
+  /// Activates the currently bound model index.
   void onClicked() override;
 
  private:

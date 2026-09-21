@@ -5,6 +5,9 @@
 
 namespace roo_windows_wifi::material3 {
 namespace {
+
+// Verifies a secured-network draft retains its prefilled identity and submits
+// entered credentials to the controller.
 TEST(WifiEditNetworkDestinationTest, PrefillsAndConnectsSecuredNetwork) {
   roo_scheduler::Scheduler scheduler;
   roo_wifi::TestStation station;

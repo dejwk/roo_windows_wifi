@@ -21,30 +21,32 @@ class WifiNetworkDetailsDestination::Impl {
  public:
   Impl(roo_windows::ApplicationContext& context,
        WifiNetworkDetailsDestination& destination)
-      : destination(destination),
-        app_bar(context),
-        back(context, SCALED_ROO_ICON(outlined, navigation_arrow_back),
-             roo_windows::material3::IconButtonStyle::kStandard),
-        summary(context, row_listener),
-        scaffold(context) {
-    app_bar.setTitle("Network details");
-    back.setOnInteractiveChange([this]() { this->destination.exit(); });
-    app_bar.setLeading(back);
-    scaffold.setTopBar(app_bar);
-    scaffold.setBody(summary);
+      : destination_(destination),
+        app_bar_(context),
+        back_(context, SCALED_ROO_ICON(outlined, navigation_arrow_back),
+              roo_windows::material3::IconButtonStyle::kStandard),
+        summary_(context, row_listener_),
+        scaffold_(context) {
+    app_bar_.setTitle("Network details");
+    back_.setOnInteractiveChange([this]() { destination_.exit(); });
+    app_bar_.setLeading(back_);
+    scaffold_.setTopBar(app_bar_);
+    scaffold_.setBody(summary_);
   }
-  WifiNetworkDetailsDestination& destination;
-  NoopRowListener row_listener;
-  roo_windows::material3::AppBar app_bar;
-  roo_windows::material3::IconButton back;
-  WifiNetworkRow summary;
-  roo_windows::material3::LayoutScaffold scaffold;
+  WifiNetworkDetailsDestination& destination_;
+  NoopRowListener row_listener_;
+  roo_windows::material3::AppBar app_bar_;
+  roo_windows::material3::IconButton back_;
+  WifiNetworkRow summary_;
+  roo_windows::material3::LayoutScaffold scaffold_;
 };
 
 WifiNetworkDetailsDestination::WifiNetworkDetailsDestination(
     roo_windows::ApplicationContext& context, WifiPresentationModel& model,
     Actions& actions)
-    : model_(model), actions_(actions), impl_(new Impl(context, *this)) {
+    : model_(model),
+      actions_(actions),
+      impl_(std::make_unique<Impl>(context, *this)) {
   model_.addListener(*this);
 }
 
@@ -53,7 +55,7 @@ WifiNetworkDetailsDestination::~WifiNetworkDetailsDestination() {
 }
 
 roo_windows::Widget& WifiNetworkDetailsDestination::getContents() {
-  return impl_->scaffold;
+  return impl_->scaffold_;
 }
 
 void WifiNetworkDetailsDestination::onResume() {
@@ -64,7 +66,7 @@ void WifiNetworkDetailsDestination::onResume() {
 void WifiNetworkDetailsDestination::setNetwork(
     const WifiNetworkSummary& network) {
   selected_ = network;
-  impl_->summary.bind(0, selected_);
+  impl_->summary_.bind(0, selected_);
 }
 
 roo_wifi::Controller::RequestResult WifiNetworkDetailsDestination::connect() {
@@ -90,7 +92,7 @@ void WifiNetworkDetailsDestination::refreshSelection() {
       roo_wifi::ProfileId id = selected_.profile_id;
       selected_ = network;
       if (selected_.profile_id == 0) selected_.profile_id = id;
-      impl_->summary.bind(0, selected_);
+      impl_->summary_.bind(0, selected_);
       return;
     }
   }
@@ -100,7 +102,7 @@ void WifiNetworkDetailsDestination::refreshSelection() {
     selected_.current = true;
     selected_.connecting = current->connecting;
   }
-  impl_->summary.bind(0, selected_);
+  impl_->summary_.bind(0, selected_);
 }
 
 void WifiNetworkDetailsDestination::onWifiModelChanged() { refreshSelection(); }

@@ -4,6 +4,7 @@
 #include "roo_display.h"
 #include "roo_display/driver/ili9341.h"
 #include "roo_display/driver/touch_xpt2046.h"
+#include "roo_logging.h"
 #include "roo_wifi/esp32.h"
 #include "roo_windows.h"
 #include "roo_windows_wifi.h"
@@ -21,6 +22,10 @@
 
 using namespace roo_display;
 using namespace roo_windows;
+
+// Learning goal: present a complete Material 3 Wi-Fi settings flow backed by
+// the production ESP32 controller. The emulator supplies two local access
+// points, so enabling Wi-Fi immediately demonstrates discovery and selection.
 
 namespace {
 
@@ -90,7 +95,7 @@ roo_windows_wifi::WifiSettingsFlow wifi_settings(app.context(), wifi, 1);
 
 void setup() {
   SPI.begin();
-  wifi.begin();
+  CHECK(wifi.begin() == roo_wifi::Status::kOk);
   display.init();
   task.navigation().push(wifi_settings.main());
   app.start();

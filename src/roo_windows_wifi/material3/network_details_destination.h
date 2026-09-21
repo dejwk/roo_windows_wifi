@@ -12,31 +12,52 @@ namespace roo_windows_wifi::material3 {
 class WifiNetworkDetailsDestination : public roo_windows::Destination,
                                       private WifiPresentationModel::Listener {
  public:
+  /// Handles actions that leave the retained details page.
   class Actions {
    public:
     virtual ~Actions() = default;
+
+    /// Opens the editor for the selected network.
     virtual void editSelectedNetwork(const WifiNetworkSummary& network) = 0;
   };
 
+  /// Creates a reusable details destination borrowing its model and actions.
   WifiNetworkDetailsDestination(roo_windows::ApplicationContext& context,
                                 WifiPresentationModel& model, Actions& actions);
+
+  /// Detaches model observation before destroying widgets.
   ~WifiNetworkDetailsDestination() override;
 
+  /// Returns the retained scaffold for navigation presentation.
   roo_windows::Widget& getContents() override;
+
+  /// Refreshes the retained selection against the latest model state.
   void onResume() override;
 
   /// Replaces the owned selection shown by this reusable destination.
   void setNetwork(const WifiNetworkSummary& network);
+
+  /// Returns the retained selection.
   const WifiNetworkSummary& network() const { return selected_; }
+
+  /// Returns whether the selected network is absent from the latest scan.
   bool isOutOfRange() const { return !selected_.in_range; }
 
+  /// Connects the selected saved profile.
   roo_wifi::Controller::RequestResult connect();
+
+  /// Disconnects the active link.
   roo_wifi::Controller::RequestResult disconnect();
+
+  /// Removes the selected saved profile.
   roo_wifi::Controller::RequestResult forget();
 
  private:
   class Impl;
+
+  /// Reconciles the retained selection with current scan and link summaries.
   void refreshSelection();
+
   void onWifiModelChanged() override;
 
   WifiPresentationModel& model_;
