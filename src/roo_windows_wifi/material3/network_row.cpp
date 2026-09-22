@@ -1,5 +1,7 @@
 #include "roo_windows_wifi/material3/network_row.h"
 
+#include <cstring>
+
 #include "roo_display/ui/alignment.h"
 #include "roo_display/ui/text_label.h"
 #include "roo_icons/filled/18/device.h"
@@ -91,9 +93,18 @@ WifiNetworkRow::WifiNetworkRow(roo_windows::ApplicationContext& context,
 }
 
 void WifiNetworkRow::bind(size_t index, const WifiNetworkSummary& summary) {
+  const bool changed =
+      summary_.ssid != summary.ssid || summary_.current != summary.current ||
+      summary_.isOpen() != summary.isOpen() ||
+      SignalBars(summary_.rssi_dbm) != SignalBars(summary.rssi_dbm);
+  const auto old_signal = signalState();
+  const char* old_supporting = supportingText();
   index_ = index;
   summary_ = summary;
-  invalidateInterior();
+  if (changed || old_signal != signalState() ||
+      std::strcmp(old_supporting, supportingText()) != 0) {
+    invalidateInterior();
+  }
 }
 
 WifiSignalState WifiNetworkRow::signalState() const {
