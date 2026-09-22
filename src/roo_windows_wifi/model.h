@@ -15,7 +15,7 @@ enum ConnectionStatus {
   WL_CONNECTION_LOST,
   WL_DISCONNECTED
 };
-/// UI model derived from backend AP records and typed operation outcomes.
+/// UI model derived from backend AP records and current backend state.
 /// This consumer reserves one application-supplied provisioning key; it does
 /// not infer persistent identity from SSIDs or scan indices.
 class Model : private roo_wifi::Controller::Listener {
@@ -44,7 +44,7 @@ class Model : private roo_wifi::Controller::Listener {
     refresh();
     onLinkChanged(backend_.linkState());
   }
-  ~Model() override { backend_.removeListener(*this); }
+  ~Model() { backend_.removeListener(*this); }
   void addListener(Listener* listener) { listeners_.push_back(listener); }
   void removeListener(Listener* listener) {
     listeners_.erase(
@@ -53,8 +53,9 @@ class Model : private roo_wifi::Controller::Listener {
   }
   bool isEnabled() const { return backend_.isEnabled(); }
   bool isConnecting() const {
-    return connect_id_ != 0 ||
-           backend_.linkState().phase == roo_wifi::LinkPhase::kConnecting;
+    auto phase = backend_.state().station;
+    return phase == roo_wifi::Controller::StationPhase::kConnecting ||
+           phase == roo_wifi::Controller::StationPhase::kAwaitingIp;
   }
   const Network& currentNetwork() const { return current_; }
   ConnectionStatus currentNetworkStatus() const { return status_; }
@@ -70,8 +71,11 @@ class Model : private roo_wifi::Controller::Listener {
     return backend_.loadProfile(key_, profile) == roo_wifi::Status::kOk &&
            Text(profile.settings.connection.ssid) == ssid;
   }
-  void toggleEnabled() { backend_.setEnabled(!backend_.isEnabled()); }
-  void resume() { backend_.scan(); }
+  void toggleEnabled() {
+    backend_.setEnabled(backend_.state().desired ==
+                        roo_wifi::Controller::Target::kDisabled);
+  }
+  void resume() { backend_.startScan(); }
   void pause() {}
   void connect() { track(backend_.connect(key_)); }
   void connect(const std::string& ssid, const std::string& password) {
@@ -81,10 +85,8 @@ class Model : private roo_wifi::Controller::Listener {
     }
     saveAndConnect(ssid, password);
   }
-  /// Saves first and starts a connection only after the matching successful
-  /// result.
+  /// Saves synchronously and requests connection only after a successful save.
   void saveAndConnect(const std::string& ssid, const std::string& password) {
-    if (save_id_) return;
     roo_wifi::ProfileSettings settings;
     roo_wifi::Credentials secret;
     roo_wifi::CredentialUpdate update;
@@ -114,17 +116,13 @@ class Model : private roo_wifi::Controller::Listener {
                         ? roo_wifi::CredentialIntent::kKeep
                         : roo_wifi::CredentialIntent::kReplace;
     update.replacement = secret;
-    roo_wifi::RequestResult result =
-        backend_.saveProfile(key_, settings, update);
-    save_id_ = result.id;
-    if (!result.id) failure();
-  }
-  void disconnect() {
-    if (connect_id_)
-      backend_.cancel(connect_id_);
+    roo_wifi::Status result = backend_.saveProfile(key_, settings, update);
+    if (result == roo_wifi::Status::kOk)
+      connect();
     else
-      backend_.disconnect();
+      failure();
   }
+  void disconnect() { backend_.disconnect(); }
   void forget(const std::string& ssid) {
     if (hasSavedProfile(ssid)) backend_.removeProfile(key_);
   }
@@ -151,9 +149,8 @@ class Model : private roo_wifi::Controller::Listener {
       secret.encoding = roo_wifi::CredentialEncoding::kWepKey;
     return roo_wifi::Validate(config, secret) == roo_wifi::Status::kOk;
   }
-  void track(roo_wifi::RequestResult result) {
-    connect_id_ = result.id;
-    if (!result.id) failure();
+  void track(roo_wifi::Status status) {
+    if (status != roo_wifi::Status::kOk) failure();
   }
   void failure() {
     status_ = WL_CONNECT_FAILED;
@@ -176,10 +173,10 @@ class Model : private roo_wifi::Controller::Listener {
       if (!duplicate) networks_.push_back(n);
     }
   }
-  void onEnabledChanged(bool enabled) override {
+  void onEnabledChanged(bool enabled) {
     for (Listener* l : listeners_) l->onEnableChanged(enabled);
   }
-  void onScanStateChanged(bool scanning) override {
+  void onScanStateChanged(bool scanning) {
     for (Listener* l : listeners_) {
       if (scanning)
         l->onScanStarted();
@@ -187,11 +184,11 @@ class Model : private roo_wifi::Controller::Listener {
         l->onScanCompleted();
     }
   }
-  void onScanChanged() override {
+  void onScanChanged() {
     refresh();
     for (Listener* l : listeners_) l->onScanCompleted();
   }
-  void onLinkChanged(const roo_wifi::LinkState& link) override {
+  void onLinkChanged(const roo_wifi::LinkState& link) {
     current_ = {Text(link.ssid), link.security == roo_wifi::AuthMode::kOpen,
                 link.rssi_dbm, link.security};
     status_ = link.phase == roo_wifi::LinkPhase::kAddressReady ? WL_CONNECTED
@@ -203,24 +200,31 @@ class Model : private roo_wifi::Controller::Listener {
       l->onConnectionStateChanged(link);
     }
   }
-  void onOperationFinished(const roo_wifi::OperationResult& result) override {
-    if (result.id == save_id_) {
-      save_id_ = 0;
-      if (result.status == roo_wifi::Status::kOk)
-        connect();
-      else
-        failure();
-    } else if (result.id == connect_id_) {
-      connect_id_ = 0;
-      if (result.status != roo_wifi::Status::kOk) failure();
+  void onStationStateChanged() override {
+    auto state = backend_.state();
+    if (enabled_ != state.enabled) {
+      enabled_ = state.enabled;
+      onEnabledChanged(enabled_);
+      if (enabled_) backend_.startScan();
     }
-    if (result.kind == roo_wifi::OperationKind::kEnable &&
-        result.status == roo_wifi::Status::kOk && backend_.isEnabled())
-      backend_.scan();
+    onLinkChanged(state.link);
+    if (state.status != roo_wifi::Status::kOk) failure();
   }
+  void onScanStateChanged() override {
+    if (scanning_ != backend_.isScanning()) {
+      scanning_ = backend_.isScanning();
+      onScanStateChanged(scanning_);
+    }
+    if (generation_ != backend_.scanSnapshot().generation) {
+      generation_ = backend_.scanSnapshot().generation;
+      onScanChanged();
+    }
+  }
+  void onProfilesChanged() override { refresh(); }
+  bool enabled_ = false, scanning_ = false;
+  uint64_t generation_ = 0;
   roo_wifi::Controller& backend_;
   roo_wifi::ProfileId key_;
-  roo_wifi::OperationId save_id_ = 0, connect_id_ = 0;
   Network current_;
   ConnectionStatus status_ = WL_DISCONNECTED;
   std::vector<Network> networks_;

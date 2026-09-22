@@ -18,7 +18,7 @@ TEST(ModelTest, SaveThenConnectKnownKey) {
   ap.ssid = roo_wifi::TestConfig().ssid;
   ap.security = roo_wifi::AuthMode::kWpa2Personal;
   native.aps.push_back(ap);
-  backend.scan();
+  backend.startScan();
   roo_wifi::Pump(scheduler);
   native.emit({roo_wifi::NativeStation::Event::kScanDone});
   roo_wifi::Pump(scheduler);
@@ -48,7 +48,7 @@ TEST(ModelTest, AmbiguousSecurityIsNotSelected) {
   native.aps.push_back(ap);
   ap.security = roo_wifi::AuthMode::kWpa2Personal;
   native.aps.push_back(ap);
-  backend.scan();
+  backend.startScan();
   roo_wifi::Pump(scheduler);
   native.emit({roo_wifi::NativeStation::Event::kScanDone});
   roo_wifi::Pump(scheduler);

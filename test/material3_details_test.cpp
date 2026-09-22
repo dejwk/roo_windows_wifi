@@ -25,7 +25,7 @@ TEST(WifiNetworkDetailsDestinationTest, RetainsSelectionOutOfRangeAndUsesId) {
   settings.connection = roo_wifi::TestConfig("Saved");
   roo_wifi::CredentialUpdate clear;
   clear.intent = roo_wifi::CredentialIntent::kClear;
-  ASSERT_NE(controller.saveProfile(7, settings, clear).id, 0u);
+  ASSERT_EQ(controller.saveProfile(7, settings, clear), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   roo_windows::Environment environment(scheduler);
   roo_windows::ApplicationContext context(environment.scheduler(),
@@ -42,28 +42,53 @@ TEST(WifiNetworkDetailsDestinationTest, RetainsSelectionOutOfRangeAndUsesId) {
   destination.setNetwork(selected);
 
   destination.onResume();
-  EXPECT_TRUE(destination.isOutOfRange());
-  ASSERT_NE(destination.connect().id, 0u);
+  EXPECT_FALSE(destination.isOutOfRange());
+  EXPECT_FALSE(destination.network().range_known);
+  ASSERT_EQ(destination.connect(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(station.last_config.ssid.size, 5u);
   station.associated();
   station.ready();
   roo_wifi::Pump(scheduler);
 
+  // Disconnecting without a scan does not prove the network is absent.
+  ASSERT_EQ(destination.disconnect(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  EXPECT_TRUE(destination.network().disconnecting);
+  EXPECT_FALSE(destination.isOutOfRange());
+  station.disconnected();
+  roo_wifi::Pump(scheduler);
+  EXPECT_FALSE(destination.network().disconnecting);
+  EXPECT_TRUE(destination.network().saved);
+  EXPECT_FALSE(destination.network().range_known);
+  EXPECT_FALSE(destination.isOutOfRange());
+  // An empty completed scan, unlike a disconnect, supplies absence evidence.
+  ASSERT_EQ(controller.startScan(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(scheduler);
+  EXPECT_TRUE(destination.network().range_known);
+  EXPECT_TRUE(destination.isOutOfRange());
+  ASSERT_EQ(destination.connect(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  station.associated();
+  station.ready();
+  roo_wifi::Pump(scheduler);
+
   // Removing this key must not retarget details to another matching profile.
-  ASSERT_NE(controller.saveProfile(9, settings, clear).id, 0u);
+  ASSERT_EQ(controller.saveProfile(9, settings, clear), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   roo_wifi::ScanRecord record;
   record.ssid = settings.connection.ssid;
   record.security = settings.connection.security;
   station.aps.push_back(record);
-  ASSERT_NE(controller.scan().id, 0u);
+  ASSERT_EQ(controller.startScan(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   station.emit({roo_wifi::NativeStation::Event::kScanDone});
   roo_wifi::Pump(scheduler);
-  ASSERT_NE(destination.forget().id, 0u);
+  ASSERT_EQ(destination.forget(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
-  EXPECT_EQ(station.disconnects, 1);
+  EXPECT_EQ(station.disconnects, 2);
   station.disconnected();
   roo_wifi::Pump(scheduler);
   roo_wifi::Profile profile;
@@ -71,7 +96,7 @@ TEST(WifiNetworkDetailsDestinationTest, RetainsSelectionOutOfRangeAndUsesId) {
   EXPECT_EQ(destination.network().profile_id, 7u);
   EXPECT_FALSE(destination.network().saved);
   EXPECT_EQ(controller.loadProfile(9, profile), roo_wifi::Status::kOk);
-  EXPECT_EQ(destination.connect().status, roo_wifi::Status::kNotFound);
+  EXPECT_EQ(destination.connect(), roo_wifi::Status::kNotFound);
 }
 }  // namespace
 }  // namespace roo_windows_wifi::material3

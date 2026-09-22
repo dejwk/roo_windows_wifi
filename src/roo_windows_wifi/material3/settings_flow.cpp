@@ -21,7 +21,7 @@ WifiSettingsFlow::WifiSettingsFlow(roo_windows::ApplicationContext& context,
 }
 
 void WifiSettingsFlow::showNetworkDetails(const WifiNetworkSummary& network) {
-  if (details_.getNavigationHost() || details_.busy()) return;
+  if (details_.getNavigationHost() != nullptr) return;
   selected_ = network;
   details_.setNetwork(network);
   if (settings_.getNavigationHost() != nullptr)
@@ -29,7 +29,7 @@ void WifiSettingsFlow::showNetworkDetails(const WifiNetworkSummary& network) {
 }
 
 void WifiSettingsFlow::editNetwork(const WifiNetworkSummary& network) {
-  if (edit_.busy() || edit_.getNavigationHost()) return;
+  if (edit_.getNavigationHost() != nullptr) return;
   selected_ = network;
   edit_.beginNetwork(network);
   roo_windows::NavigationHost* navigation = settings_.getNavigationHost();
@@ -38,7 +38,7 @@ void WifiSettingsFlow::editNetwork(const WifiNetworkSummary& network) {
 }
 
 void WifiSettingsFlow::addNetwork() {
-  if (edit_.busy() || edit_.getNavigationHost()) return;
+  if (edit_.getNavigationHost() != nullptr) return;
   selected_ = WifiNetworkSummary();
   edit_.beginAdd();
   roo_windows::NavigationHost* navigation = settings_.getNavigationHost();
@@ -53,7 +53,7 @@ void WifiSettingsFlow::showSavedNetworks() {
 
 void WifiSettingsFlow::showSavedNetworkDetails(
     const WifiNetworkSummary& network) {
-  if (details_.getNavigationHost() || details_.busy()) return;
+  if (details_.getNavigationHost() != nullptr) return;
   selected_ = network;
   details_.setNetwork(network);
   if (saved_.getNavigationHost() != nullptr)

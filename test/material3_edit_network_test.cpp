@@ -28,7 +28,7 @@ TEST(WifiEditNetworkDestinationTest, PrefillsAndConnectsSecuredNetwork) {
   destination.beginNetwork(network);
   destination.setPassword("password");
 
-  ASSERT_NE(destination.connect().id, 0u);
+  ASSERT_EQ(destination.connect(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
 
   EXPECT_EQ(station.last_config.ssid.size, 6u);
@@ -60,8 +60,7 @@ class EditorTest : public testing::Test {
 TEST_F(EditorTest, SavesOfflineAndRejectsOccupiedProvisioningKey) {
   WifiEditNetworkDestination editor(context, controller, 7);
   fill(editor);
-  ASSERT_NE(editor.save().id, 0u);
-  EXPECT_TRUE(editor.busy());
+  ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(editor.profileId(), 7u);
   EXPECT_EQ(editor.feedback(), "Saved");
@@ -71,26 +70,26 @@ TEST_F(EditorTest, SavesOfflineAndRejectsOccupiedProvisioningKey) {
   EXPECT_EQ(station.last_config.ssid.size, 0u);
   editor.beginAdd();
   fill(editor);
-  EXPECT_EQ(editor.save().id, 0u);
+  EXPECT_NE(editor.save(), roo_wifi::Status::kOk);
   EXPECT_EQ(editor.profileId(), 0u);
 }
 
 // Verifies a failed save retains the entire draft and cannot start a
 // connection.
 TEST_F(EditorTest, RetainsDraftAfterStorageFailure) {
-  ASSERT_NE(controller.setEnabled(true).id, 0u);
+  ASSERT_EQ(controller.setEnabled(true), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   WifiEditNetworkDestination editor(context, controller, 7);
   fill(editor);
   store.fail_at = store.writes + 1;
-  ASSERT_NE(editor.connect().id, 0u);
+  ASSERT_EQ(editor.connect(), roo_wifi::Status::kStorageFailure);
   roo_wifi::Pump(scheduler);
   EXPECT_NE(editor.status(), roo_wifi::Status::kOk);
   EXPECT_EQ(editor.password(), "password");
   EXPECT_EQ(editor.ssid(), "Saved");
   EXPECT_EQ(station.last_config.ssid.size, 0u);
   store.fail_at = -1;
-  ASSERT_NE(editor.save().id, 0u);
+  ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(editor.profileId(), 7u);
 }
@@ -123,13 +122,13 @@ TEST_F(EditorTest, RetriesPolicyWithoutDuplicateProfile) {
   FailingPolicy policy;
   WifiEditNetworkDestination editor(context, controller, 7, nullptr, &policy);
   fill(editor);
-  ASSERT_NE(editor.save().id, 0u);
+  ASSERT_EQ(editor.save(), roo_wifi::Status::kStorageFailure);
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(editor.profileId(), 7u);
   EXPECT_EQ(editor.status(), roo_wifi::Status::kStorageFailure);
   EXPECT_NE(editor.feedback().find("Wi-Fi saved"), std::string::npos);
   policy.result = roo_wifi::Status::kOk;
-  ASSERT_NE(editor.save().id, 0u);
+  ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(editor.status(), roo_wifi::Status::kOk);
   int count = 0;

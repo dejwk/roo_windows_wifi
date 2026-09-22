@@ -31,7 +31,7 @@ void PublishScan(roo_wifi::Controller& controller,
                  roo_wifi::TestStation& station,
                  roo_scheduler::Scheduler& scheduler) {
   if (!controller.isScanning()) {
-    ASSERT_NE(controller.scan().id, 0u);
+    ASSERT_EQ(controller.startScan(), roo_wifi::Status::kOk);
     roo_wifi::Pump(scheduler);
   }
   station.emit({roo_wifi::NativeStation::Event::kScanDone});
@@ -94,7 +94,7 @@ TEST(WifiSettingsDestinationTest, PresentsEnabledAndDisabledSections) {
   EXPECT_TRUE(fixture.destination.wifiEnabled());
   EXPECT_EQ(fixture.destination.availableNetworkCount(), 1u);
 
-  ASSERT_NE(fixture.controller.setEnabled(false).id, 0u);
+  ASSERT_EQ(fixture.controller.setEnabled(false), roo_wifi::Status::kOk);
   roo_wifi::Pump(fixture.scheduler);
 
   EXPECT_FALSE(fixture.destination.wifiEnabled());
@@ -120,7 +120,7 @@ TEST(WifiSettingsDestinationTest, ToggleRequestUsesObservedControllerState) {
   fixture.begin();
   ASSERT_FALSE(fixture.controller.isEnabled());
 
-  ASSERT_NE(fixture.destination.toggleWifi().id, 0u);
+  ASSERT_EQ(fixture.destination.toggleWifi(), roo_wifi::Status::kOk);
   roo_wifi::Pump(fixture.scheduler);
 
   EXPECT_TRUE(fixture.controller.isEnabled());
@@ -133,7 +133,7 @@ TEST(WifiSettingsDestinationTest, EnablingStartsScanAfterTransition) {
   Fixture fixture(false);
   fixture.begin();
 
-  ASSERT_NE(fixture.destination.setWifiEnabled(true).id, 0u);
+  ASSERT_EQ(fixture.destination.setWifiEnabled(true), roo_wifi::Status::kOk);
   roo_wifi::Pump(fixture.scheduler);
 
   EXPECT_TRUE(fixture.controller.isEnabled());
@@ -148,8 +148,7 @@ TEST(WifiSettingsDestinationTest, ToggleStaysChangedAndRetriesAfterScan) {
   fixture.begin();
   ASSERT_TRUE(fixture.controller.isScanning());
 
-  EXPECT_EQ(fixture.destination.setWifiEnabled(false).status,
-            roo_wifi::Status::kBusy);
+  EXPECT_EQ(fixture.destination.setWifiEnabled(false), roo_wifi::Status::kOk);
   EXPECT_FALSE(fixture.destination.wifiEnabled());
   EXPECT_TRUE(fixture.controller.isEnabled());
 
@@ -202,7 +201,8 @@ TEST(WifiSettingsDestinationTest, RoutesSavedNetworksByProfileId) {
   settings.connection = roo_wifi::TestConfig("Saved");
   roo_wifi::CredentialUpdate credentials;
   credentials.intent = roo_wifi::CredentialIntent::kClear;
-  ASSERT_NE(fixture.controller.saveProfile(42, settings, credentials).id, 0u);
+  ASSERT_EQ(fixture.controller.saveProfile(42, settings, credentials),
+            roo_wifi::Status::kOk);
   roo_wifi::Pump(fixture.scheduler);
   fixture.station.aps.push_back(
       Record("Saved", roo_wifi::AuthMode::kOpen, -40));
@@ -244,16 +244,18 @@ TEST(WifiSettingsDestinationTest, UnsupportedSecurityDoesNotOpenEditor) {
 
 // Verifies immediate connection rejection remains visible instead of being
 // lost.
-TEST(WifiSettingsDestinationTest, ShowsRejectedConnection) {
+TEST(WifiSettingsDestinationTest, ConnectInterruptsDiscovery) {
   Fixture fixture;
   fixture.begin();
   fixture.station.aps.push_back(Record("Cafe", roo_wifi::AuthMode::kOpen, -45));
   PublishScan(fixture.controller, fixture.station, fixture.scheduler);
-  ASSERT_NE(fixture.controller.scan().id, 0u);
+  ASSERT_EQ(fixture.controller.startScan(), roo_wifi::Status::kOk);
   fixture.destination.activateNetwork(0);
   EXPECT_EQ(fixture.station.connects, 0);
-  EXPECT_NE(fixture.destination.feedback().find("operation"),
-            std::string::npos);
+  EXPECT_EQ(fixture.destination.feedback(), "Connecting…");
+  roo_wifi::Pump(fixture.scheduler);
+  // This scan was still queued, so replacing it needs no native scan event.
+  EXPECT_EQ(fixture.station.connects, 1);
 }
 
 }  // namespace

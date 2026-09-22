@@ -8,7 +8,10 @@ namespace material3 {
 WifiPresentationModel::WifiPresentationModel(roo_wifi::Controller& controller)
     : controller_(controller) {
   controller_.addListener(*this);
+  connected_profile_ = controller_.state().connected_profile;
   refresh();
+  enabled_ = controller_.isEnabled();
+  scanning_ = controller_.isScanning();
 }
 
 WifiPresentationModel::~WifiPresentationModel() {
@@ -98,6 +101,7 @@ void WifiPresentationModel::rebuildNetworks() {
     summary.rssi_dbm = record.rssi_dbm;
     summary.channel = record.channel;
     summary.in_range = true;
+    summary.range_known = true;
     networks.push_back(summary);
   }
 
@@ -128,7 +132,13 @@ void WifiPresentationModel::rebuildNetworks() {
     current_.rssi_dbm = link.rssi_dbm;
     current_.channel = link.channel;
     current_.current = true;
-    current_.connecting = link.phase != roo_wifi::LinkPhase::kAddressReady;
+    const roo_wifi::Controller::State state = controller_.state();
+    current_.disconnecting =
+        state.station == roo_wifi::Controller::StationPhase::kDisconnecting ||
+        state.desired != roo_wifi::Controller::Target::kConnected;
+    current_.connecting = !current_.disconnecting &&
+                          link.phase != roo_wifi::LinkPhase::kAddressReady;
+    current_.range_known = hasScanResults();
     current_.link_phase = link.phase;
     std::vector<WifiNetworkSummary>::iterator scanned =
         std::find_if(networks.begin(), networks.end(),
@@ -141,6 +151,7 @@ void WifiPresentationModel::rebuildNetworks() {
 
       scanned->current = true;
       scanned->connecting = current_.connecting;
+      scanned->disconnecting = current_.disconnecting;
       scanned->link_phase = current_.link_phase;
     }
     for (const WifiSavedProfileSummary& profile : profiles_) {
@@ -184,54 +195,43 @@ bool WifiPresentationModel::scanStale(roo_time::Duration max_age) const {
   return !observed_scan_ || roo_time::Uptime::Now() - last_scan_ >= max_age;
 }
 
-void WifiPresentationModel::onScanChanged() {
-  last_scan_ = roo_time::Uptime::Now();
-  observed_scan_ = true;
+void WifiPresentationModel::onStationStateChanged() {
+  const roo_wifi::Controller::State state = controller_.state();
+  if (!state.enabled) observed_scan_ = false;
+  connected_profile_ = state.connected_profile;
   rebuildNetworks();
-  notifyChanged();
-}
-
-void WifiPresentationModel::onScanStateChanged(bool scanning) {
-  for (Listener* listener : listeners_) {
-    listener->onWifiScanStateChanged(scanning);
-  }
-}
-
-void WifiPresentationModel::onEnabledChanged(bool enabled) {
-  if (!enabled) observed_scan_ = false;
-  if (profile_status_ == roo_wifi::Status::kNotStarted) refreshProfiles();
-  rebuildNetworks();
-  for (Listener* listener : listeners_) {
-    listener->onWifiEnabledChanged(enabled);
+  if (enabled_ != state.enabled) {
+    enabled_ = state.enabled;
+    for (Listener* listener : listeners_) {
+      listener->onWifiEnabledChanged(enabled_);
+    }
   }
   notifyChanged();
 }
 
-void WifiPresentationModel::onLinkChanged(const roo_wifi::LinkState& state) {
-  if (state.phase == roo_wifi::LinkPhase::kIdle ||
-      state.phase != roo_wifi::LinkPhase::kAddressReady)
-    connected_profile_ = 0;
-  rebuildNetworks();
-  notifyChanged();
+void WifiPresentationModel::onScanStateChanged() {
+  const uint64_t generation = controller_.scanSnapshot().generation;
+  const bool results_changed = generation != scan_generation_;
+  if (results_changed) {
+    scan_generation_ = generation;
+    last_scan_ = roo_time::Uptime::Now();
+    observed_scan_ = controller_.isEnabled();
+    rebuildNetworks();
+  }
+  const bool scanning = controller_.isScanning();
+  if (scanning_ != scanning) {
+    scanning_ = scanning;
+    for (Listener* listener : listeners_) {
+      listener->onWifiScanStateChanged(scanning_);
+    }
+  }
+  if (results_changed) notifyChanged();
 }
 
 void WifiPresentationModel::onProfilesChanged() {
   refreshProfiles();
   rebuildNetworks();
   notifyChanged();
-}
-
-void WifiPresentationModel::onOperationFinished(
-    const roo_wifi::OperationResult& result) {
-  if (result.kind == roo_wifi::OperationKind::kConnect &&
-      result.status == roo_wifi::Status::kOk) {
-    connected_profile_ = result.profile_id;
-    rebuildNetworks();
-    notifyChanged();
-  }
-  for (Listener* listener : listeners_) {
-    listener->onWifiOperationFinished(result);
-  }
 }
 
 }  // namespace material3

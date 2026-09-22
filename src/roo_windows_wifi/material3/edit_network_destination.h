@@ -25,23 +25,20 @@ class WifiEditNetworkDestination : public roo_windows::Destination,
   /// Returns the retained scaffold.
   roo_windows::Widget& getContents() override;
 
-  /// Starts a new manual-entry draft if no submission is pending.
+  /// Starts a new manual-entry draft.
   void beginAdd();
 
   /// Loads a scanned identity or saved profile without loading its secret.
   void beginNetwork(const WifiNetworkSummary& network);
 
   /// Saves the draft and connects only after Wi-Fi and policy saves succeed.
-  roo_wifi::Controller::RequestResult connect();
+  roo_wifi::Status connect();
 
   /// Saves the draft without requiring the radio to be enabled.
-  roo_wifi::Controller::RequestResult save();
+  roo_wifi::Status save();
 
   /// Returns the single field-owned draft form.
   WifiConfigForm& form();
-
-  /// Returns whether this editor has an admitted operation in flight.
-  bool busy() const;
 
   /// Returns the committed key, or zero before a new profile save succeeds.
   roo_wifi::ProfileId profileId() const;
@@ -67,17 +64,21 @@ class WifiEditNetworkDestination : public roo_windows::Destination,
   /// Refreshes availability after returning from a choice destination.
   void onResume() override;
 
-  /// Discards unsubmitted text when leaving history; admitted saves continue.
+  /// Discards unsubmitted credential text when leaving history.
   void onStop() override;
 
  private:
   class Impl;
-  roo_wifi::Controller::RequestResult submit(bool connect);
+
+  /// Saves Wi-Fi and application policy before optionally requesting
+  /// connection.
+  roo_wifi::Status submit(bool connect);
+
+  /// Refreshes form actions from validation and desired radio enablement.
   void updateActions();
-  void onOperationFinished(const roo_wifi::OperationResult& result) override;
-  void onEnabledChanged(bool) override;
-  void onScanStateChanged(bool) override;
-  void onLinkChanged(const roo_wifi::LinkState&) override;
+
+  /// Reads current connection state after deferred invalidation.
+  void onStationStateChanged() override;
 
   roo_wifi::Controller& controller_;
   std::unique_ptr<Impl> impl_;

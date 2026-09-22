@@ -127,7 +127,7 @@ class WifiEditNetworkDestination::Impl {
     form_.setOnChanged([this]() { this->owner_.updateActions(); });
     form_.setOnChoose([this](WifiConfigForm::Choice setting) {
       NavigationHost* host = this->owner_.getNavigationHost();
-      if (!host || choice_.getNavigationHost() || pending_) return;
+      if (!host || choice_.getNavigationHost()) return;
       choice_.configure(setting);
       host->push(choice_);
     });
@@ -145,12 +145,10 @@ class WifiEditNetworkDestination::Impl {
   NetworkPolicyProvider* policies_;
   roo_wifi::ProfileId profile_ = 0;
   roo_wifi::ProfileId attempted_key_ = 0;
-  roo_wifi::OperationId pending_ = 0;
+  uint64_t connection_revision_ = 0;
   roo_wifi::Status last_status_ = roo_wifi::Status::kOk;
   roo_wifi::Status load_status_ = roo_wifi::Status::kOk;
-  bool connect_after_save_ = false;
   bool discarded_ = false;
-  NetworkPolicy pending_policy_;
   std::string feedback_;
   AppBar bar_;
   IconButton back_;
@@ -182,7 +180,6 @@ WifiEditNetworkDestination::~WifiEditNetworkDestination() {
 Widget& WifiEditNetworkDestination::getContents() { return impl_->scaffold_; }
 
 void WifiEditNetworkDestination::beginAdd() {
-  if (busy()) return;
   impl_->profile_ = 0;
   impl_->attempted_key_ = 0;
   impl_->discarded_ = false;
@@ -206,7 +203,6 @@ void WifiEditNetworkDestination::beginAdd() {
 
 void WifiEditNetworkDestination::beginNetwork(
     const WifiNetworkSummary& network) {
-  if (busy()) return;
   beginAdd();
   if (network.ssid.size() > 32) {
     impl_->load_status_ = roo_wifi::Status::kInvalidArgument;
@@ -217,9 +213,10 @@ void WifiEditNetworkDestination::beginNetwork(
   roo_wifi::Profile profile;
   NetworkPolicy policy;
   impl_->profile_ = network.profile_id;
-  if (impl_->profile_) {
+  if (impl_->profile_ != 0) {
     impl_->load_status_ = controller_.loadProfile(impl_->profile_, profile);
-    if (impl_->load_status_ == roo_wifi::Status::kOk && impl_->policies_) {
+    if (impl_->load_status_ == roo_wifi::Status::kOk &&
+        impl_->policies_ != nullptr) {
       impl_->load_status_ = impl_->policies_->read(impl_->profile_, policy);
       if (impl_->load_status_ == roo_wifi::Status::kNotFound)
         impl_->load_status_ = roo_wifi::Status::kOk;
@@ -239,37 +236,30 @@ void WifiEditNetworkDestination::beginNetwork(
   updateActions();
 }
 
-roo_wifi::Controller::RequestResult WifiEditNetworkDestination::save() {
-  return submit(false);
-}
-roo_wifi::Controller::RequestResult WifiEditNetworkDestination::connect() {
-  return submit(true);
-}
+roo_wifi::Status WifiEditNetworkDestination::save() { return submit(false); }
+roo_wifi::Status WifiEditNetworkDestination::connect() { return submit(true); }
 
-roo_wifi::Controller::RequestResult WifiEditNetworkDestination::submit(
-    bool connect) {
+roo_wifi::Status WifiEditNetworkDestination::submit(bool connect) {
   using roo_wifi::Status;
   auto reject = [this](Status status) {
     impl_->report(status);
     updateActions();
-    return roo_wifi::Controller::RequestResult{0, status};
+    return status;
   };
-  if (busy()) return reject(Status::kBusy);
   if (impl_->load_status_ != Status::kOk) return reject(impl_->load_status_);
   if (connect && !controller_.isEnabled()) return reject(Status::kDisabled);
-  if (connect && controller_.isScanning()) return reject(Status::kBusy);
   roo_wifi::ProfileSettings settings;
   roo_wifi::CredentialUpdate credential;
   NetworkPolicy policy;
   Status valid = form().build(settings, credential, policy);
   if (valid != Status::kOk) return reject(valid);
   roo_wifi::ProfileId key =
-      impl_->profile_ ? impl_->profile_ : impl_->attempted_key_;
-  if (!key) {
+      impl_->profile_ != 0 ? impl_->profile_ : impl_->attempted_key_;
+  if (key == 0) {
     key = impl_->key_;
-    if (impl_->ids_ && !impl_->ids_->nextProfileId(key))
+    if (impl_->ids_ != nullptr && !impl_->ids_->nextProfileId(key))
       return reject(Status::kNotFound);
-    if (!key) return reject(Status::kInvalidArgument);
+    if (key == 0) return reject(Status::kInvalidArgument);
     bool occupied = false;
     Status enumerated = controller_.forEachProfile([&](roo_wifi::ProfileId id) {
       if (id == key) occupied = true;
@@ -280,57 +270,46 @@ roo_wifi::Controller::RequestResult WifiEditNetworkDestination::submit(
     if (occupied || controller_.loadProfile(key, existing) != Status::kNotFound)
       return reject(Status::kNotFound);
   }
-  auto result = controller_.saveProfile(key, settings, credential);
-  if (!result.id) return reject(result.status);
+  roo_wifi::Status result = controller_.saveProfile(key, settings, credential);
   impl_->attempted_key_ = key;
-  impl_->pending_ = result.id;
-  impl_->pending_policy_ = std::move(policy);
-  impl_->connect_after_save_ = connect;
-  impl_->report(Status::kOk, "Saving…");
+  if (result != Status::kOk) {
+    roo_wifi::Profile profile;
+    roo_wifi::Status loaded = controller_.loadProfile(key, profile);
+    if (loaded == Status::kOk) impl_->profile_ = key;
+    if (loaded != Status::kOk || !profile.has_credentials)
+      form().requireCredentialReplacement();
+    return reject(result);
+  }
+  impl_->profile_ = key;
+  roo_wifi::Status policy_status = impl_->policies_ != nullptr
+                                       ? impl_->policies_->apply(key, policy)
+                                       : Status::kOk;
+  if (policy_status != Status::kOk) {
+    impl_->report(
+        policy_status,
+        "Wi-Fi saved; application policy failed. Retry Save to finish");
+    updateActions();
+    return policy_status;
+  }
+  if (connect && !impl_->discarded_) {
+    result = controller_.connect(key);
+    if (result == Status::kOk)
+      impl_->connection_revision_ = controller_.state().revision;
+    impl_->report(result, result == Status::kOk ? "Connecting…" : nullptr);
+  } else
+    impl_->report(Status::kOk, "Saved");
   updateActions();
   return result;
 }
 
-void WifiEditNetworkDestination::onOperationFinished(
-    const roo_wifi::OperationResult& result) {
-  using roo_wifi::Status;
-  if (result.id != impl_->pending_) {
-    updateActions();
-    return;
-  }
-  impl_->pending_ = 0;
-  if (result.status != Status::kOk) {
-    impl_->report(result.status);
-    if (result.kind == roo_wifi::OperationKind::kSave) {
-      roo_wifi::Profile profile;
-      Status loaded = controller_.loadProfile(impl_->attempted_key_, profile);
-      if (loaded == Status::kOk) impl_->profile_ = impl_->attempted_key_;
-      // Failed writes may have removed old credentials: never retry Keep
-      // blindly.
-      if (loaded != Status::kOk || !profile.has_credentials)
-        form().requireCredentialReplacement();
-    }
-  } else if (result.kind == roo_wifi::OperationKind::kSave) {
-    impl_->profile_ = result.profile_id;
-    Status policy_status =
-        impl_->policies_
-            ? impl_->policies_->apply(impl_->profile_, impl_->pending_policy_)
-            : Status::kOk;
-    if (policy_status != Status::kOk) {
-      impl_->report(
-          policy_status,
-          "Wi-Fi saved; application policy failed. Retry Save to finish");
-    } else if (impl_->connect_after_save_ && !impl_->discarded_) {
-      auto request = controller_.connect(impl_->profile_);
-      impl_->pending_ = request.id;
-      impl_->report(request.status, request.id ? "Connecting…" : nullptr);
-    } else
-      impl_->report(Status::kOk, "Saved");
-  } else
-    impl_->report(Status::kOk, "Connected");
-  if (impl_->discarded_ && !busy()) {
-    form().setText(WifiConfigForm::kPassword, {});
-    impl_->pending_policy_ = {};
+void WifiEditNetworkDestination::onStationStateChanged() {
+  roo_wifi::Controller::State state = controller_.state();
+  if (impl_->connection_revision_ != 0 &&
+      state.revision == impl_->connection_revision_) {
+    if (state.status != roo_wifi::Status::kOk)
+      impl_->report(state.status);
+    else if (state.station == roo_wifi::Controller::StationPhase::kConnected)
+      impl_->report(roo_wifi::Status::kOk, "Connected");
   }
   updateActions();
 }
@@ -342,39 +321,21 @@ void WifiEditNetworkDestination::updateActions() {
   bool valid =
       impl_->load_status_ == roo_wifi::Status::kOk &&
       form().build(settings, credential, policy, true) == roo_wifi::Status::kOk;
-  bool idle = !busy();
-  impl_->save_.setEnabled(idle && valid);
-  auto phase = controller_.linkState().phase;
-  impl_->connect_.setEnabled(idle && valid && controller_.isEnabled() &&
-                             !controller_.isScanning() &&
-                             phase != roo_wifi::LinkPhase::kConnecting &&
-                             phase != roo_wifi::LinkPhase::kAssociated);
-  form().setEditingEnabled(idle &&
-                           impl_->load_status_ == roo_wifi::Status::kOk);
-}
-
-void WifiEditNetworkDestination::onEnabledChanged(bool) { updateActions(); }
-
-void WifiEditNetworkDestination::onScanStateChanged(bool) { updateActions(); }
-
-void WifiEditNetworkDestination::onLinkChanged(const roo_wifi::LinkState&) {
-  updateActions();
+  impl_->save_.setEnabled(valid);
+  impl_->connect_.setEnabled(valid && controller_.isEnabled() &&
+                             controller_.state().desired !=
+                                 roo_wifi::Controller::Target::kDisabled);
+  form().setEditingEnabled(impl_->load_status_ == roo_wifi::Status::kOk);
 }
 
 void WifiEditNetworkDestination::onResume() { updateActions(); }
 
 void WifiEditNetworkDestination::onStop() {
   impl_->discarded_ = true;
-  impl_->connect_after_save_ = false;
-  if (!busy()) {
-    form().setText(WifiConfigForm::kPassword, {});
-    impl_->pending_policy_ = {};
-  }
+  form().setText(WifiConfigForm::kPassword, {});
 }
 
 WifiConfigForm& WifiEditNetworkDestination::form() { return impl_->form_; }
-
-bool WifiEditNetworkDestination::busy() const { return impl_->pending_ != 0; }
 
 roo_wifi::ProfileId WifiEditNetworkDestination::profileId() const {
   return impl_->profile_;

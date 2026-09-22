@@ -36,9 +36,9 @@ TEST(WifiSavedNetworksDestinationTest, EnumeratesSortsAndSelectsProfiles) {
   zebra.connection = roo_wifi::TestConfig("Zebra");
   roo_wifi::ProfileSettings alpha;
   alpha.connection = roo_wifi::TestConfig("Alpha");
-  ASSERT_NE(controller.saveProfile(9, zebra, clear).id, 0u);
+  ASSERT_EQ(controller.saveProfile(9, zebra, clear), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
-  ASSERT_NE(controller.saveProfile(3, alpha, clear).id, 0u);
+  ASSERT_EQ(controller.saveProfile(3, alpha, clear), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
 
   roo_windows::Environment environment(scheduler);

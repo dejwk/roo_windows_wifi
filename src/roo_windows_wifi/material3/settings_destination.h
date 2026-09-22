@@ -52,14 +52,14 @@ class WifiSettingsDestination : public roo_windows::Destination,
   void onResume() override;
 
   /// Requests an immediate scan when Wi-Fi is enabled.
-  roo_wifi::Controller::RequestResult refreshScan();
+  roo_wifi::Status refreshScan();
 
-  /// Requests the opposite of the controller's observed radio state.
-  roo_wifi::Controller::RequestResult toggleWifi();
+  /// Requests the opposite of the controller's desired radio state.
+  roo_wifi::Status toggleWifi();
 
-  /// Requests an explicit radio state and presents it while admission is
-  /// pending.
-  roo_wifi::Controller::RequestResult setWifiEnabled(bool enabled);
+  /// Requests an explicit radio state and presents the accepted intent
+  /// while the hardware transitions.
+  roo_wifi::Status setWifiEnabled(bool enabled);
 
   /// Returns the number of available rows, excluding the current row.
   size_t availableNetworkCount() const;
@@ -89,15 +89,10 @@ class WifiSettingsDestination : public roo_windows::Destination,
   void onWifiModelChanged() override;
   void onWifiScanStateChanged(bool scanning) override;
   void onWifiEnabledChanged(bool enabled) override;
-  void onWifiOperationFinished(
-      const roo_wifi::OperationResult& result) override;
   void onWifiNetworkActivated(size_t index) override;
 
   /// Synchronizes every visible section with the effective radio state.
   void syncBody();
-
-  /// Attempts to admit the retained radio-state request.
-  roo_wifi::Controller::RequestResult submitPendingWifiState();
 
   /// Selects an unused application profile key for an open network.
   roo_wifi::Status nextProfileId(roo_wifi::ProfileId& out);

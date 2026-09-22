@@ -224,11 +224,8 @@ class WifiSettingsDestination::Impl {
   WifiSettingsDestination& destination_;
   uint8_t wifi_request_pending_ : 1;
   uint8_t desired_wifi_enabled_ : 1;
-  roo_wifi::OperationId wifi_operation_id_ = 0;
-  roo_wifi::OperationId scan_id_ = 0;
-  roo_wifi::OperationId save_id_ = 0;
-  roo_wifi::OperationId connect_id_ = 0;
   WifiNetworkSummary requested_;
+  bool scan_after_enable_ = false;
   roo_time::Duration scan_max_age_ = roo_time::Seconds(30);
   // Declared last so it detaches its borrowed slots before their destruction.
   roo_windows::material3::LayoutScaffold scaffold_;
@@ -266,43 +263,22 @@ void WifiSettingsDestination::onResume() {
   }
 }
 
-roo_wifi::Controller::RequestResult WifiSettingsDestination::refreshScan() {
-  if (!model_.controller().isEnabled()) {
-    impl_->feedback_ = WifiStatusText(roo_wifi::Status::kDisabled);
-    syncBody();
-    return {0, roo_wifi::Status::kDisabled};
-  }
-  roo_wifi::Controller::RequestResult result = model_.controller().scan();
-  impl_->scan_id_ = result.id;
-  impl_->feedback_ = result.id ? "Scanning…" : WifiStatusText(result.status);
+roo_wifi::Status WifiSettingsDestination::refreshScan() {
+  roo_wifi::Status status = model_.controller().startScan();
+  impl_->feedback_ =
+      status == roo_wifi::Status::kOk ? "Scanning…" : WifiStatusText(status);
   syncBody();
-  return result;
+  return status;
 }
-
-roo_wifi::Controller::RequestResult WifiSettingsDestination::toggleWifi() {
+roo_wifi::Status WifiSettingsDestination::toggleWifi() {
   return setWifiEnabled(!wifiEnabled());
 }
-
-roo_wifi::Controller::RequestResult WifiSettingsDestination::setWifiEnabled(
-    bool enabled) {
-  impl_->desired_wifi_enabled_ = enabled;
-  impl_->wifi_request_pending_ = true;
-  impl_->wifi_operation_id_ = 0;
+roo_wifi::Status WifiSettingsDestination::setWifiEnabled(bool enabled) {
+  roo_wifi::Status status = model_.controller().setEnabled(enabled);
+  if (status != roo_wifi::Status::kOk)
+    impl_->feedback_ = WifiStatusText(status);
   syncBody();
-  return submitPendingWifiState();
-}
-
-roo_wifi::Controller::RequestResult
-WifiSettingsDestination::submitPendingWifiState() {
-  roo_wifi::Controller::RequestResult result =
-      model_.controller().setEnabled(impl_->desired_wifi_enabled_);
-  if (result.id != 0) {
-    impl_->wifi_operation_id_ = result.id;
-  } else if (result.status != roo_wifi::Status::kBusy) {
-    impl_->wifi_request_pending_ = false;
-    syncBody();
-  }
-  return result;
+  return status;
 }
 
 size_t WifiSettingsDestination::availableNetworkCount() const {
@@ -314,8 +290,8 @@ bool WifiSettingsDestination::hasCurrentNetwork() const {
 }
 
 bool WifiSettingsDestination::wifiEnabled() const {
-  return impl_->wifi_request_pending_ ? impl_->desired_wifi_enabled_
-                                      : model_.controller().isEnabled();
+  return model_.controller().state().desired !=
+         roo_wifi::Controller::Target::kDisabled;
 }
 
 bool WifiSettingsDestination::scanning() const {
@@ -350,42 +326,32 @@ void WifiSettingsDestination::activateNetwork(size_t model_index) {
     actions_.editNetwork(network);
     return;
   }
-  if (impl_->save_id_ || impl_->connect_id_ ||
-      model_.controller().isScanning()) {
-    impl_->feedback_ = WifiStatusText(roo_wifi::Status::kBusy);
-    syncBody();
-    return;
-  }
   impl_->requested_ = network;
-  roo_wifi::Controller::RequestResult result;
+  roo_wifi::Status status;
   if (network.saved && network.profile_id != 0) {
-    result = model_.controller().connect(network.profile_id);
-    impl_->connect_id_ = result.id;
-    impl_->feedback_ =
-        result.id ? "Connecting…" : WifiStatusText(result.status);
+    status = model_.controller().connect(network.profile_id);
   } else {
     roo_wifi::ProfileId id = 0;
-    roo_wifi::Status status = nextProfileId(id);
-    if (status != roo_wifi::Status::kOk) {
-      impl_->feedback_ = WifiStatusText(status);
-      syncBody();
-      return;
+    status = nextProfileId(id);
+    if (status == roo_wifi::Status::kOk) {
+      roo_wifi::ProfileSettings settings;
+      settings.connection = ConnectionFor(network);
+      roo_wifi::CredentialUpdate credential;
+      credential.intent = roo_wifi::CredentialIntent::kClear;
+      status = model_.controller().saveProfile(id, settings, credential);
+      if (status == roo_wifi::Status::kOk)
+        status = model_.controller().connect(id);
     }
-    roo_wifi::ProfileSettings settings;
-    settings.connection = ConnectionFor(network);
-    roo_wifi::CredentialUpdate credential;
-    credential.intent = roo_wifi::CredentialIntent::kClear;
-    result = model_.controller().saveProfile(id, settings, credential);
-    impl_->save_id_ = result.id;
-    impl_->feedback_ = result.id ? "Saving…" : WifiStatusText(result.status);
   }
+  impl_->feedback_ =
+      status == roo_wifi::Status::kOk ? "Connecting…" : WifiStatusText(status);
   syncBody();
 }
 
 roo_wifi::Status WifiSettingsDestination::nextProfileId(
     roo_wifi::ProfileId& out) {
   roo_wifi::ProfileId candidate = provisioning_key_;
-  if (profile_ids_ && !profile_ids_->nextProfileId(candidate)) {
+  if (profile_ids_ != nullptr && !profile_ids_->nextProfileId(candidate)) {
     return roo_wifi::Status::kNotFound;
   }
   if (candidate == 0) return roo_wifi::Status::kInvalidArgument;
@@ -407,9 +373,8 @@ roo_wifi::Status WifiSettingsDestination::nextProfileId(
 
 void WifiSettingsDestination::syncBody() {
   impl_->body_.sync(wifiEnabled());
-  auto phase = model_.controller().linkState().phase;
-  bool busy = impl_->save_id_ || impl_->connect_id_ ||
-              model_.controller().isScanning() ||
+  roo_wifi::LinkPhase phase = model_.controller().linkState().phase;
+  bool busy = model_.controller().isScanning() ||
               phase == roo_wifi::LinkPhase::kConnecting ||
               phase == roo_wifi::LinkPhase::kAssociated;
   impl_->body_.setStatus(impl_->feedback_, busy);
@@ -425,66 +390,36 @@ void WifiSettingsDestination::onWifiScanStateChanged(bool scanning) {
   syncBody();
 }
 
-void WifiSettingsDestination::onWifiModelChanged() { syncBody(); }
-
-void WifiSettingsDestination::onWifiEnabledChanged(bool enabled) {
-  if (impl_->wifi_request_pending_ && enabled == impl_->desired_wifi_enabled_) {
-    impl_->wifi_request_pending_ = false;
-    impl_->wifi_operation_id_ = 0;
+void WifiSettingsDestination::onWifiModelChanged() {
+  roo_wifi::Controller::State state = model_.controller().state();
+  using C = roo_wifi::Controller;
+  if (impl_->scan_after_enable_ && state.station == C::StationPhase::kIdle) {
+    roo_wifi::Status status = model_.controller().startScan();
+    if (status != roo_wifi::Status::kBusy) impl_->scan_after_enable_ = false;
   }
-  syncBody();
-}
-
-void WifiSettingsDestination::onWifiOperationFinished(
-    const roo_wifi::OperationResult& result) {
-  if (result.id == impl_->scan_id_) {
-    impl_->scan_id_ = 0;
+  if (model_.controller().isScanning())
+    impl_->feedback_ = "Scanning…";
+  else if (state.status != roo_wifi::Status::kOk)
+    impl_->feedback_ = WifiStatusText(state.status);
+  else if (state.station == C::StationPhase::kConnected)
+    impl_->feedback_ = "Connected";
+  else if (state.station == C::StationPhase::kConnecting ||
+           state.station == C::StationPhase::kAwaitingIp)
+    impl_->feedback_ = "Connecting…";
+  else if (state.station == C::StationPhase::kDisconnecting)
+    impl_->feedback_ = "Disconnecting…";
+  else if (!model_.controller().isScanning())
     impl_->feedback_ =
-        result.status == roo_wifi::Status::kOk
+        state.scan_status == roo_wifi::Status::kOk
             ? (model_.networks().empty()
                    ? "No networks found. Try Refresh or Add network"
                    : "Select a network")
-            : WifiStatusText(result.status);
-  }
-  if (result.id == impl_->save_id_) {
-    impl_->save_id_ = 0;
-    if (result.status == roo_wifi::Status::kOk) {
-      auto request = model_.controller().connect(result.profile_id);
-      impl_->connect_id_ = request.id;
-      impl_->feedback_ =
-          request.id ? "Connecting…" : WifiStatusText(request.status);
-    } else {
-      impl_->feedback_ = WifiStatusText(result.status);
-    }
-  }
-  if (result.id == impl_->connect_id_) {
-    impl_->connect_id_ = 0;
-    impl_->feedback_ = result.status == roo_wifi::Status::kOk
-                           ? "Connected"
-                           : WifiStatusText(result.status);
-    if (result.status == roo_wifi::Status::kConnectionFailed &&
-        !impl_->requested_.isOpen() && getNavigationHost() &&
-        getNavigationHost()->isCurrent(*this))
-      actions_.editNetwork(impl_->requested_);
-  }
-  if (result.kind == roo_wifi::OperationKind::kEnable &&
-      result.status != roo_wifi::Status::kOk)
-    impl_->feedback_ = WifiStatusText(result.status);
-  if (impl_->wifi_request_pending_) {
-    if (impl_->wifi_operation_id_ == 0) {
-      submitPendingWifiState();
-    } else if (result.id == impl_->wifi_operation_id_) {
-      impl_->wifi_operation_id_ = 0;
-      impl_->wifi_request_pending_ = false;
-      syncBody();
-    }
-  }
-  if (result.kind == roo_wifi::OperationKind::kEnable &&
-      result.status == roo_wifi::Status::kOk &&
-      model_.controller().isEnabled() &&
-      model_.scanStale(impl_->scan_max_age_)) {
-    refreshScan();
-  }
+            : WifiStatusText(state.scan_status);
+  syncBody();
+}
+
+void WifiSettingsDestination::onWifiEnabledChanged(bool enabled) {
+  impl_->scan_after_enable_ = enabled && model_.scanStale(impl_->scan_max_age_);
   syncBody();
 }
 

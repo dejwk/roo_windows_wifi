@@ -152,6 +152,9 @@ void WifiSavedNetworksDestination::profileSummary(
   summary.profile_ambiguous = false;
   summary.current = false;
   summary.connecting = false;
+  summary.disconnecting = false;
+  summary.link_phase = roo_wifi::LinkPhase::kIdle;
+  summary.range_known = model_.hasScanResults();
   summary.in_range = false;
   summary.ssid = profile.ssid;
   summary.security = profile.settings.connection.security;
@@ -163,6 +166,8 @@ void WifiSavedNetworksDestination::profileSummary(
       current->profile_id == profile.id) {
     summary.current = true;
     summary.connecting = current->connecting;
+    summary.disconnecting = current->disconnecting;
+    summary.link_phase = current->link_phase;
     summary.in_range = current->in_range;
     summary.rssi_dbm = current->rssi_dbm;
   }

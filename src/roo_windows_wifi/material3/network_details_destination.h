@@ -44,28 +44,28 @@ class WifiNetworkDetailsDestination : public roo_windows::Destination,
   const WifiNetworkSummary& network() const { return selected_; }
 
   /// Returns whether the selected network is absent from the latest scan.
-  bool isOutOfRange() const { return !selected_.in_range; }
+  bool isOutOfRange() const {
+    return selected_.range_known && !selected_.in_range && !selected_.current;
+  }
 
   /// Connects the selected saved profile.
-  roo_wifi::Controller::RequestResult connect();
+  roo_wifi::Status connect();
 
   /// Disconnects the active link.
-  roo_wifi::Controller::RequestResult disconnect();
+  roo_wifi::Status disconnect();
 
   /// Shows the reusable confirmation dialog in the destination's task.
   roo_windows::material3::DialogShowResult requestForget();
-
-  /// Returns whether a confirmed operation is pending.
-  bool busy() const;
 
   /// Returns visible action or failure feedback.
   const std::string& feedback() const;
 
   /// Applies auto-connect while preserving unrelated fields and credentials.
-  roo_wifi::Controller::RequestResult setAutoConnect(bool enabled);
+  roo_wifi::Status setAutoConnect(bool enabled);
 
-  /// Executes a confirmed forget, disconnecting this profile before removal.
-  roo_wifi::Controller::RequestResult forget();
+  /// Requests disconnection when current, then removes the profile
+  /// synchronously.
+  roo_wifi::Status forget();
 
  private:
   class Impl;
@@ -74,11 +74,12 @@ class WifiNetworkDetailsDestination : public roo_windows::Destination,
   void refreshSelection();
 
   void onWifiModelChanged() override;
-  void onWifiOperationFinished(
-      const roo_wifi::OperationResult& result) override;
   void onWifiScanStateChanged(bool) override;
-  roo_wifi::Controller::RequestResult track(
-      roo_wifi::Controller::RequestResult result);
+
+  /// Reports a synchronous result and refreshes the retained selection.
+  roo_wifi::Status report(roo_wifi::Status result);
+
+  /// Rebinds controls and diagnostics from the current selection and state.
   void syncControls();
 
   WifiPresentationModel& model_;

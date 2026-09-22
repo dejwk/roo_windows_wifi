@@ -22,8 +22,11 @@ struct WifiNetworkSummary {
   bool profile_ambiguous = false;
   bool current = false;
   bool connecting = false;
+  bool disconnecting = false;
   roo_wifi::LinkPhase link_phase = roo_wifi::LinkPhase::kIdle;
   bool in_range = false;
+  /// Whether a completed scan provides evidence about network availability.
+  bool range_known = false;
 
   /// Returns true when the network does not require credentials.
   bool isOpen() const { return security == roo_wifi::AuthMode::kOpen; }
@@ -40,9 +43,10 @@ struct WifiSavedProfileSummary {
 /// Joins portable backend state into UI-owned Wi-Fi summaries.
 class WifiPresentationModel : private roo_wifi::Controller::Listener {
  public:
-  /// Receives model invalidation and operation notifications.
+  /// Receives model invalidation and observed activity changes.
   class Listener {
    public:
+    /// Destroys a previously unregistered listener.
     virtual ~Listener() = default;
 
     /// Reports that network/profile summaries must be rebound.
@@ -53,10 +57,6 @@ class WifiPresentationModel : private roo_wifi::Controller::Listener {
 
     /// Reports a scan busy-state change.
     virtual void onWifiScanStateChanged(bool scanning) {}
-
-    /// Reports a terminal backend operation result.
-    virtual void onWifiOperationFinished(
-        const roo_wifi::OperationResult& result) {}
   };
 
   /// Borrows a running or not-yet-started controller for this model's life.
@@ -79,6 +79,11 @@ class WifiPresentationModel : private roo_wifi::Controller::Listener {
 
   /// Returns summaries grouped by exact SSID and authentication mode.
   const std::vector<WifiNetworkSummary>& networks() const { return networks_; }
+
+  /// Returns whether a successful scan snapshot exists, including empty scans.
+  bool hasScanResults() const {
+    return controller_.scanSnapshot().generation != 0;
+  }
 
   /// Returns successfully loaded saved-profile summaries.
   const std::vector<WifiSavedProfileSummary>& savedProfiles() const {
@@ -114,12 +119,17 @@ class WifiPresentationModel : private roo_wifi::Controller::Listener {
   void rebuildNetworks();
   void notifyChanged();
 
-  void onScanChanged() override;
-  void onScanStateChanged(bool scanning) override;
-  void onEnabledChanged(bool enabled) override;
-  void onLinkChanged(const roo_wifi::LinkState& state) override;
+  /// Refreshes station progress and enablement from the current snapshot.
+  void onStationStateChanged() override;
+
+  /// Refreshes scan progress and newly published results.
+  void onScanStateChanged() override;
+
+  /// Reloads saved-profile metadata after storage changes.
   void onProfilesChanged() override;
-  void onOperationFinished(const roo_wifi::OperationResult& result) override;
+  uint64_t scan_generation_ = 0;
+  bool enabled_ = false;
+  bool scanning_ = false;
 
   roo_wifi::Controller& controller_;
   std::vector<Listener*> listeners_;

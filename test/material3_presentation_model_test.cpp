@@ -24,10 +24,51 @@ roo_wifi::ScanRecord Record(const char* ssid, roo_wifi::AuthMode security,
 void PublishScan(roo_wifi::Controller& controller,
                  roo_wifi::TestStation& station,
                  roo_scheduler::Scheduler& scheduler) {
-  ASSERT_NE(controller.scan().id, 0u);
+  ASSERT_EQ(controller.startScan(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   station.emit({roo_wifi::NativeStation::Event::kScanDone});
   roo_wifi::Pump(scheduler);
+}
+
+// Verifies scan progress does not invalidate network rows until new results
+// arrive; profile changes still refresh the network model independently.
+TEST(WifiPresentationModelTest, ScanProgressOnlyNotifiesScanListeners) {
+  roo_scheduler::Scheduler scheduler;
+  roo_wifi::TestStation station;
+  roo_wifi::OrderedInterface radio(station);
+  roo_wifi::MemoryStore store;
+  store.enabled = true;
+  roo_wifi::Controller controller(radio, store, scheduler);
+  ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  WifiPresentationModel model(controller);
+  struct Observer : WifiPresentationModel::Listener {
+    int networks = 0;
+    int scans = 0;
+    void onWifiModelChanged() override { ++networks; }
+    void onWifiScanStateChanged(bool) override { ++scans; }
+  } observer;
+  model.addListener(observer);
+  ASSERT_EQ(controller.startScan(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  EXPECT_EQ(observer.scans, 1);
+  EXPECT_EQ(observer.networks, 0);
+  station.aps.push_back(Record("Cafe", roo_wifi::AuthMode::kOpen, -40, 1));
+  station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(scheduler);
+  EXPECT_EQ(observer.scans, 2);
+  EXPECT_EQ(observer.networks, 1);
+  roo_wifi::ProfileSettings settings;
+  settings.connection = roo_wifi::TestConfig("Cafe");
+  roo_wifi::CredentialUpdate update;
+  update.intent = roo_wifi::CredentialIntent::kClear;
+  ASSERT_EQ(controller.saveProfile(7, settings, update), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  EXPECT_EQ(observer.scans, 2);
+  EXPECT_EQ(observer.networks, 2);
+  ASSERT_EQ(model.networks().size(), 1u);
+  EXPECT_TRUE(model.networks()[0].saved);
+  model.removeListener(observer);
 }
 
 // Verifies exact security grouping, strongest-AP selection, and deterministic
@@ -77,7 +118,7 @@ TEST(WifiPresentationModelTest, MatchesEnumeratedProfilesWithoutGuessing) {
   update.intent = roo_wifi::CredentialIntent::kReplace;
   update.replacement.size = 8;
   std::memcpy(update.replacement.bytes, "password", 8);
-  ASSERT_NE(controller.saveProfile(7, settings, update).id, 0u);
+  ASSERT_EQ(controller.saveProfile(7, settings, update), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
 
   station.aps.push_back(
@@ -92,7 +133,7 @@ TEST(WifiPresentationModelTest, MatchesEnumeratedProfilesWithoutGuessing) {
   EXPECT_EQ(model.networks()[0].profile_id, 7u);
   EXPECT_FALSE(model.networks()[1].saved);
 
-  ASSERT_NE(controller.saveProfile(9, settings, update).id, 0u);
+  ASSERT_EQ(controller.saveProfile(9, settings, update), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   ASSERT_EQ(model.networks().size(), 2u);
   EXPECT_TRUE(model.networks()[0].saved);
@@ -145,7 +186,8 @@ TEST(WifiPresentationModelTest, RetainsCurrentOutOfRangeLink) {
   roo_wifi::Pump(scheduler);
 
   WifiPresentationModel model(controller);
-  ASSERT_NE(controller.connect(roo_wifi::TestConfig("Current"), {}).id, 0u);
+  ASSERT_EQ(controller.connect(roo_wifi::TestConfig("Current"), {}),
+            roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   station.associated();
   station.ready();
@@ -175,7 +217,7 @@ TEST(WifiPresentationModelTest, TracksCompletedProfileWithoutScan) {
   ASSERT_EQ(store.saveProfile(7, settings, clear), roo_wifi::Status::kOk);
   ASSERT_EQ(store.saveProfile(9, settings, clear), roo_wifi::Status::kOk);
   WifiPresentationModel model(controller);
-  ASSERT_NE(controller.connect(9).id, 0u);
+  ASSERT_EQ(controller.connect(9), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   station.associated();
   station.ready();
@@ -183,7 +225,7 @@ TEST(WifiPresentationModelTest, TracksCompletedProfileWithoutScan) {
   ASSERT_NE(model.current(), nullptr);
   EXPECT_EQ(model.current()->profile_id, 9u);
   EXPECT_FALSE(model.current()->profile_ambiguous);
-  ASSERT_NE(controller.removeProfile(9).id, 0u);
+  ASSERT_EQ(controller.removeProfile(9), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   ASSERT_NE(model.current(), nullptr);
   EXPECT_EQ(model.current()->profile_id, 0u);
