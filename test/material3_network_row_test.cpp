@@ -158,7 +158,8 @@ TEST(WifiNetworkRowTest, InvalidatesOnlyWhenPresentationChanges) {
   row.bind(0, summary);
   row.settle();
 
-  summary.profile_id = 7;
+  summary.profile_ssid.size = 1;
+  summary.profile_ssid.bytes[0] = 'x';
   summary.channel = 6;
   summary.rssi_dbm = -48;  // Same signal glyph.
   row.bind(3, summary);

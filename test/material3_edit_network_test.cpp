@@ -55,23 +55,23 @@ class EditorTest : public testing::Test {
   }
 };
 
-// Verifies offline Save persists without starting a connection or overwriting
-// keys.
-TEST_F(EditorTest, SavesOfflineAndRejectsOccupiedProvisioningKey) {
-  WifiEditNetworkDestination editor(context, controller, 7);
+// Verifies offline Save updates the one configuration for an SSID.
+TEST_F(EditorTest, SavesOfflineAndUpdatesSameSsid) {
+  WifiEditNetworkDestination editor(context, controller);
   fill(editor);
   ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
-  EXPECT_EQ(editor.profileId(), 7u);
+  EXPECT_EQ(editor.profileSsid(), roo_wifi::TestConfig("Saved").ssid);
   EXPECT_EQ(editor.feedback(), "Saved");
   roo_wifi::Profile saved;
-  ASSERT_EQ(controller.loadProfile(7, saved), roo_wifi::Status::kOk);
+  ASSERT_EQ(controller.loadProfile(roo_wifi::TestConfig("Saved").ssid, saved),
+            roo_wifi::Status::kOk);
   EXPECT_TRUE(saved.has_credentials);
   EXPECT_EQ(station.last_config.ssid.size, 0u);
   editor.beginAdd();
   fill(editor);
-  EXPECT_NE(editor.save(), roo_wifi::Status::kOk);
-  EXPECT_EQ(editor.profileId(), 0u);
+  EXPECT_EQ(editor.save(), roo_wifi::Status::kOk);
+  EXPECT_EQ(editor.profileSsid(), roo_wifi::TestConfig("Saved").ssid);
 }
 
 // Verifies a failed save retains the entire draft and cannot start a
@@ -79,7 +79,7 @@ TEST_F(EditorTest, SavesOfflineAndRejectsOccupiedProvisioningKey) {
 TEST_F(EditorTest, RetainsDraftAfterStorageFailure) {
   ASSERT_EQ(controller.setEnabled(true), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
-  WifiEditNetworkDestination editor(context, controller, 7);
+  WifiEditNetworkDestination editor(context, controller);
   fill(editor);
   store.fail_at = store.writes + 1;
   ASSERT_EQ(editor.connect(), roo_wifi::Status::kStorageFailure);
@@ -91,40 +91,40 @@ TEST_F(EditorTest, RetainsDraftAfterStorageFailure) {
   store.fail_at = -1;
   ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
-  EXPECT_EQ(editor.profileId(), 7u);
+  EXPECT_EQ(editor.profileSsid(), roo_wifi::TestConfig("Saved").ssid);
 }
 
 class FailingPolicy : public NetworkPolicyProvider {
  public:
   bool supportsMetered() const override { return true; }
   bool supportsProxy() const override { return true; }
-  roo_wifi::Status read(roo_wifi::ProfileId, NetworkPolicy&) override {
+  roo_wifi::Status read(const roo_wifi::Ssid&, NetworkPolicy&) override {
     return roo_wifi::Status::kNotFound;
   }
   roo_wifi::Status validate(const NetworkPolicy&) const override {
     return roo_wifi::Status::kOk;
   }
-  roo_wifi::Status apply(roo_wifi::ProfileId id,
+  roo_wifi::Status apply(const roo_wifi::Ssid& id,
                          const NetworkPolicy&) override {
     key = id;
     return result;
   }
-  roo_wifi::Status remove(roo_wifi::ProfileId) override {
+  roo_wifi::Status remove(const roo_wifi::Ssid&) override {
     return roo_wifi::Status::kOk;
   }
   roo_wifi::Status result = roo_wifi::Status::kStorageFailure;
-  roo_wifi::ProfileId key = 0;
+  roo_wifi::Ssid key;
 };
 
 // Verifies partial application-policy failure retries the same committed
 // profile.
 TEST_F(EditorTest, RetriesPolicyWithoutDuplicateProfile) {
   FailingPolicy policy;
-  WifiEditNetworkDestination editor(context, controller, 7, nullptr, &policy);
+  WifiEditNetworkDestination editor(context, controller, &policy);
   fill(editor);
   ASSERT_EQ(editor.save(), roo_wifi::Status::kStorageFailure);
   roo_wifi::Pump(scheduler);
-  EXPECT_EQ(editor.profileId(), 7u);
+  EXPECT_EQ(editor.profileSsid(), roo_wifi::TestConfig("Saved").ssid);
   EXPECT_EQ(editor.status(), roo_wifi::Status::kStorageFailure);
   EXPECT_NE(editor.feedback().find("Wi-Fi saved"), std::string::npos);
   policy.result = roo_wifi::Status::kOk;
@@ -132,12 +132,50 @@ TEST_F(EditorTest, RetriesPolicyWithoutDuplicateProfile) {
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(editor.status(), roo_wifi::Status::kOk);
   int count = 0;
-  controller.forEachProfile([&](roo_wifi::ProfileId) {
+  controller.forEachProfile([&](const roo_wifi::Ssid&) {
     ++count;
     return true;
   });
   EXPECT_EQ(count, 1);
-  EXPECT_EQ(policy.key, 7u);
+  EXPECT_EQ(policy.key, roo_wifi::TestConfig("Saved").ssid);
+}
+
+// Verifies multiple networks save without an allocator, and a rename cannot
+// silently reuse the old SSID's credential with Keep.
+TEST_F(EditorTest, MultipleSsidsAndRenameRequireExplicitCredentials) {
+  WifiEditNetworkDestination editor(context, controller);
+  fill(editor);
+  ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
+  WifiNetworkSummary selected;
+  selected.ssid = "Saved";
+  selected.profile_ssid = roo_wifi::TestConfig("Saved").ssid;
+  selected.saved = true;
+  selected.security = roo_wifi::AuthMode::kWpa2Personal;
+  editor.beginNetwork(selected);
+  editor.setSsid("Another");
+  EXPECT_EQ(editor.save(), roo_wifi::Status::kInvalidArgument);
+  editor.setPassword("different");
+  ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
+  roo_wifi::Credentials original;
+  ASSERT_EQ(store.loadCredentials(selected.profile_ssid, original),
+            roo_wifi::Status::kOk);
+  EXPECT_EQ(
+      std::string(reinterpret_cast<const char*>(original.bytes), original.size),
+      "password");
+  roo_wifi::Credentials renamed;
+  ASSERT_EQ(
+      store.loadCredentials(roo_wifi::TestConfig("Another").ssid, renamed),
+      roo_wifi::Status::kOk);
+  EXPECT_EQ(
+      std::string(reinterpret_cast<const char*>(renamed.bytes), renamed.size),
+      "different");
+  size_t count = 0;
+  EXPECT_EQ(controller.forEachProfile([&](const roo_wifi::Ssid&) {
+    ++count;
+    return true;
+  }),
+            roo_wifi::Status::kOk);
+  EXPECT_EQ(count, 2u);
 }
 
 }  // namespace

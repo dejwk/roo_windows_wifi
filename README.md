@@ -26,37 +26,36 @@ context and optional providers must outlive it. Remove its destinations from
 navigation before destroying it.
 
 ```cpp
-roo_windows_wifi::WifiSettingsFlow settings(app.context(), wifi, 1);
+roo_windows_wifi::WifiSettingsFlow settings(app.context(), wifi);
 task.navigation().push(settings.main());
 ```
 
-The third argument is an application-owned provisioning key, not an ID allocated
-by the backend. New profiles never overwrite an occupied key. Supply a
-`WifiProfileIdAllocator` as the fourth argument to save additional networks;
-[network_settings.ino](examples/material3/network_settings/network_settings.ino)
-demonstrates a bounded application key range.
+Each SSID has one saved configuration. Saving the same SSID updates that entry;
+callers do not supply keys or an ID allocator. The optional third argument is a
+`NetworkPolicyProvider`, whose methods also take SSIDs.
 
 Save works with the radio off. Save and connect commits Wi-Fi settings, then any
-application policy, then connects by the committed key. Failed saves retain the
+application policy, then connects by its SSID. Failed saves retain the
 draft. A policy failure after Wi-Fi save is reported as partial success; retry
-uses the same key. Editing saved profiles keeps credentials when the password
+uses the same SSID. Editing saved profiles keeps credentials when the password
 is blank; selecting Open explicitly clears them. Back discards unsubmitted
-edits, and confirmation is required by the Forget button.
+edits. Changing the SSID creates another entry and requires credentials for
+that entry; forget the old network explicitly. Confirmation is required by the Forget button.
 
 Security choices follow `Controller::support()`. The shared form supports
 personal authentication, hidden networks, auto-connect, device/randomized MAC,
 and DHCP/static IPv4. Enterprise and other unsupported modes remain read-only.
 Proxy and metered controls appear only when an application supplies a
-`NetworkPolicyProvider` as the fifth argument. Its synchronous methods run on
-the controller context and store/apply policy by profile key outside `roo_wifi`.
+`NetworkPolicyProvider` as the third argument. Its synchronous methods run on
+the controller context and store/apply policy by SSID outside `roo_wifi`.
 Manual proxy support means participating application clients consume the policy;
 it does not configure all device sockets. Provider read/update/cleanup failures
 are shown explicitly, including retry after Wi-Fi removal.
 
 The root refreshes successful scans after 30 seconds; applications can adjust
 this through `settingsDestination().setScanMaxAge()`. Failed scans retain cached
-results. Duplicate saved SSID/security matches open Saved networks for explicit
-selection. Link status makes no internet-reachability claim.
+results. Saved configurations match scan rows only when their stored security policy
+allows the advertised mode. Link status makes no internet-reachability claim.
 
 Run the complete example with:
 

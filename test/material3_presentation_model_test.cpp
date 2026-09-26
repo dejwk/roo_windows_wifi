@@ -42,7 +42,8 @@ TEST(WifiPresentationModelTest, OmitsUnnamedAccessPoints) {
   roo_wifi::Pump(scheduler);
   WifiPresentationModel model(controller);
   station.aps.push_back(Record("", roo_wifi::AuthMode::kOpen, -30, 1));
-  station.aps.push_back(Record("Home", roo_wifi::AuthMode::kWpa2Personal, -50, 2));
+  station.aps.push_back(
+      Record("Home", roo_wifi::AuthMode::kWpa2Personal, -50, 2));
   station.aps.push_back(Record("", roo_wifi::AuthMode::kWpa2Personal, -40, 3));
   PublishScan(controller, station, scheduler);
   EXPECT_EQ(controller.scanSnapshot().count, 3u);
@@ -82,7 +83,7 @@ TEST(WifiPresentationModelTest, ScanProgressOnlyNotifiesScanListeners) {
   settings.connection = roo_wifi::TestConfig("Cafe");
   roo_wifi::CredentialUpdate update;
   update.intent = roo_wifi::CredentialIntent::kClear;
-  ASSERT_EQ(controller.saveProfile(7, settings, update), roo_wifi::Status::kOk);
+  ASSERT_EQ(controller.saveProfile(settings, update), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(observer.scans, 2);
   EXPECT_EQ(observer.networks, 2);
@@ -120,7 +121,7 @@ TEST(WifiPresentationModelTest, GroupsAndOrdersScanResults) {
 }
 
 // Verifies enumerated profiles match only the same SSID/security pair and
-// duplicate matching profiles remain explicitly ambiguous.
+// repeated saves of one SSID update that same configuration.
 TEST(WifiPresentationModelTest, MatchesEnumeratedProfilesWithoutGuessing) {
   roo_scheduler::Scheduler scheduler;
   roo_wifi::TestStation station;
@@ -138,7 +139,7 @@ TEST(WifiPresentationModelTest, MatchesEnumeratedProfilesWithoutGuessing) {
   update.intent = roo_wifi::CredentialIntent::kReplace;
   update.replacement.size = 8;
   std::memcpy(update.replacement.bytes, "password", 8);
-  ASSERT_EQ(controller.saveProfile(7, settings, update), roo_wifi::Status::kOk);
+  ASSERT_EQ(controller.saveProfile(settings, update), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
 
   station.aps.push_back(
@@ -150,19 +151,18 @@ TEST(WifiPresentationModelTest, MatchesEnumeratedProfilesWithoutGuessing) {
   ASSERT_EQ(model.savedProfiles().size(), 1u);
   ASSERT_EQ(model.networks().size(), 2u);
   EXPECT_TRUE(model.networks()[0].saved);
-  EXPECT_EQ(model.networks()[0].profile_id, 7u);
+  EXPECT_EQ(model.networks()[0].profile_ssid, settings.connection.ssid);
   EXPECT_FALSE(model.networks()[1].saved);
 
-  ASSERT_EQ(controller.saveProfile(9, settings, update), roo_wifi::Status::kOk);
+  ASSERT_EQ(controller.saveProfile(settings, update), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   ASSERT_EQ(model.networks().size(), 2u);
   EXPECT_TRUE(model.networks()[0].saved);
-  EXPECT_TRUE(model.networks()[0].profile_ambiguous);
-  EXPECT_EQ(model.networks()[0].profile_id, 0u);
+  EXPECT_EQ(model.networks()[0].profile_ssid, settings.connection.ssid);
 }
 
 // Verifies failed enumeration retains the last complete profile model while a
-// persisted profile with unreadable metadata remains available for repair.
+// corrupt settings report an error without replacing that model.
 TEST(WifiPresentationModelTest, HandlesEnumerationAndMetadataFailures) {
   roo_scheduler::Scheduler scheduler;
   roo_wifi::TestStation station;
@@ -177,21 +177,21 @@ TEST(WifiPresentationModelTest, HandlesEnumerationAndMetadataFailures) {
   settings.connection = roo_wifi::TestConfig("Readable");
   roo_wifi::CredentialUpdate update;
   update.intent = roo_wifi::CredentialIntent::kClear;
-  ASSERT_EQ(store.saveProfile(5, settings, update), roo_wifi::Status::kOk);
+  ASSERT_EQ(store.saveProfile(settings, update), roo_wifi::Status::kOk);
   WifiPresentationModel model(controller);
   ASSERT_EQ(model.savedProfiles().size(), 1u);
 
   store.enumeration_error = roo_wifi::Status::kStorageFailure;
   EXPECT_EQ(model.refresh(), roo_wifi::Status::kStorageFailure);
   ASSERT_EQ(model.savedProfiles().size(), 1u);
-  EXPECT_EQ(model.savedProfiles()[0].id, 5u);
+  EXPECT_EQ(model.savedProfiles()[0].settings.connection.ssid,
+            settings.connection.ssid);
 
   store.enumeration_error = roo_wifi::Status::kOk;
-  store.values["p-00000007"] = {0xff};
-  EXPECT_EQ(model.refresh(), roo_wifi::Status::kOk);
+  store.values.begin()->second = {0xff};
+  EXPECT_EQ(model.refresh(), roo_wifi::Status::kCorrupt);
   ASSERT_EQ(model.savedProfiles().size(), 1u);
-  ASSERT_EQ(model.unreadableProfileIds().size(), 1u);
-  EXPECT_EQ(model.unreadableProfileIds()[0], 7u);
+  EXPECT_TRUE(model.unreadableSsids().empty());
 }
 
 // Verifies the current link remains available even when no scan row exists.
@@ -234,21 +234,22 @@ TEST(WifiPresentationModelTest, TracksCompletedProfileWithoutScan) {
   settings.connection = roo_wifi::TestConfig("Saved");
   roo_wifi::CredentialUpdate clear;
   clear.intent = roo_wifi::CredentialIntent::kClear;
-  ASSERT_EQ(store.saveProfile(7, settings, clear), roo_wifi::Status::kOk);
-  ASSERT_EQ(store.saveProfile(9, settings, clear), roo_wifi::Status::kOk);
+  ASSERT_EQ(store.saveProfile(settings, clear), roo_wifi::Status::kOk);
+  ASSERT_EQ(store.saveProfile(settings, clear), roo_wifi::Status::kOk);
   WifiPresentationModel model(controller);
-  ASSERT_EQ(controller.connect(9), roo_wifi::Status::kOk);
+  ASSERT_EQ(controller.connect(settings.connection.ssid),
+            roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   station.associated();
   station.ready();
   roo_wifi::Pump(scheduler);
   ASSERT_NE(model.current(), nullptr);
-  EXPECT_EQ(model.current()->profile_id, 9u);
-  EXPECT_FALSE(model.current()->profile_ambiguous);
-  ASSERT_EQ(controller.removeProfile(9), roo_wifi::Status::kOk);
+  EXPECT_EQ(model.current()->profile_ssid, settings.connection.ssid);
+  ASSERT_EQ(controller.removeProfile(settings.connection.ssid),
+            roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   ASSERT_NE(model.current(), nullptr);
-  EXPECT_EQ(model.current()->profile_id, 0u);
+  EXPECT_EQ(model.current()->profile_ssid.size, 0u);
   EXPECT_FALSE(model.current()->saved);
 }
 

@@ -29,7 +29,8 @@ class SavedProfileModel
 
   int elementCount() const override { return destination_.profileCount(); }
 
-  roo_windows::material3::DynamicListSectionState sectionState() const override {
+  roo_windows::material3::DynamicListSectionState sectionState()
+      const override {
     return {true, roo_windows::material3::DynamicListFocusTarget::kRowSurface};
   }
 
@@ -97,7 +98,7 @@ class WifiSavedNetworksDestination::Impl {
     list_.beginModelReset();
     list_.endModelReset();
     bool failed = destination_.model_.profileStatus() != roo_wifi::Status::kOk;
-    bool unreadable = !destination_.model_.unreadableProfileIds().empty();
+    bool unreadable = !destination_.model_.unreadableSsids().empty();
     status_.setText(failed         ? "Saved networks could not be refreshed"
                     : unreadable   ? "Some saved networks could not be loaded"
                     : has_profiles ? ""
@@ -168,7 +169,6 @@ void WifiSavedNetworksDestination::profileSummary(
   summary.bssid = {};
   summary.rssi_dbm = -128;
   summary.channel = 0;
-  summary.profile_ambiguous = false;
   summary.current = false;
   summary.connecting = false;
   summary.disconnecting = false;
@@ -177,12 +177,12 @@ void WifiSavedNetworksDestination::profileSummary(
   summary.in_range = false;
   summary.ssid = profile.ssid;
   summary.security = profile.settings.connection.security;
-  summary.profile_id = profile.id;
+  summary.profile_ssid = profile.settings.connection.ssid;
   summary.saved = true;
   const WifiNetworkSummary* current = model_.current();
   if (current != nullptr && current->ssid == summary.ssid &&
       roo_wifi::SecurityAllows(summary.security, current->security) &&
-      current->profile_id == profile.id) {
+      current->profile_ssid == profile.settings.connection.ssid) {
     summary.current = true;
     summary.connecting = current->connecting;
     summary.disconnecting = current->disconnecting;
@@ -203,8 +203,9 @@ void WifiSavedNetworksDestination::profileSummary(
 }
 
 void WifiSavedNetworksDestination::activateProfile(size_t index) {
-  if (index < profileCount())
+  if (index < profileCount()) {
     actions_.showSavedNetworkDetails(profileSummary(index));
+  }
 }
 
 void WifiSavedNetworksDestination::onWifiModelChanged() { impl_->sync(); }

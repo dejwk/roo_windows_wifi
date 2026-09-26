@@ -136,7 +136,9 @@ class WifiNetworkDetailsDestination::Impl {
         scaffold_(context) {
     bar_.setTitle("Network details");
     back_.setOnInteractiveChange([this]() {
-      if (this->owner_.getTask()) this->owner_.getTask()->requestBack();
+      if (this->owner_.getTask() != nullptr) {
+        this->owner_.getTask()->requestBack();
+      }
     });
     bar_.setLeading(back_);
     connect_.setOnInteractiveChange([this]() { this->owner_.connect(); });
@@ -184,14 +186,14 @@ class WifiNetworkDetailsDestination::Impl {
     scaffold_.setBody(scroll_);
   }
   void report(roo_wifi::Status status, const char* text = nullptr) {
-    feedback_ = text ? text : WifiStatusText(status);
+    feedback_ = text != nullptr ? text : WifiStatusText(status);
   }
 
  private:
   WifiNetworkDetailsDestination& owner_;
   NetworkPolicyProvider* policies_;
 
-  roo_wifi::ProfileId cleanup_ = 0;
+  roo_wifi::Ssid cleanup_;
   std::string feedback_;
   NoopRowListener listener_;
   AppBar bar_;
@@ -258,14 +260,16 @@ roo_wifi::Status WifiNetworkDetailsDestination::report(
 }
 
 roo_wifi::Status WifiNetworkDetailsDestination::connect() {
-  if (selected_.profile_id != 0)
-    return report(model_.controller().connect(selected_.profile_id));
+  if (selected_.profile_ssid.size != 0) {
+    return report(model_.controller().connect(selected_.profile_ssid));
+  }
   if (!selected_.isOpen()) return report(roo_wifi::Status::kUnsupported);
   roo_wifi::ConnectionConfig config;
   config.security = selected_.security;
   config.ssid.size = selected_.ssid.size();
-  if (selected_.ssid.size() > 32)
+  if (selected_.ssid.size() > 32) {
     return report(roo_wifi::Status::kInvalidArgument);
+  }
   std::memcpy(config.ssid.bytes, selected_.ssid.data(), config.ssid.size);
   return report(model_.controller().connect(config, {}));
 }
@@ -278,7 +282,7 @@ roo_wifi::Status WifiNetworkDetailsDestination::disconnect() {
 roo_wifi::Status WifiNetworkDetailsDestination::setAutoConnect(bool enabled) {
   roo_wifi::Profile profile;
   roo_wifi::Status status =
-      model_.controller().loadProfile(selected_.profile_id, profile);
+      model_.controller().loadProfile(selected_.profile_ssid, profile);
   if (status != roo_wifi::Status::kOk) return report(status);
   profile.settings.auto_connect = enabled;
   roo_wifi::CredentialUpdate credentials;
@@ -286,31 +290,35 @@ roo_wifi::Status WifiNetworkDetailsDestination::setAutoConnect(bool enabled) {
   if (profile.settings.connection.security == roo_wifi::AuthMode::kOpen) {
     credentials.intent = roo_wifi::CredentialIntent::kClear;
   }
-  return report(model_.controller().saveProfile(selected_.profile_id,
-                                                profile.settings, credentials));
+  return report(model_.controller().saveProfile(profile.settings, credentials));
 }
 
 DialogShowResult WifiNetworkDetailsDestination::requestForget() {
-  if (!getTask()) return DialogShowResult::kInteractionOwnerUnavailable;
+  if (getTask() == nullptr) {
+    return DialogShowResult::kInteractionOwnerUnavailable;
+  }
   DialogShowResult result = impl_->dialog_.show(*getTask());
-  if (result != DialogShowResult::kShown)
+  if (result != DialogShowResult::kShown) {
     impl_->report(roo_wifi::Status::kBusy,
                   "Could not open confirmation. Try again");
+  }
   return result;
 }
 
 roo_wifi::Status WifiNetworkDetailsDestination::forget() {
-  if (impl_->cleanup_ != 0 && impl_->policies_ != nullptr) {
+  if (impl_->cleanup_.size != 0 && impl_->policies_ != nullptr) {
     roo_wifi::Status status = impl_->policies_->remove(impl_->cleanup_);
     if (status == roo_wifi::Status::kOk ||
         status == roo_wifi::Status::kNotFound) {
-      impl_->cleanup_ = 0;
+      impl_->cleanup_ = {};
       status = roo_wifi::Status::kOk;
     }
     return report(status);
   }
-  if (selected_.profile_id == 0) return report(roo_wifi::Status::kNotFound);
-  roo_wifi::ProfileId id = selected_.profile_id;
+  if (selected_.profile_ssid.size == 0) {
+    return report(roo_wifi::Status::kNotFound);
+  }
+  roo_wifi::Ssid id = selected_.profile_ssid;
   if (selected_.current) {
     roo_wifi::Status status = model_.controller().disconnect();
     if (status != roo_wifi::Status::kOk) return report(status);
@@ -333,9 +341,9 @@ roo_wifi::Status WifiNetworkDetailsDestination::forget() {
 
 void WifiNetworkDetailsDestination::syncControls() {
   roo_wifi::Profile profile;
-  bool saved = selected_.profile_id &&
-               model_.controller().loadProfile(selected_.profile_id, profile) ==
-                   roo_wifi::Status::kOk;
+  bool saved = selected_.profile_ssid.size != 0 &&
+               model_.controller().loadProfile(
+                   selected_.profile_ssid, profile) == roo_wifi::Status::kOk;
   roo_wifi::Support support = model_.controller().support();
   bool can_edit =
       saved && WifiCanProvision(profile.settings.connection.security, support);
@@ -343,12 +351,13 @@ void WifiNetworkDetailsDestination::syncControls() {
                                                   : Visibility::kVisible);
   impl_->connect_.setEnabled(
       model_.controller().isEnabled() &&
-      (saved || (selected_.profile_id == 0 && selected_.isOpen())));
+      (saved || (selected_.profile_ssid.size == 0 && selected_.isOpen())));
   impl_->disconnect_.setVisibility(selected_.current ? Visibility::kVisible
                                                      : Visibility::kGone);
   impl_->edit_.setEnabled(can_edit);
-  impl_->forget_.setEnabled(saved || impl_->cleanup_);
-  impl_->forget_.setLabel(impl_->cleanup_ ? "Retry cleanup" : "Forget");
+  impl_->forget_.setEnabled(saved || impl_->cleanup_.size != 0);
+  impl_->forget_.setLabel(impl_->cleanup_.size != 0 ? "Retry cleanup"
+                                                    : "Forget");
   impl_->settings_.setVisibility(saved ? Visibility::kVisible
                                        : Visibility::kGone);
   impl_->automatic_.item().setOn(profile.settings.auto_connect);
@@ -365,7 +374,7 @@ void WifiNetworkDetailsDestination::syncControls() {
   NetworkPolicy policy;
   if (saved && impl_->policies_ != nullptr) {
     roo_wifi::Status status =
-        impl_->policies_->read(selected_.profile_id, policy);
+        impl_->policies_->read(selected_.profile_ssid, policy);
     if (status != roo_wifi::Status::kOk &&
         status != roo_wifi::Status::kNotFound) {
       values[1] = values[3] = "Could not load policy";
@@ -377,17 +386,17 @@ void WifiNetworkDetailsDestination::syncControls() {
     }
   }
   for (int i = 0; i < 4; ++i) {
-    bool supported =
-        i == 0 ? support.randomized_mac
-        : i == 2
-            ? support.static_ipv4
-            : impl_->policies_ && (i == 1 ? impl_->policies_->supportsMetered()
-                                          : impl_->policies_->supportsProxy());
+    bool supported = i == 0 ? support.randomized_mac
+                     : i == 2
+                         ? support.static_ipv4
+                         : impl_->policies_ != nullptr &&
+                               (i == 1 ? impl_->policies_->supportsMetered()
+                                       : impl_->policies_->supportsProxy());
     impl_->setting_rows_[i]->setVisibility((i == 1 || i == 3) && !supported
                                                ? Visibility::kGone
                                                : Visibility::kVisible);
     impl_->setting_rows_[i]->setEnabled(can_edit && supported);
-    auto& row = *impl_->setting_rows_[i];
+    ListRow<InvokableListItemBase>& row = *impl_->setting_rows_[i];
     if (row.item().supportingText() != roo::string_view(values[i])) {
       row.item().setSupportingText(values[i]);
       row.refreshFromItem();
@@ -418,7 +427,7 @@ void WifiNetworkDetailsDestination::syncControls() {
     if (impl_->info_values_[i] != info_values[i]) {
       // Unbind borrowed text before replacing the owning string, then refresh
       // once with the final value. Unchanged rows keep their text and layout.
-      auto& row = *impl_->info_rows_[i];
+      ListRow<SupportingTextListItem>& row = *impl_->info_rows_[i];
       row.item().setSupportingText({});
       impl_->info_values_[i] = std::move(info_values[i]);
       row.item().setSupportingText(impl_->info_values_[i]);
@@ -428,17 +437,19 @@ void WifiNetworkDetailsDestination::syncControls() {
 }
 
 void WifiNetworkDetailsDestination::refreshSelection() {
-  const roo_wifi::ProfileId id = selected_.profile_id;
+  const roo_wifi::Ssid id = selected_.profile_ssid;
   selected_.in_range = false;
   selected_.range_known = model_.hasScanResults();
   selected_.disconnecting = false;
   selected_.current = false;
   selected_.connecting = false;
   roo_wifi::Profile saved_profile;
-  const bool has_profile = id != 0 &&
-      model_.controller().loadProfile(id, saved_profile) == roo_wifi::Status::kOk;
-  const auto policy = has_profile ? saved_profile.settings.connection.security
-                                  : selected_.security;
+  const bool has_profile =
+      id.size != 0 && model_.controller().loadProfile(id, saved_profile) ==
+                          roo_wifi::Status::kOk;
+  const roo_wifi::AuthMode policy =
+      has_profile ? saved_profile.settings.connection.security
+                  : selected_.security;
   for (const WifiNetworkSummary& network : model_.networks()) {
     if (network.ssid == selected_.ssid &&
         roo_wifi::SecurityAllows(policy, network.security)) {
@@ -446,8 +457,8 @@ void WifiNetworkDetailsDestination::refreshSelection() {
       break;
     }
   }
-  if (id != 0) {
-    selected_.profile_id = id;
+  if (id.size != 0) {
+    selected_.profile_ssid = id;
     roo_wifi::Profile profile;
     selected_.saved =
         model_.controller().loadProfile(id, profile) == roo_wifi::Status::kOk;
@@ -455,14 +466,15 @@ void WifiNetworkDetailsDestination::refreshSelection() {
   const WifiNetworkSummary* current = model_.current();
   selected_.current = current != nullptr && current->ssid == selected_.ssid &&
                       roo_wifi::SecurityAllows(policy, current->security) &&
-                      (id == 0 || current->profile_id == id);
+                      (id.size == 0 || current->profile_ssid == id);
   selected_.connecting = selected_.current && current->connecting;
   selected_.disconnecting = selected_.current && current->disconnecting;
   impl_->summary_.bind(0, selected_);
-  if (selected_.current)
+  if (selected_.current) {
     impl_->summary_list_.select(impl_->summary_);
-  else
+  } else {
     impl_->summary_list_.clearSelection();
+  }
 }
 
 void WifiNetworkDetailsDestination::onWifiModelChanged() {

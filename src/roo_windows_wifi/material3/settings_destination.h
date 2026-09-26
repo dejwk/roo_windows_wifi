@@ -35,9 +35,7 @@ class WifiSettingsDestination : public roo_windows::Destination,
 
   /// Creates a destination borrowing its model and route handler.
   WifiSettingsDestination(roo_windows::ApplicationContext& context,
-                          WifiPresentationModel& model, Actions& actions,
-                          roo_wifi::ProfileId provisioning_key = 1,
-                          WifiProfileIdAllocator* profile_ids = nullptr);
+                          WifiPresentationModel& model, Actions& actions);
 
   /// Detaches model observation before destroying widgets.
   ~WifiSettingsDestination() override;
@@ -94,13 +92,8 @@ class WifiSettingsDestination : public roo_windows::Destination,
   /// Synchronizes every visible section with the effective radio state.
   void syncBody();
 
-  /// Selects an unused application profile key for an open network.
-  roo_wifi::Status nextProfileId(roo_wifi::ProfileId& out);
-
   WifiPresentationModel& model_;
   Actions& actions_;
-  roo_wifi::ProfileId provisioning_key_;
-  WifiProfileIdAllocator* profile_ids_;
   std::unique_ptr<Impl> impl_;
 };
 

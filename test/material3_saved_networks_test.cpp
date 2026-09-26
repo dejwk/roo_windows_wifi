@@ -36,9 +36,9 @@ TEST(WifiSavedNetworksDestinationTest, EnumeratesSortsAndSelectsProfiles) {
   zebra.connection = roo_wifi::TestConfig("Zebra");
   roo_wifi::ProfileSettings alpha;
   alpha.connection = roo_wifi::TestConfig("Alpha");
-  ASSERT_EQ(controller.saveProfile(9, zebra, clear), roo_wifi::Status::kOk);
+  ASSERT_EQ(controller.saveProfile(zebra, clear), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
-  ASSERT_EQ(controller.saveProfile(3, alpha, clear), roo_wifi::Status::kOk);
+  ASSERT_EQ(controller.saveProfile(alpha, clear), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
 
   roo_windows::Environment environment(scheduler);
@@ -51,13 +51,13 @@ TEST(WifiSavedNetworksDestinationTest, EnumeratesSortsAndSelectsProfiles) {
 
   ASSERT_EQ(destination.profileCount(), 2u);
   EXPECT_EQ(destination.profileSummary(0).ssid, "Alpha");
-  EXPECT_EQ(destination.profileSummary(0).profile_id, 3u);
+  EXPECT_EQ(destination.profileSummary(0).profile_ssid, alpha.connection.ssid);
   EXPECT_FALSE(destination.profileSummary(0).in_range);
 
   destination.activateProfile(0);
   EXPECT_EQ(actions.calls_, 1);
   EXPECT_EQ(actions.selected_.ssid, "Alpha");
-  EXPECT_EQ(actions.selected_.profile_id, 3u);
+  EXPECT_EQ(actions.selected_.profile_ssid, alpha.connection.ssid);
 }
 
 // Verifies an empty recycled list can be attached and painted without

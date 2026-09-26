@@ -23,19 +23,20 @@ using material3::WifiNetworkDetailsDestination;
 using material3::WifiNetworkRow;
 using material3::WifiNetworkSummary;
 using material3::WifiPresentationModel;
-using material3::WifiProfileIdAllocator;
 using material3::WifiSavedNetworksDestination;
 using material3::WifiSettingsDestination;
 using material3::WifiSettingsFlow;
 using material3::WifiSignalGlyph;
 using material3::WifiSignalState;
 
+/// Owns the Material 2 Wi-Fi destinations around a borrowed controller.
 class Configurator {
  public:
+  /// Creates destinations using @p env and observing @p controller.
+  /// Both borrowed dependencies must outlive this configurator.
   Configurator(roo_windows::ApplicationContext& env,
-               roo_wifi::Controller& controller,
-               roo_wifi::ProfileId profile_key = 1)
-      : controller_(controller, profile_key),
+               roo_wifi::Controller& controller)
+      : controller_(controller),
         model_listener_(*this),
         list_(env, controller_,
               [this](roo_windows::NavigationHost& navigation,
@@ -51,10 +52,13 @@ class Configurator {
     controller_.addListener(&model_listener_);
   }
 
+  /// Returns the reusable network-list destination.
   roo_windows::Destination& main() { return list_; }
 
+  /// Returns the reusable password-entry destination.
   roo_windows::Destination& enter_password() { return enter_password_; }
 
+  /// Detaches model observation before destroying destinations.
   ~Configurator() { controller_.removeListener(&model_listener_); }
 
  private:

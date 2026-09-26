@@ -3,9 +3,9 @@
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
 namespace roo_windows_wifi {
-// Verifies UI provisioning persists the caller's key before connecting, without
-// exposing old secrets or introducing a backend presentation model.
-TEST(ModelTest, SaveThenConnectKnownKey) {
+// Verifies UI provisioning persists the selected SSID before connecting,
+// without exposing old secrets or introducing a backend presentation model.
+TEST(ModelTest, SaveThenConnectSsid) {
   roo_scheduler::Scheduler scheduler;
   roo_wifi::TestStation native;
   roo_wifi::OrderedInterface radio(native);
@@ -22,14 +22,15 @@ TEST(ModelTest, SaveThenConnectKnownKey) {
   roo_wifi::Pump(scheduler);
   native.emit({roo_wifi::NativeStation::Event::kScanDone});
   roo_wifi::Pump(scheduler);
-  Model model(backend, 42);
+  Model model(backend);
   model.saveAndConnect("network", "password");
   EXPECT_EQ(native.connects, 0);
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(native.connects, 1);
   EXPECT_TRUE(model.hasSavedProfile("network"));
   roo_wifi::Profile profile;
-  EXPECT_EQ(backend.loadProfile(42, profile), roo_wifi::Status::kOk);
+  EXPECT_EQ(backend.loadProfile(roo_wifi::TestConfig().ssid, profile),
+            roo_wifi::Status::kOk);
 }
 // Verifies the old SSID-only UI refuses ambiguous security instead of choosing
 // an open same-SSID AP and accidentally weakening the requested connection.
@@ -52,7 +53,7 @@ TEST(ModelTest, AmbiguousSecurityIsNotSelected) {
   roo_wifi::Pump(scheduler);
   native.emit({roo_wifi::NativeStation::Event::kScanDone});
   roo_wifi::Pump(scheduler);
-  Model model(backend, 42);
+  Model model(backend);
   model.connect("network", "");
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(native.connects, 0);

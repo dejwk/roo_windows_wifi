@@ -15,8 +15,6 @@ class WifiEditNetworkDestination : public roo_windows::Destination,
   /// Borrows the controller and optional providers for the editor's lifetime.
   WifiEditNetworkDestination(roo_windows::ApplicationContext& context,
                              roo_wifi::Controller& controller,
-                             roo_wifi::ProfileId provisioning_key = 1,
-                             WifiProfileIdAllocator* profile_ids = nullptr,
                              NetworkPolicyProvider* policies = nullptr);
 
   /// Detaches observation before releasing retained UI storage.
@@ -40,8 +38,8 @@ class WifiEditNetworkDestination : public roo_windows::Destination,
   /// Returns the single field-owned draft form.
   WifiConfigForm& form();
 
-  /// Returns the committed key, or zero before a new profile save succeeds.
-  roo_wifi::ProfileId profileId() const;
+  /// Returns the saved SSID, or an empty SSID before a new save succeeds.
+  roo_wifi::Ssid profileSsid() const;
 
   /// Returns the last admission, validation, or completion status.
   roo_wifi::Status status() const;

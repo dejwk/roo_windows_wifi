@@ -50,7 +50,8 @@ struct Emulator {
   FakeXpt2046Spi touch;
 
   Emulator()
-      : flex_viewport(viewport, 1, FlexViewport::kRotationRight),
+      : viewport(),
+        flex_viewport(viewport, 1, FlexViewport::kRotationRight),
         display(flex_viewport),
         touch(flex_viewport, FakeXpt2046Spi::Calibration(269, 249, 3829, 3684,
                                                          true, false, false)) {
@@ -89,38 +90,14 @@ Environment environment(scheduler);
 Application app(&environment, display);
 Task& task = app.addTaskFullScreen();
 roo_wifi::Esp32WiFi wifi(scheduler);
-// The application owns persistent keys. This example reserves keys 1..16 for
-// Wi-Fi profiles; the flow independently rejects unreadable or occupied keys.
-class ExampleProfileIds : public roo_windows_wifi::WifiProfileIdAllocator {
- public:
-  explicit ExampleProfileIds(roo_wifi::Controller& controller)
-      : controller_(controller) {}
-
-  bool nextProfileId(roo_wifi::ProfileId& out) override {
-    for (roo_wifi::ProfileId candidate = 1; candidate <= 16; ++candidate) {
-      roo_wifi::Profile profile;
-      if (controller_.loadProfile(candidate, profile) ==
-          roo_wifi::Status::kNotFound) {
-        out = candidate;
-        return true;
-      }
-    }
-    return false;
-  }
-
- private:
-  roo_wifi::Controller& controller_;
-};
-
-ExampleProfileIds profile_ids(wifi);
-roo_windows_wifi::WifiSettingsFlow wifi_settings(app.context(), wifi, 1,
-                                                 &profile_ids);
+roo_windows_wifi::WifiSettingsFlow wifi_settings(app.context(), wifi);
 
 }  // namespace
 
 void setup() {
   SPI.begin();
   CHECK(wifi.begin() == roo_wifi::Status::kOk);
+  // display.enableTurbo();
   display.init();
   task.navigation().push(wifi_settings.main());
   app.start();

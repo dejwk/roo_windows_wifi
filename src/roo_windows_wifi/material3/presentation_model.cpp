@@ -6,10 +6,51 @@
 namespace roo_windows_wifi {
 namespace material3 {
 
+namespace {
+
+/// Loads one saved summary, retaining the SSID separately if its full load
+/// fails.
+void AppendProfile(roo_wifi::Controller& controller, const roo_wifi::Ssid& ssid,
+                   std::vector<WifiSavedProfileSummary>& profiles,
+                   std::vector<roo_wifi::Ssid>& unreadable) {
+  roo_wifi::Profile profile;
+  if (controller.loadProfile(ssid, profile) != roo_wifi::Status::kOk) {
+    unreadable.push_back(ssid);
+    return;
+  }
+  WifiSavedProfileSummary summary;
+  summary.settings = profile.settings;
+  summary.ssid.assign(reinterpret_cast<const char*>(ssid.bytes), ssid.size);
+  summary.has_credentials = profile.has_credentials;
+  profiles.push_back(std::move(summary));
+}
+
+/// Matches a grouped scan row to the active link's actual access point.
+bool MatchesLink(const WifiNetworkSummary& summary,
+                 const WifiNetworkSummary& current,
+                 const roo_wifi::LinkState& link,
+                 const roo_wifi::ScanSnapshot& snapshot) {
+  if (summary.ssid != current.ssid) return false;
+  if (link.phase == roo_wifi::LinkPhase::kConnecting) {
+    return roo_wifi::SecurityAllows(link.security, summary.security);
+  }
+  // A grouped row can represent a stronger AP than the connected one. Locate
+  // the connected BSSID before falling back to the negotiated security policy.
+  for (size_t i = 0; i < snapshot.count; ++i) {
+    const roo_wifi::ScanRecord& record = snapshot.records[i];
+    if (std::memcmp(record.bssid.bytes, link.bssid.bytes, 6) == 0 &&
+        record.ssid == link.ssid) {
+      return summary.security == record.security;
+    }
+  }
+  return roo_wifi::SecurityAllows(summary.security, link.security);
+}
+
+}  // namespace
+
 WifiPresentationModel::WifiPresentationModel(roo_wifi::Controller& controller)
     : controller_(controller) {
   controller_.addListener(*this);
-  connected_profile_ = controller_.state().connected_profile;
   refresh();
   enabled_ = controller_.isEnabled();
   scanning_ = controller_.isScanning();
@@ -46,33 +87,19 @@ bool WifiPresentationModel::SameNetwork(const WifiNetworkSummary& summary,
 
 roo_wifi::Status WifiPresentationModel::refreshProfiles() {
   std::vector<WifiSavedProfileSummary> profiles;
-  std::vector<roo_wifi::ProfileId> unreadable;
+  std::vector<roo_wifi::Ssid> unreadable;
   roo_wifi::Status status =
-      controller_.forEachProfile([&](roo_wifi::ProfileId id) {
-        roo_wifi::Profile profile;
-        roo_wifi::Status load = controller_.loadProfile(id, profile);
-        if (load != roo_wifi::Status::kOk) {
-          unreadable.push_back(id);
-          return true;
-        }
-        WifiSavedProfileSummary summary;
-        summary.id = id;
-        summary.settings = profile.settings;
-        summary.ssid = SsidText(profile.settings.connection.ssid);
-        summary.has_credentials = profile.has_credentials;
-        profiles.push_back(summary);
+      controller_.forEachProfile([&](const roo_wifi::Ssid& ssid) {
+        AppendProfile(controller_, ssid, profiles, unreadable);
         return true;
       });
   profile_status_ = status;
   if (status != roo_wifi::Status::kOk) return status;
-  std::sort(
-      profiles.begin(), profiles.end(),
-      [](const WifiSavedProfileSummary& a, const WifiSavedProfileSummary& b) {
-        if (a.ssid != b.ssid) return a.ssid < b.ssid;
-        return a.id < b.id;
-      });
+  std::sort(profiles.begin(), profiles.end(),
+            [](const WifiSavedProfileSummary& a,
+               const WifiSavedProfileSummary& b) { return a.ssid < b.ssid; });
   profiles_ = std::move(profiles);
-  unreadable_profile_ids_ = std::move(unreadable);
+  unreadable_profile_ssids_ = std::move(unreadable);
   return status;
 }
 
@@ -111,16 +138,13 @@ void WifiPresentationModel::rebuildNetworks() {
   for (WifiNetworkSummary& network : networks) {
     for (const WifiSavedProfileSummary& profile : profiles_) {
       if (network.ssid != profile.ssid ||
-          !roo_wifi::SecurityAllows(profile.settings.connection.security, network.security)) {
+          !roo_wifi::SecurityAllows(profile.settings.connection.security,
+                                    network.security)) {
         continue;
       }
-      if (network.saved) {
-        network.profile_id = 0;
-        network.profile_ambiguous = true;
-      } else {
-        network.saved = true;
-        network.profile_id = profile.id;
-      }
+      network.saved = true;
+      network.profile_ssid = profile.settings.connection.ssid;
+      break;
     }
   }
 
@@ -146,20 +170,7 @@ void WifiPresentationModel::rebuildNetworks() {
     std::vector<WifiNetworkSummary>::iterator scanned =
         std::find_if(networks.begin(), networks.end(),
                      [&](const WifiNetworkSummary& summary) {
-                       if (summary.ssid != current_.ssid) return false;
-                       if (link.phase == roo_wifi::LinkPhase::kConnecting) {
-                         return roo_wifi::SecurityAllows(link.security, summary.security);
-                       }
-                       // A grouped row may represent a stronger AP than the one
-                       // connected. Locate the actual BSSID in the raw snapshot.
-                       for (size_t i = 0; i < snapshot.count; ++i) {
-                         const auto& record = snapshot.records[i];
-                         if (std::memcmp(record.bssid.bytes, link.bssid.bytes, 6) == 0 &&
-                             SsidText(record.ssid) == current_.ssid) {
-                           return summary.security == record.security;
-                         }
-                       }
-                       return roo_wifi::SecurityAllows(summary.security, link.security);
+                       return MatchesLink(summary, current_, link, snapshot);
                      });
     if (scanned != networks.end()) {
       current_.in_range = true;
@@ -170,23 +181,14 @@ void WifiPresentationModel::rebuildNetworks() {
       scanned->link_phase = current_.link_phase;
     }
     for (const WifiSavedProfileSummary& profile : profiles_) {
-      if (connected_profile_ != 0 && profile.id != connected_profile_) continue;
       if (profile.ssid != current_.ssid ||
-          !roo_wifi::SecurityAllows(profile.settings.connection.security, current_.security))
+          !roo_wifi::SecurityAllows(profile.settings.connection.security,
+                                    current_.security)) {
         continue;
-      if (profile.id == connected_profile_) {
-        current_.profile_id = profile.id;
-        current_.saved = true;
-        current_.profile_ambiguous = false;
-        break;
       }
-      if (current_.saved) {
-        current_.profile_id = 0;
-        current_.profile_ambiguous = true;
-      } else {
-        current_.saved = true;
-        current_.profile_id = profile.id;
-      }
+      current_.profile_ssid = profile.settings.connection.ssid;
+      current_.saved = true;
+      break;
     }
   }
 
@@ -213,7 +215,6 @@ bool WifiPresentationModel::scanStale(roo_time::Duration max_age) const {
 void WifiPresentationModel::onStationStateChanged() {
   const roo_wifi::Controller::State state = controller_.state();
   if (!state.enabled) observed_scan_ = false;
-  connected_profile_ = state.connected_profile;
   rebuildNetworks();
   if (enabled_ != state.enabled) {
     enabled_ = state.enabled;

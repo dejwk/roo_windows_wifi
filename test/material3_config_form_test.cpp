@@ -145,16 +145,16 @@ class Policy : public NetworkPolicyProvider {
  public:
   bool supportsMetered() const override { return true; }
   bool supportsProxy() const override { return true; }
-  roo_wifi::Status read(roo_wifi::ProfileId, NetworkPolicy&) override {
+  roo_wifi::Status read(const roo_wifi::Ssid&, NetworkPolicy&) override {
     return roo_wifi::Status::kNotFound;
   }
   roo_wifi::Status validate(const NetworkPolicy&) const override {
     return roo_wifi::Status::kOk;
   }
-  roo_wifi::Status apply(roo_wifi::ProfileId, const NetworkPolicy&) override {
+  roo_wifi::Status apply(const roo_wifi::Ssid&, const NetworkPolicy&) override {
     return roo_wifi::Status::kOk;
   }
-  roo_wifi::Status remove(roo_wifi::ProfileId) override {
+  roo_wifi::Status remove(const roo_wifi::Ssid&) override {
     return roo_wifi::Status::kOk;
   }
 };

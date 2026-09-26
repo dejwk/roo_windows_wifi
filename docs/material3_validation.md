@@ -34,10 +34,9 @@ put Bazel outputs in `/tmp` or run concurrent builds on the shared WSL VM.
 The statically linked startup test constructs the flow before `main()`, matching
 Arduino sketches and catching cross-translation-unit initialization dependencies.
 
-Tests cover exact network grouping, selected-key retention when another profile
-has the same SSID/security, current-profile correlation without scans, failed
+Tests cover exact network grouping, one saved configuration per SSID, current-profile correlation without scans, failed
 profile enumeration, unreadable metadata, scan freshness, immediate rejection,
-unsupported-security routing, offline Save, occupied keys, failed saves,
+unsupported-security routing, offline Save, repeated saves of the same SSID, failed saves,
 partial application-policy retry, credential preservation/WEP encoding, static
 IPv4 and proxy validation, and disconnect-before-forget.
 
@@ -59,7 +58,7 @@ bazel test //:material3_flow_test --config=asan
 ```
 
 Resource tests separate row binding, layout-pool growth and flow construction.
-On this x86-64 host ABI the row object is 112 bytes, plus its pre-reserved
+On this x86-64 host ABI the row object is 248 bytes, plus its pre-reserved
 32-byte SSID capacity and allocator overhead. Forty networks in a 320×240
 viewport retain six rows including the prototype, with no further pool growth
 during scrolling. The complete root layout also checks a forty-network list

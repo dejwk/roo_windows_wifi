@@ -180,7 +180,9 @@ TEST(WifiSettingsDestinationTest, RoutesOpenAndUnknownSecuredNetworks) {
   roo_wifi::Pump(fixture.scheduler);
 
   roo_wifi::Profile profile;
-  ASSERT_EQ(fixture.store.loadProfile(1, profile), roo_wifi::Status::kOk);
+  ASSERT_EQ(
+      fixture.store.loadProfile(roo_wifi::TestConfig("Open").ssid, profile),
+      roo_wifi::Status::kOk);
   EXPECT_EQ(profile.settings.connection.security, roo_wifi::AuthMode::kOpen);
   EXPECT_EQ(fixture.station.last_config.ssid.size, 4u);
   EXPECT_EQ(std::memcmp(fixture.station.last_config.ssid.bytes, "Open", 4), 0);
@@ -188,20 +190,20 @@ TEST(WifiSettingsDestinationTest, RoutesOpenAndUnknownSecuredNetworks) {
   fixture.station.associated();
   fixture.station.ready();
   roo_wifi::Pump(fixture.scheduler);
-  roo_wifi::ProfileId last = 0;
+  roo_wifi::Ssid last;
   ASSERT_EQ(fixture.store.readLastProfile(last), roo_wifi::Status::kOk);
-  EXPECT_EQ(last, 1u);
+  EXPECT_EQ(last, roo_wifi::TestConfig("Open").ssid);
 }
 
-// Verifies a scanned network matched to one saved profile connects by its ID.
-TEST(WifiSettingsDestinationTest, RoutesSavedNetworksByProfileId) {
+// Verifies a scanned network matched to one saved profile connects by its SSID.
+TEST(WifiSettingsDestinationTest, RoutesSavedNetworksBySsid) {
   Fixture fixture;
   fixture.begin();
   roo_wifi::ProfileSettings settings;
   settings.connection = roo_wifi::TestConfig("Saved");
   roo_wifi::CredentialUpdate credentials;
   credentials.intent = roo_wifi::CredentialIntent::kClear;
-  ASSERT_EQ(fixture.controller.saveProfile(42, settings, credentials),
+  ASSERT_EQ(fixture.controller.saveProfile(settings, credentials),
             roo_wifi::Status::kOk);
   roo_wifi::Pump(fixture.scheduler);
   fixture.station.aps.push_back(

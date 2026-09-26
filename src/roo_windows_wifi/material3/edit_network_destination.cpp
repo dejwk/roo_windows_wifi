@@ -37,14 +37,14 @@ class ChoiceDestination : public Destination {
         scroll_(context, list_),
         scaffold_(context) {
     back_.setOnInteractiveChange([this]() {
-      if (getTask()) getTask()->requestBack();
+      if (getTask() != nullptr) getTask()->requestBack();
     });
     bar_.setLeading(back_);
     for (int i = 0; i < 8; ++i) {
       rows_[i] = std::make_unique<ListRow<RadioListItem>>(context, "");
       rows_[i]->item().setOnInvoked([this, i]() {
         form_.setChoice(choice_, i);
-        if (getTask()) getTask()->requestBack();
+        if (getTask() != nullptr) getTask()->requestBack();
       });
       list_.add(*rows_[i]);
     }
@@ -96,11 +96,8 @@ class WifiEditNetworkDestination::Impl {
 
  public:
   Impl(ApplicationContext& context, WifiEditNetworkDestination& owner,
-       roo_wifi::Controller& controller, roo_wifi::ProfileId key,
-       WifiProfileIdAllocator* ids, NetworkPolicyProvider* policies)
+       roo_wifi::Controller& controller, NetworkPolicyProvider* policies)
       : owner_(owner),
-        key_(key),
-        ids_(ids),
         policies_(policies),
         bar_(context),
         back_(context, SCALED_ROO_ICON(outlined, navigation_arrow_back),
@@ -114,7 +111,9 @@ class WifiEditNetworkDestination::Impl {
         scroll_(context, body_),
         scaffold_(context) {
     back_.setOnInteractiveChange([this]() {
-      if (this->owner_.getTask()) this->owner_.getTask()->requestBack();
+      if (this->owner_.getTask() != nullptr) {
+        this->owner_.getTask()->requestBack();
+      }
     });
     bar_.setLeading(back_);
     body_.add(form_);
@@ -128,24 +127,21 @@ class WifiEditNetworkDestination::Impl {
     form_.setOnChanged([this]() { this->owner_.updateActions(); });
     form_.setOnChoose([this](WifiConfigForm::Choice setting) {
       NavigationHost* host = this->owner_.getNavigationHost();
-      if (!host || choice_.getNavigationHost()) return;
+      if (host == nullptr || choice_.getNavigationHost() != nullptr) return;
       choice_.configure(setting);
       host->push(choice_);
     });
   }
   void report(roo_wifi::Status status, const char* text = nullptr) {
     last_status_ = status;
-    feedback_ = text ? text : WifiStatusText(status);
+    feedback_ = text != nullptr ? text : WifiStatusText(status);
     message_.setText(feedback_);
   }
 
  private:
   WifiEditNetworkDestination& owner_;
-  roo_wifi::ProfileId key_;
-  WifiProfileIdAllocator* ids_;
   NetworkPolicyProvider* policies_;
-  roo_wifi::ProfileId profile_ = 0;
-  roo_wifi::ProfileId attempted_key_ = 0;
+  roo_wifi::Ssid profile_;
   uint64_t connection_revision_ = 0;
   roo_wifi::Status last_status_ = roo_wifi::Status::kOk;
   roo_wifi::Status load_status_ = roo_wifi::Status::kOk;
@@ -165,11 +161,9 @@ class WifiEditNetworkDestination::Impl {
 
 WifiEditNetworkDestination::WifiEditNetworkDestination(
     ApplicationContext& context, roo_wifi::Controller& controller,
-    roo_wifi::ProfileId key, WifiProfileIdAllocator* ids,
     NetworkPolicyProvider* policies)
     : controller_(controller),
-      impl_(std::make_unique<Impl>(context, *this, controller, key, ids,
-                                   policies)) {
+      impl_(std::make_unique<Impl>(context, *this, controller, policies)) {
   controller_.addListener(*this);
   beginAdd();
 }
@@ -181,8 +175,7 @@ WifiEditNetworkDestination::~WifiEditNetworkDestination() {
 Widget& WifiEditNetworkDestination::getContents() { return impl_->scaffold_; }
 
 void WifiEditNetworkDestination::beginAdd() {
-  impl_->profile_ = 0;
-  impl_->attempted_key_ = 0;
+  impl_->profile_ = {};
   impl_->discarded_ = false;
   impl_->load_status_ = roo_wifi::Status::kOk;
   roo_wifi::ProfileSettings settings;
@@ -213,27 +206,31 @@ void WifiEditNetworkDestination::beginNetwork(
   }
   roo_wifi::Profile profile;
   NetworkPolicy policy;
-  impl_->profile_ = network.profile_id;
-  if (impl_->profile_ != 0) {
+  impl_->profile_ = network.profile_ssid;
+  if (impl_->profile_.size != 0) {
     impl_->load_status_ = controller_.loadProfile(impl_->profile_, profile);
     if (impl_->load_status_ == roo_wifi::Status::kOk &&
         impl_->policies_ != nullptr) {
       impl_->load_status_ = impl_->policies_->read(impl_->profile_, policy);
-      if (impl_->load_status_ == roo_wifi::Status::kNotFound)
+      if (impl_->load_status_ == roo_wifi::Status::kNotFound) {
         impl_->load_status_ = roo_wifi::Status::kOk;
+      }
     }
   } else {
     profile.settings.connection.security = network.security;
     profile.settings.connection.ssid.size = network.ssid.size();
-    if (network.ssid.size() <= 32)
+    if (network.ssid.size() <= 32) {
       std::memcpy(profile.settings.connection.ssid.bytes, network.ssid.data(),
                   network.ssid.size());
+    }
   }
-  if (impl_->load_status_ == roo_wifi::Status::kOk)
+  if (impl_->load_status_ == roo_wifi::Status::kOk) {
     impl_->form_.load(profile.settings, profile.has_credentials, policy);
-  else
+  } else {
     impl_->report(impl_->load_status_);
-  impl_->bar_.setTitle(impl_->profile_ ? "Edit network" : "Connect to network");
+  }
+  impl_->bar_.setTitle(impl_->profile_.size != 0 ? "Edit network"
+                                                 : "Connect to network");
   updateActions();
 }
 
@@ -254,31 +251,21 @@ roo_wifi::Status WifiEditNetworkDestination::submit(bool connect) {
   NetworkPolicy policy;
   Status valid = form().build(settings, credential, policy);
   if (valid != Status::kOk) return reject(valid);
-  roo_wifi::ProfileId key =
-      impl_->profile_ != 0 ? impl_->profile_ : impl_->attempted_key_;
-  if (key == 0) {
-    key = impl_->key_;
-    if (impl_->ids_ != nullptr && !impl_->ids_->nextProfileId(key))
-      return reject(Status::kNotFound);
-    if (key == 0) return reject(Status::kInvalidArgument);
-    bool occupied = false;
-    Status enumerated = controller_.forEachProfile([&](roo_wifi::ProfileId id) {
-      if (id == key) occupied = true;
-      return true;
-    });
-    if (enumerated != Status::kOk) return reject(enumerated);
-    roo_wifi::Profile existing;
-    if (occupied || controller_.loadProfile(key, existing) != Status::kNotFound)
-      return reject(Status::kNotFound);
+  const roo_wifi::Ssid& key = settings.connection.ssid;
+  // Renaming creates a new configuration; credentials must be supplied for it.
+  if (impl_->profile_.size != 0 && impl_->profile_ != key &&
+      credential.intent == roo_wifi::CredentialIntent::kKeep) {
+    form().requireCredentialReplacement();
+    return reject(Status::kInvalidArgument);
   }
-  roo_wifi::Status result = controller_.saveProfile(key, settings, credential);
-  impl_->attempted_key_ = key;
+  roo_wifi::Status result = controller_.saveProfile(settings, credential);
   if (result != Status::kOk) {
     roo_wifi::Profile profile;
     roo_wifi::Status loaded = controller_.loadProfile(key, profile);
     if (loaded == Status::kOk) impl_->profile_ = key;
-    if (loaded != Status::kOk || !profile.has_credentials)
+    if (loaded != Status::kOk || !profile.has_credentials) {
       form().requireCredentialReplacement();
+    }
     return reject(result);
   }
   impl_->profile_ = key;
@@ -294,11 +281,13 @@ roo_wifi::Status WifiEditNetworkDestination::submit(bool connect) {
   }
   if (connect && !impl_->discarded_) {
     result = controller_.connect(key);
-    if (result == Status::kOk)
+    if (result == Status::kOk) {
       impl_->connection_revision_ = controller_.state().revision;
+    }
     impl_->report(result, result == Status::kOk ? "Connecting…" : nullptr);
-  } else
+  } else {
     impl_->report(Status::kOk, "Saved");
+  }
   updateActions();
   return result;
 }
@@ -307,10 +296,12 @@ void WifiEditNetworkDestination::onStationStateChanged() {
   roo_wifi::Controller::State state = controller_.state();
   if (impl_->connection_revision_ != 0 &&
       state.revision == impl_->connection_revision_) {
-    if (state.status != roo_wifi::Status::kOk)
+    if (state.status != roo_wifi::Status::kOk) {
       impl_->report(state.status);
-    else if (state.station == roo_wifi::Controller::StationPhase::kConnected)
+    } else if (state.station ==
+               roo_wifi::Controller::StationPhase::kConnected) {
       impl_->report(roo_wifi::Status::kOk, "Connected");
+    }
   }
   updateActions();
 }
@@ -338,7 +329,7 @@ void WifiEditNetworkDestination::onStop() {
 
 WifiConfigForm& WifiEditNetworkDestination::form() { return impl_->form_; }
 
-roo_wifi::ProfileId WifiEditNetworkDestination::profileId() const {
+roo_wifi::Ssid WifiEditNetworkDestination::profileSsid() const {
   return impl_->profile_;
 }
 

@@ -198,7 +198,7 @@ TEST(WifiFlow, ConnectionChangeDuringPressDoesNotBlockInput) {
   settings.connection = roo_wifi::TestConfig("Saved");
   roo_wifi::CredentialUpdate clear;
   clear.intent = roo_wifi::CredentialIntent::kClear;
-  ASSERT_EQ(controller.saveProfile(7, settings, clear), roo_wifi::Status::kOk);
+  ASSERT_EQ(controller.saveProfile(settings, clear), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
 
   roo::byte pixels[320 * 240 * 2] = {};
@@ -209,12 +209,12 @@ TEST(WifiFlow, ConnectionChangeDuringPressDoesNotBlockInput) {
   roo_windows::Environment environment(scheduler);
   roo_windows::Application app(&environment, display, keys, false);
   ASSERT_TRUE(app.refresh());
-  WifiSettingsFlow flow(app.context(), controller, 7);
+  WifiSettingsFlow flow(app.context(), controller);
   auto& details = flow.detailsDestination();
   WifiNetworkSummary selected;
   selected.ssid = "Saved";
   selected.security = roo_wifi::AuthMode::kOpen;
-  selected.profile_id = 7;
+  selected.profile_ssid = settings.connection.ssid;
   selected.saved = true;
   details.setNetwork(selected);
   auto& navigation = app.addTaskFullScreen().navigation();
@@ -288,7 +288,7 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
   settings.connection = roo_wifi::TestConfig("Saved");
   roo_wifi::CredentialUpdate clear;
   clear.intent = roo_wifi::CredentialIntent::kClear;
-  ASSERT_EQ(controller.saveProfile(7, settings, clear), roo_wifi::Status::kOk);
+  ASSERT_EQ(controller.saveProfile(settings, clear), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
 
   roo::byte pixels[320 * 240 * 2] = {};
@@ -297,12 +297,12 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
   roo_windows::Environment environment(scheduler);
   roo_windows::Application app(&environment, display);
   ASSERT_TRUE(app.refresh());
-  WifiSettingsFlow flow(app.context(), controller, 7);
+  WifiSettingsFlow flow(app.context(), controller);
   auto& details = flow.detailsDestination();
   WifiNetworkSummary selected;
   selected.ssid = "Saved";
   selected.security = roo_wifi::AuthMode::kOpen;
-  selected.profile_id = 7;
+  selected.profile_ssid = settings.connection.ssid;
   selected.saved = true;
   details.setNetwork(selected);
   auto& navigation = app.addTaskFullScreen().navigation();
@@ -359,7 +359,8 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
     expect_no_writes(*static_cast<roo_windows::Widget*>(body)->focusChildAt(0));
     EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
     roo_wifi::Profile profile;
-    ASSERT_EQ(controller.loadProfile(7, profile), roo_wifi::Status::kOk);
+    ASSERT_EQ(controller.loadProfile(settings.connection.ssid, profile),
+              roo_wifi::Status::kOk);
     EXPECT_EQ(enabled, profile.settings.auto_connect) << details.feedback();
     path.clear();
     EXPECT_TRUE(body->fillTouchTargetPath(x, y, path));
@@ -423,7 +424,7 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   roo_windows::Application app(&environment, display);
   // Initialize the display before counting a logical UI paint.
   ASSERT_TRUE(app.refresh());
-  WifiSettingsFlow flow(app.context(), controller, 7);
+  WifiSettingsFlow flow(app.context(), controller);
   auto& task = app.addTaskFullScreen();
   auto& navigation = task.navigation();
   navigation.push(flow.main());
@@ -466,7 +467,7 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
 
   ASSERT_EQ(editor.connect(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
-  EXPECT_EQ(editor.profileId(), 7u);
+  EXPECT_EQ(editor.profileSsid(), roo_wifi::TestConfig("Workshop").ssid);
   station.associated();
   station.ready();
   roo_wifi::Pump(scheduler);
@@ -489,13 +490,19 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   Golden(device.raster(), "wifi_forget_confirmation");
   task.requestBack();
   roo_wifi::Profile profile;
-  EXPECT_EQ(controller.loadProfile(7, profile), roo_wifi::Status::kOk);
+  EXPECT_EQ(
+      controller.loadProfile(roo_wifi::TestConfig("Workshop").ssid, profile),
+      roo_wifi::Status::kOk);
   ASSERT_EQ(details.forget(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
-  EXPECT_EQ(controller.loadProfile(7, profile), roo_wifi::Status::kNotFound);
+  EXPECT_EQ(
+      controller.loadProfile(roo_wifi::TestConfig("Workshop").ssid, profile),
+      roo_wifi::Status::kNotFound);
   station.disconnected();
   roo_wifi::Pump(scheduler);
-  EXPECT_EQ(controller.loadProfile(7, profile), roo_wifi::Status::kNotFound);
+  EXPECT_EQ(
+      controller.loadProfile(roo_wifi::TestConfig("Workshop").ssid, profile),
+      roo_wifi::Status::kNotFound);
   EXPECT_FALSE(details.network().current);
   EXPECT_EQ(flow.savedNetworksDestination().profileCount(), 0u);
   navigation.clear();
@@ -525,7 +532,7 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
   roo_windows::Application app(&environment, display);
   // Initialize the display before counting a logical UI paint.
   ASSERT_TRUE(app.refresh());
-  WifiSettingsFlow flow(app.context(), controller, 7);
+  WifiSettingsFlow flow(app.context(), controller);
   auto& navigation = app.addTaskFullScreen().navigation();
   navigation.push(flow.main());
   roo_wifi::Pump(scheduler);

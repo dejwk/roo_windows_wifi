@@ -16,8 +16,6 @@ class WifiSettingsFlow : private WifiSettingsDestination::Actions,
   /// Creates a flow around an application-owned controller.
   WifiSettingsFlow(roo_windows::ApplicationContext& context,
                    roo_wifi::Controller& controller,
-                   roo_wifi::ProfileId provisioning_key = 1,
-                   WifiProfileIdAllocator* profile_ids = nullptr,
                    NetworkPolicyProvider* policies = nullptr);
 
   WifiSettingsFlow(const WifiSettingsFlow&) = delete;
@@ -43,9 +41,6 @@ class WifiSettingsFlow : private WifiSettingsDestination::Actions,
   /// Returns the model shared by this flow's destinations.
   WifiPresentationModel& model() { return model_; }
 
-  /// Returns the application-assigned fallback key for future profile saves.
-  roo_wifi::ProfileId provisioningKey() const { return provisioning_key_; }
-
  private:
   void showNetworkDetails(const WifiNetworkSummary& network) override;
   void editNetwork(const WifiNetworkSummary& network) override;
@@ -60,7 +55,6 @@ class WifiSettingsFlow : private WifiSettingsDestination::Actions,
   WifiSavedNetworksDestination saved_;
   WifiSettingsDestination settings_;
   WifiNetworkSummary selected_;
-  roo_wifi::ProfileId provisioning_key_;
 };
 
 }  // namespace material3

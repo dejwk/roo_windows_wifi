@@ -15,8 +15,8 @@ class Actions : public WifiNetworkDetailsDestination::Actions {
 // details track the actual link and its original saved profile.
 TEST(WifiNetworkDetailsDestinationTest, MixedProfileSurvivesRouterModeChanges) {
   using roo_wifi::AuthMode;
-  for (auto advertised : {AuthMode::kWpa2Wpa3Personal,
-                          AuthMode::kWpa2Personal, AuthMode::kWpa3Personal}) {
+  for (auto advertised : {AuthMode::kWpa2Wpa3Personal, AuthMode::kWpa2Personal,
+                          AuthMode::kWpa3Personal}) {
     roo_scheduler::Scheduler scheduler;
     roo_wifi::TestStation station;
     roo_wifi::OrderedInterface radio(station);
@@ -32,11 +32,13 @@ TEST(WifiNetworkDetailsDestinationTest, MixedProfileSurvivesRouterModeChanges) {
     credential.intent = roo_wifi::CredentialIntent::kReplace;
     credential.replacement.size = 8;
     memcpy(credential.replacement.bytes, "password", 8);
-    ASSERT_EQ(controller.saveProfile(7, settings, credential), roo_wifi::Status::kOk);
+    ASSERT_EQ(controller.saveProfile(settings, credential),
+              roo_wifi::Status::kOk);
     roo_wifi::Pump(scheduler);
     roo_windows::Environment environment(scheduler);
     roo_windows::ApplicationContext context(environment.scheduler(),
-        environment.theme(), environment.keyboardColorTheme());
+                                            environment.theme(),
+                                            environment.keyboardColorTheme());
     WifiPresentationModel model(controller);
     Actions actions;
     WifiNetworkDetailsDestination details(context, model, actions);
@@ -67,17 +69,19 @@ TEST(WifiNetworkDetailsDestinationTest, MixedProfileSurvivesRouterModeChanges) {
     station.emit({roo_wifi::NativeStation::Event::kScanDone});
     roo_wifi::Pump(scheduler);
     ASSERT_EQ(model.networks().size(), 2u);
-    EXPECT_EQ(model.networks()[0].profile_id, 7u);
+    EXPECT_EQ(model.networks()[0].profile_ssid, settings.connection.ssid);
     EXPECT_FALSE(model.networks()[1].saved);
     EXPECT_TRUE(saved.profileSummary(0).in_range);
     EXPECT_TRUE(details.network().in_range);
-    ASSERT_EQ(controller.connect(7), roo_wifi::Status::kOk);
+    ASSERT_EQ(controller.connect(settings.connection.ssid),
+              roo_wifi::Status::kOk);
     roo_wifi::Pump(scheduler);
     roo_wifi::NativeStation::Event associated{};
     associated.kind = roo_wifi::NativeStation::Event::kAssociated;
     associated.link.ssid = settings.connection.ssid;
     const auto negotiated = advertised == AuthMode::kWpa2Personal
-                                ? AuthMode::kWpa2Personal : AuthMode::kWpa3Personal;
+                                ? AuthMode::kWpa2Personal
+                                : AuthMode::kWpa3Personal;
     associated.link.security = negotiated;
     associated.link.bssid.bytes[5] = 1;
     station.emit(associated);
@@ -85,21 +89,23 @@ TEST(WifiNetworkDetailsDestinationTest, MixedProfileSurvivesRouterModeChanges) {
     roo_wifi::Pump(scheduler);
     ASSERT_NE(model.current(), nullptr);
     EXPECT_EQ(model.current()->security, negotiated);
-    EXPECT_EQ(model.current()->profile_id, 7u);
+    EXPECT_EQ(model.current()->profile_ssid, settings.connection.ssid);
     EXPECT_TRUE(model.current()->in_range);
     EXPECT_TRUE(model.networks()[0].current);
     EXPECT_FALSE(model.networks()[1].current);
     EXPECT_TRUE(saved.profileSummary(0).current);
     EXPECT_TRUE(details.network().current);
-    EXPECT_EQ(details.network().profile_id, 7u);
+    EXPECT_EQ(details.network().profile_ssid, settings.connection.ssid);
     roo_wifi::Profile persisted;
-    ASSERT_EQ(controller.loadProfile(7, persisted), roo_wifi::Status::kOk);
-    EXPECT_EQ(persisted.settings.connection.security, AuthMode::kWpa2Wpa3Personal);
+    ASSERT_EQ(controller.loadProfile(settings.connection.ssid, persisted),
+              roo_wifi::Status::kOk);
+    EXPECT_EQ(persisted.settings.connection.security,
+              AuthMode::kWpa2Wpa3Personal);
   }
 }
 
 // Verifies retained details survive scan loss and operate on the selected
-// persistent profile ID.
+// persistent SSID.
 TEST(WifiNetworkDetailsDestinationTest, RetainsSelectionOutOfRangeAndUsesId) {
   roo_scheduler::Scheduler scheduler;
   roo_wifi::TestStation station;
@@ -113,7 +119,7 @@ TEST(WifiNetworkDetailsDestinationTest, RetainsSelectionOutOfRangeAndUsesId) {
   settings.connection = roo_wifi::TestConfig("Saved");
   roo_wifi::CredentialUpdate clear;
   clear.intent = roo_wifi::CredentialIntent::kClear;
-  ASSERT_EQ(controller.saveProfile(7, settings, clear), roo_wifi::Status::kOk);
+  ASSERT_EQ(controller.saveProfile(settings, clear), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   roo_windows::Environment environment(scheduler);
   roo_windows::ApplicationContext context(environment.scheduler(),
@@ -125,7 +131,7 @@ TEST(WifiNetworkDetailsDestinationTest, RetainsSelectionOutOfRangeAndUsesId) {
   WifiNetworkSummary selected;
   selected.ssid = "Saved";
   selected.security = roo_wifi::AuthMode::kOpen;
-  selected.profile_id = 7;
+  selected.profile_ssid = settings.connection.ssid;
   selected.saved = true;
   destination.setNetwork(selected);
 
@@ -163,8 +169,8 @@ TEST(WifiNetworkDetailsDestinationTest, RetainsSelectionOutOfRangeAndUsesId) {
   station.ready();
   roo_wifi::Pump(scheduler);
 
-  // Removing this key must not retarget details to another matching profile.
-  ASSERT_EQ(controller.saveProfile(9, settings, clear), roo_wifi::Status::kOk);
+  // Re-saving this SSID updates the configuration; forgetting removes it.
+  ASSERT_EQ(controller.saveProfile(settings, clear), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   roo_wifi::ScanRecord record;
   record.ssid = settings.connection.ssid;
@@ -180,10 +186,12 @@ TEST(WifiNetworkDetailsDestinationTest, RetainsSelectionOutOfRangeAndUsesId) {
   station.disconnected();
   roo_wifi::Pump(scheduler);
   roo_wifi::Profile profile;
-  EXPECT_EQ(controller.loadProfile(7, profile), roo_wifi::Status::kNotFound);
-  EXPECT_EQ(destination.network().profile_id, 7u);
+  EXPECT_EQ(controller.loadProfile(settings.connection.ssid, profile),
+            roo_wifi::Status::kNotFound);
+  EXPECT_EQ(destination.network().profile_ssid, settings.connection.ssid);
   EXPECT_FALSE(destination.network().saved);
-  EXPECT_EQ(controller.loadProfile(9, profile), roo_wifi::Status::kOk);
+  EXPECT_EQ(controller.loadProfile(settings.connection.ssid, profile),
+            roo_wifi::Status::kNotFound);
   EXPECT_EQ(destination.connect(), roo_wifi::Status::kNotFound);
 }
 }  // namespace

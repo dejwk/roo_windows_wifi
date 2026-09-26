@@ -59,7 +59,7 @@ class ObservedField : public Base {
 
  protected:
   void onTextChanged() override {
-    if (changed_) changed_();
+    if (changed_ != nullptr) changed_();
   }
 
  private:
@@ -104,6 +104,8 @@ const char* WifiStatusText(roo_wifi::Status status) {
       return "Operation cancelled";
     case roo_wifi::Status::kCommitUnknown:
       return "Save outcome unknown. Reload before retrying";
+    case roo_wifi::Status::kHashCollision:
+      return "Saved network storage conflict";
     case roo_wifi::Status::kCorrupt:
       return "Saved network could not be read";
     default:
@@ -147,18 +149,19 @@ class WifiConfigForm::Impl {
         switches_(context),
         options_(context) {
     for (int i = 0; i < kFieldCount; ++i) {
-      if (i == kPassword)
+      if (i == kPassword) {
         fields_[i] = std::make_unique<ObservedField<SecureTextField>>(
             context, kLabels[i], changed_);
-      else
+      } else {
         fields_[i] = std::make_unique<ObservedField<TextField>>(
             context, kLabels[i], changed_);
+      }
     }
     for (int i = 0; i < kChoiceCount; ++i) {
       choices_[i] = std::make_unique<ListRow<InvokableListItemBase>>(
           context, kChoices[i]);
       choices_[i]->item().setOnInvoked([this, i]() {
-        if (choose_) choose_(static_cast<Choice>(i));
+        if (choose_ != nullptr) choose_(static_cast<Choice>(i));
       });
     }
     form_.add(*fields_[kSsid]);
@@ -173,10 +176,10 @@ class WifiConfigForm::Impl {
     form_.add(options_);
     for (int i = kAddress; i < kFieldCount; ++i) form_.add(*fields_[i]);
     hidden_.item().setOnInvoked([this]() {
-      if (changed_) changed_();
+      if (changed_ != nullptr) changed_();
     });
     automatic_.item().setOnInvoked([this]() {
-      if (changed_) changed_();
+      if (changed_ != nullptr) changed_();
     });
     advanced_.setOnInteractiveChange(
         [this]() { this->form_.setAdvanced(!expanded_); });
@@ -192,12 +195,12 @@ class WifiConfigForm::Impl {
                               ? V::kVisible
                               : V::kGone);
     for (int i = kPrivacy; i < kChoiceCount; ++i) {
-      bool supported =
-          i == kPrivacy ? support_.randomized_mac
-          : i == kIp
-              ? support_.static_ipv4
-              : policies_ && (i == kMetered ? policies_->supportsMetered()
-                                            : policies_->supportsProxy());
+      bool supported = i == kPrivacy ? support_.randomized_mac
+                       : i == kIp
+                           ? support_.static_ipv4
+                           : policies_ != nullptr &&
+                                 (i == kMetered ? policies_->supportsMetered()
+                                                : policies_->supportsProxy());
       choices_[i]->setVisibility(
           expanded_ && (supported || values_[i] != 0) ? V::kVisible : V::kGone);
     }
@@ -210,15 +213,19 @@ class WifiConfigForm::Impl {
     choices_[kSecurity]->item().setSupportingText(
         WifiSecurityText(static_cast<roo_wifi::AuthMode>(values_[kSecurity])));
     choices_[kPrivacy]->item().setSupportingText(
-        values_[kPrivacy] ? "Randomized MAC" : "Device MAC");
-    choices_[kIp]->item().setSupportingText(values_[kIp] ? "Static" : "DHCP");
-    choices_[kProxy]->item().setSupportingText(values_[kProxy] ? "Manual"
-                                                               : "None");
+        values_[kPrivacy] != 0 ? "Randomized MAC" : "Device MAC");
+    choices_[kIp]->item().setSupportingText(values_[kIp] != 0 ? "Static"
+                                                              : "DHCP");
+    choices_[kProxy]->item().setSupportingText(values_[kProxy] != 0 ? "Manual"
+                                                                    : "None");
     choices_[kMetered]->item().setSupportingText(values_[kMetered] == 0 ? "Auto"
                                                  : values_[kMetered] == 1
                                                      ? "Metered"
                                                      : "Unmetered");
-    for (auto& row : choices_) row->refreshFromItem();
+    for (const std::unique_ptr<ListRow<InvokableListItemBase>>& row :
+         choices_) {
+      row->refreshFromItem();
+    }
     form_.requestLayout();
   }
 
@@ -282,17 +289,19 @@ void WifiConfigForm::load(const roo_wifi::ProfileSettings& settings, bool keep,
   impl_->fields_[kDns2]->setText(
       c.static_ipv4.has_dns2 ? AddressText(c.static_ipv4.dns2) : "");
   impl_->fields_[kProxyHost]->setText(policy.host);
-  impl_->fields_[kProxyPort]->setText(policy.port ? std::to_string(policy.port)
-                                                  : "");
+  impl_->fields_[kProxyPort]->setText(
+      policy.port != 0 ? std::to_string(policy.port) : "");
   impl_->fields_[kProxyBypass]->setText(policy.bypass);
   impl_->expanded_ = c.ip_mode != roo_wifi::IpMode::kDhcp ||
                      c.mac_policy != roo_wifi::MacPolicy::kDevice ||
                      policy.proxy != ProxyMode::kNone ||
                      policy.metered != MeteredMode::kAuto;
-  for (auto& field : impl_->fields_) field->clearError();
+  for (const std::unique_ptr<TextField>& field : impl_->fields_) {
+    field->clearError();
+  }
   impl_->sync();
   impl_->changed_ = std::move(callback);
-  if (impl_->changed_) impl_->changed_();
+  if (impl_->changed_ != nullptr) impl_->changed_();
 }
 
 roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
@@ -302,8 +311,11 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
   settings = {};
   credential = {};
   policy = {};
-  if (show)
-    for (auto& field : impl_->fields_) field->clearError();
+  if (show) {
+    for (const std::unique_ptr<TextField>& field : impl_->fields_) {
+      field->clearError();
+    }
+  }
   auto invalid = [this, show](Field field, const char* error) {
     if (show) {
       impl_->fields_[field]->setErrorText(error);
@@ -311,9 +323,10 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
     }
     return roo_wifi::Status::kInvalidArgument;
   };
-  if (text(kSsid).empty() || text(kSsid).size() > 32)
+  if (text(kSsid).empty() || text(kSsid).size() > 32) {
     return invalid(kSsid, "Use 1 to 32 bytes");
-  auto& c = settings.connection;
+  }
+  roo_wifi::ConnectionConfig& c = settings.connection;
   c.ssid.size = text(kSsid).size();
   std::memcpy(c.ssid.bytes, text(kSsid).data(), c.ssid.size);
   c.security = static_cast<roo_wifi::AuthMode>(choice(kSecurity));
@@ -322,28 +335,34 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
   c.ip_mode = static_cast<roo_wifi::IpMode>(choice(kIp));
   settings.auto_connect = impl_->automatic_.item().isOn();
   if (!WifiCanProvision(c.security, impl_->support_) ||
-      roo_wifi::ValidateSupport(c, impl_->support_) != Status::kOk)
+      roo_wifi::ValidateSupport(c, impl_->support_) != Status::kOk) {
     return Status::kUnsupported;
+  }
   if (c.ip_mode == roo_wifi::IpMode::kStaticIpv4) {
     unsigned prefix;
-    if (!Address(text(kAddress), c.static_ipv4.address))
+    if (!Address(text(kAddress), c.static_ipv4.address)) {
       return invalid(kAddress, "Enter an IPv4 address");
-    if (!Number(text(kPrefix), 30, prefix) || prefix < 1)
+    }
+    if (!Number(text(kPrefix), 30, prefix) || prefix < 1) {
       return invalid(kPrefix, "Use a prefix from 1 to 30");
+    }
     c.static_ipv4.prefix_length = prefix;
-    if (!Address(text(kGateway), c.static_ipv4.gateway))
+    if (!Address(text(kGateway), c.static_ipv4.gateway)) {
       return invalid(kGateway, "Enter an IPv4 gateway");
-    if (!Address(text(kDns1), c.static_ipv4.dns1))
+    }
+    if (!Address(text(kDns1), c.static_ipv4.dns1)) {
       return invalid(kDns1, "Enter an IPv4 DNS server");
+    }
     c.static_ipv4.has_dns2 = !text(kDns2).empty();
-    if (c.static_ipv4.has_dns2 && !Address(text(kDns2), c.static_ipv4.dns2))
+    if (c.static_ipv4.has_dns2 && !Address(text(kDns2), c.static_ipv4.dns2)) {
       return invalid(kDns2, "Enter an IPv4 DNS server");
+    }
   }
   roo_wifi::Credentials check;
-  if (c.security == roo_wifi::AuthMode::kOpen)
+  if (c.security == roo_wifi::AuthMode::kOpen) {
     credential.intent = roo_wifi::CredentialIntent::kClear;
-  else if (impl_->keep_ && text(kPassword).empty() &&
-           c.security == impl_->original_security_) {
+  } else if (impl_->keep_ && text(kPassword).empty() &&
+             c.security == impl_->original_security_) {
     credential.intent = roo_wifi::CredentialIntent::kKeep;
     // Backend loads the real secret for Keep. Validate only non-secret fields
     // here.
@@ -353,8 +372,9 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
                          : roo_wifi::CredentialEncoding::kPassphrase;
     std::memset(check.bytes, 'a', check.size);
   } else {
-    if (text(kPassword).size() > 64)
+    if (text(kPassword).size() > 64) {
       return invalid(kPassword, "Credential is too long");
+    }
     credential.intent = roo_wifi::CredentialIntent::kReplace;
     check.size = text(kPassword).size();
     std::memcpy(check.bytes, text(kPassword).data(), check.size);
@@ -367,18 +387,22 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
   }
   roo_wifi::ConnectionConfig credential_check = c;
   credential_check.ip_mode = roo_wifi::IpMode::kDhcp;
-  if (roo_wifi::Validate(credential_check, check) != Status::kOk)
+  if (roo_wifi::Validate(credential_check, check) != Status::kOk) {
     return invalid(kPassword, "Invalid credential for this security mode");
-  if (roo_wifi::Validate(c, check) != Status::kOk)
+  }
+  if (roo_wifi::Validate(c, check) != Status::kOk) {
     return invalid(kAddress, "Check address, subnet, gateway and DNS");
+  }
   policy.metered = static_cast<MeteredMode>(choice(kMetered));
   policy.proxy = static_cast<ProxyMode>(choice(kProxy));
   if (policy.proxy == ProxyMode::kManual) {
     unsigned port;
-    if (text(kProxyHost).empty())
+    if (text(kProxyHost).empty()) {
       return invalid(kProxyHost, "Enter a proxy host");
-    if (!Number(text(kProxyPort), 65535, port) || port == 0)
+    }
+    if (!Number(text(kProxyPort), 65535, port) || port == 0) {
       return invalid(kProxyPort, "Use a port from 1 to 65535");
+    }
     policy.host = text(kProxyHost);
     policy.port = port;
     policy.bypass = text(kProxyBypass);
@@ -387,13 +411,15 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
     if ((policy.proxy != ProxyMode::kNone &&
          !impl_->policies_->supportsProxy()) ||
         (policy.metered != MeteredMode::kAuto &&
-         !impl_->policies_->supportsMetered()))
+         !impl_->policies_->supportsMetered())) {
       return Status::kUnsupported;
+    }
     Status status = impl_->policies_->validate(policy);
     if (show && status != Status::kOk) {
       setAdvanced(true);
-      if (policy.proxy == ProxyMode::kManual)
+      if (policy.proxy == ProxyMode::kManual) {
         impl_->fields_[kProxyHost]->setErrorText(WifiStatusText(status));
+      }
     }
     return status;
   }
@@ -422,7 +448,7 @@ void WifiConfigForm::setChoice(Choice choice, int value) {
   if (!supportsChoice(choice, value)) return;
   impl_->values_[choice] = value;
   impl_->sync();
-  if (impl_->changed_) impl_->changed_();
+  if (impl_->changed_ != nullptr) impl_->changed_();
 }
 bool WifiConfigForm::supportsChoice(Choice choice, int value) const {
   if (value < 0) return false;
@@ -436,10 +462,10 @@ bool WifiConfigForm::supportsChoice(Choice choice, int value) const {
     case kIp:
       return value == 0 || (value == 1 && impl_->support_.static_ipv4);
     case kMetered:
-      return value <= 2 && impl_->policies_ &&
+      return value <= 2 && impl_->policies_ != nullptr &&
              impl_->policies_->supportsMetered();
     case kProxy:
-      return value <= 1 && impl_->policies_ &&
+      return value <= 1 && impl_->policies_ != nullptr &&
              impl_->policies_->supportsProxy();
     default:
       return false;
@@ -448,11 +474,11 @@ bool WifiConfigForm::supportsChoice(Choice choice, int value) const {
 void WifiConfigForm::setHidden(bool hidden) {
   impl_->hidden_.item().setOn(hidden);
   impl_->sync();
-  if (impl_->changed_) impl_->changed_();
+  if (impl_->changed_ != nullptr) impl_->changed_();
 }
 void WifiConfigForm::setAutoConnect(bool enabled) {
   impl_->automatic_.item().setOn(enabled);
-  if (impl_->changed_) impl_->changed_();
+  if (impl_->changed_ != nullptr) impl_->changed_();
 }
 void WifiConfigForm::setAdvanced(bool expanded) {
   impl_->expanded_ = expanded;
@@ -466,8 +492,13 @@ void WifiConfigForm::setOnChoose(std::function<void(Choice)> callback) {
   impl_->choose_ = std::move(callback);
 }
 void WifiConfigForm::setEditingEnabled(bool enabled) {
-  for (auto& field : impl_->fields_) field->setEnabled(enabled);
-  for (auto& row : impl_->choices_) row->setEnabled(enabled);
+  for (const std::unique_ptr<TextField>& field : impl_->fields_) {
+    field->setEnabled(enabled);
+  }
+  for (const std::unique_ptr<ListRow<InvokableListItemBase>>& row :
+       impl_->choices_) {
+    row->setEnabled(enabled);
+  }
   impl_->hidden_.setEnabled(enabled);
   impl_->automatic_.setEnabled(enabled);
 }

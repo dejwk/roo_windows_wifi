@@ -68,7 +68,8 @@ class AvailableNetworkModel
     return model_.controller().isEnabled() ? count : 0;
   }
 
-  roo_windows::material3::DynamicListSectionState sectionState() const override {
+  roo_windows::material3::DynamicListSectionState sectionState()
+      const override {
     return {true, roo_windows::material3::DynamicListFocusTarget::kRowSurface};
   }
 
@@ -159,8 +160,9 @@ class SettingsBody : public internal::BorrowedColumn {
     enabled_.refreshFromItem();
     current_list_.setVisibility(
         enabled && model_.current() ? Visibility::kVisible : Visibility::kGone);
-    if (enabled && model_.current())
+    if (enabled && model_.current()) {
       current_.bind(kCurrentNetworkIndex, *model_.current());
+    }
     heading_.setVisibility(enabled ? Visibility::kVisible : Visibility::kGone);
     networks_.setVisibility(enabled && availableCount() > 0
                                 ? Visibility::kVisible
@@ -248,12 +250,9 @@ class WifiSettingsDestination::Impl {
 
 WifiSettingsDestination::WifiSettingsDestination(
     roo_windows::ApplicationContext& context, WifiPresentationModel& model,
-    Actions& actions, roo_wifi::ProfileId provisioning_key,
-    WifiProfileIdAllocator* profile_ids)
+    Actions& actions)
     : model_(model),
       actions_(actions),
-      provisioning_key_(provisioning_key),
-      profile_ids_(profile_ids),
       impl_(std::make_unique<Impl>(
           context, model, static_cast<WifiNetworkRow::Listener&>(*this),
           actions, *this)) {
@@ -290,8 +289,9 @@ roo_wifi::Status WifiSettingsDestination::toggleWifi() {
 }
 roo_wifi::Status WifiSettingsDestination::setWifiEnabled(bool enabled) {
   roo_wifi::Status status = model_.controller().setEnabled(enabled);
-  if (status != roo_wifi::Status::kOk)
+  if (status != roo_wifi::Status::kOk) {
     impl_->feedback_ = WifiStatusText(status);
+  }
   syncBody();
   return status;
 }
@@ -327,10 +327,6 @@ void WifiSettingsDestination::activateNetwork(size_t model_index) {
     actions_.showNetworkDetails(network);
     return;
   }
-  if (network.profile_ambiguous) {
-    actions_.showSavedNetworks();
-    return;
-  }
   if (!WifiCanProvision(network.security, model_.controller().support())) {
     impl_->feedback_ = "This authentication mode cannot be configured";
     actions_.showNetworkDetails(network);
@@ -343,47 +339,21 @@ void WifiSettingsDestination::activateNetwork(size_t model_index) {
   }
   impl_->requested_ = network;
   roo_wifi::Status status;
-  if (network.saved && network.profile_id != 0) {
-    status = model_.controller().connect(network.profile_id);
+  if (network.saved && network.profile_ssid.size != 0) {
+    status = model_.controller().connect(network.profile_ssid);
   } else {
-    roo_wifi::ProfileId id = 0;
-    status = nextProfileId(id);
+    roo_wifi::ProfileSettings settings;
+    settings.connection = ConnectionFor(network);
+    roo_wifi::CredentialUpdate credential;
+    credential.intent = roo_wifi::CredentialIntent::kClear;
+    status = model_.controller().saveProfile(settings, credential);
     if (status == roo_wifi::Status::kOk) {
-      roo_wifi::ProfileSettings settings;
-      settings.connection = ConnectionFor(network);
-      roo_wifi::CredentialUpdate credential;
-      credential.intent = roo_wifi::CredentialIntent::kClear;
-      status = model_.controller().saveProfile(id, settings, credential);
-      if (status == roo_wifi::Status::kOk)
-        status = model_.controller().connect(id);
+      status = model_.controller().connect(settings.connection.ssid);
     }
   }
   impl_->feedback_ =
       status == roo_wifi::Status::kOk ? "Connecting…" : WifiStatusText(status);
   syncBody();
-}
-
-roo_wifi::Status WifiSettingsDestination::nextProfileId(
-    roo_wifi::ProfileId& out) {
-  roo_wifi::ProfileId candidate = provisioning_key_;
-  if (profile_ids_ != nullptr && !profile_ids_->nextProfileId(candidate)) {
-    return roo_wifi::Status::kNotFound;
-  }
-  if (candidate == 0) return roo_wifi::Status::kInvalidArgument;
-  bool occupied = false;
-  roo_wifi::Status status =
-      model_.controller().forEachProfile([&](roo_wifi::ProfileId id) {
-        if (id == candidate) occupied = true;
-        return true;
-      });
-  if (status != roo_wifi::Status::kOk) return status;
-  roo_wifi::Profile existing;
-  if (occupied || model_.controller().loadProfile(candidate, existing) !=
-                      roo_wifi::Status::kNotFound) {
-    return roo_wifi::Status::kNotFound;
-  }
-  out = candidate;
-  return roo_wifi::Status::kOk;
 }
 
 void WifiSettingsDestination::syncBody() {
@@ -412,24 +382,25 @@ void WifiSettingsDestination::onWifiModelChanged() {
     roo_wifi::Status status = model_.controller().startScan();
     if (status != roo_wifi::Status::kBusy) impl_->scan_after_enable_ = false;
   }
-  if (model_.controller().isScanning())
+  if (model_.controller().isScanning()) {
     impl_->feedback_ = "Scanning…";
-  else if (state.status != roo_wifi::Status::kOk)
+  } else if (state.status != roo_wifi::Status::kOk) {
     impl_->feedback_ = WifiStatusText(state.status);
-  else if (state.station == C::StationPhase::kConnected)
+  } else if (state.station == C::StationPhase::kConnected) {
     impl_->feedback_ = "Connected";
-  else if (state.station == C::StationPhase::kConnecting ||
-           state.station == C::StationPhase::kAwaitingIp)
+  } else if (state.station == C::StationPhase::kConnecting ||
+             state.station == C::StationPhase::kAwaitingIp) {
     impl_->feedback_ = "Connecting…";
-  else if (state.station == C::StationPhase::kDisconnecting)
+  } else if (state.station == C::StationPhase::kDisconnecting) {
     impl_->feedback_ = "Disconnecting…";
-  else if (!model_.controller().isScanning())
+  } else if (!model_.controller().isScanning()) {
     impl_->feedback_ =
         state.scan_status == roo_wifi::Status::kOk
             ? (model_.networks().empty()
                    ? "No networks found. Try Refresh or Add network"
                    : "Select a network")
             : WifiStatusText(state.scan_status);
+  }
   syncBody();
 }
 

@@ -67,7 +67,7 @@ TEST(WifiResources, LongSsidRebindingDoesNotAllocate) {
       roo_wifi::TestConfig("12345678901234567890123456789012");
   roo_wifi::CredentialUpdate clear;
   clear.intent = roo_wifi::CredentialIntent::kClear;
-  ASSERT_EQ(store.saveProfile(7, settings, clear), roo_wifi::Status::kOk);
+  ASSERT_EQ(store.saveProfile(settings, clear), roo_wifi::Status::kOk);
   roo_windows::Environment environment(scheduler);
   roo_windows::ApplicationContext context(environment.scheduler(),
                                           environment.theme(),

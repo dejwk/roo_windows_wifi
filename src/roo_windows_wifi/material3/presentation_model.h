@@ -15,11 +15,10 @@ struct WifiNetworkSummary {
   std::string ssid;
   roo_wifi::AuthMode security = roo_wifi::AuthMode::kUnknown;
   roo_wifi::MacAddress bssid;
-  roo_wifi::ProfileId profile_id = 0;
+  roo_wifi::Ssid profile_ssid;
   int8_t rssi_dbm = -128;
   uint16_t channel = 0;
   bool saved = false;
-  bool profile_ambiguous = false;
   bool current = false;
   bool connecting = false;
   bool disconnecting = false;
@@ -34,7 +33,6 @@ struct WifiNetworkSummary {
 
 /// Owns the non-secret presentation data for one saved profile.
 struct WifiSavedProfileSummary {
-  roo_wifi::ProfileId id = 0;
   roo_wifi::ProfileSettings settings;
   std::string ssid;
   bool has_credentials = false;
@@ -90,9 +88,9 @@ class WifiPresentationModel : private roo_wifi::Controller::Listener {
     return profiles_;
   }
 
-  /// Returns committed IDs whose metadata could not be loaded.
-  const std::vector<roo_wifi::ProfileId>& unreadableProfileIds() const {
-    return unreadable_profile_ids_;
+  /// Returns SSIDs whose settings were enumerated but whose full load failed.
+  const std::vector<roo_wifi::Ssid>& unreadableSsids() const {
+    return unreadable_profile_ssids_;
   }
 
   /// Returns the current/connecting link summary, or null while idle.
@@ -110,13 +108,18 @@ class WifiPresentationModel : private roo_wifi::Controller::Listener {
   roo_wifi::Controller& controller() const { return controller_; }
 
  private:
+  /// Converts exact SSID bytes to text without requiring a terminator.
   static std::string SsidText(const roo_wifi::Ssid& ssid);
+  /// Tests the exact SSID and authentication mode used to group scan rows.
   static bool SameNetwork(const WifiNetworkSummary& summary,
                           const roo_wifi::Ssid& ssid,
                           roo_wifi::AuthMode security);
 
+  /// Replaces saved summaries only after complete successful enumeration.
   roo_wifi::Status refreshProfiles();
+  /// Rebuilds scan rows and the current link from controller snapshots.
   void rebuildNetworks();
+  /// Notifies consumers that presentation data must be rebound.
   void notifyChanged();
 
   /// Refreshes station progress and enablement from the current snapshot.
@@ -127,6 +130,7 @@ class WifiPresentationModel : private roo_wifi::Controller::Listener {
 
   /// Reloads saved-profile metadata after storage changes.
   void onProfilesChanged() override;
+
   uint64_t scan_generation_ = 0;
   bool enabled_ = false;
   bool scanning_ = false;
@@ -135,13 +139,12 @@ class WifiPresentationModel : private roo_wifi::Controller::Listener {
   std::vector<Listener*> listeners_;
   std::vector<WifiNetworkSummary> networks_;
   std::vector<WifiSavedProfileSummary> profiles_;
-  std::vector<roo_wifi::ProfileId> unreadable_profile_ids_;
+  std::vector<roo_wifi::Ssid> unreadable_profile_ssids_;
   WifiNetworkSummary current_;
   roo_wifi::Status profile_status_ = roo_wifi::Status::kNotStarted;
   roo_time::Uptime last_scan_;
   bool observed_scan_ = false;
   bool has_current_ = false;
-  roo_wifi::ProfileId connected_profile_ = 0;
 };
 
 }  // namespace material3

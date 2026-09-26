@@ -96,7 +96,7 @@ roo_windows::NavigationHost& navigation = task.navigation();
 
 // Key 1 is the application-owned fallback slot for a newly saved network.
 roo_wifi::Esp32WiFi wifi(scheduler);
-roo_windows_wifi::WifiSettingsFlow wifi_setup(app.context(), wifi, 1);
+roo_windows_wifi::WifiSettingsFlow wifi_setup(app.context(), wifi);
 
 class SettingsMenu : public menu::Menu {
  public:
