@@ -228,6 +228,8 @@ class WifiSettingsDestination::Impl {
     app_bar_.setTitle("Wi-Fi");
     refresh_.setOnInteractiveChange([this]() { destination_.refreshScan(); });
     app_bar_.setTrailing(0, refresh_);
+    scaffold_.setPadding(roo_windows::PaddingSize::kSmall,
+                         roo_windows::PaddingSize::kNone);
     scaffold_.setTopBar(app_bar_);
     scaffold_.setBody(scroller_);
   }

@@ -19,11 +19,6 @@ class SegmentedList : public roo_windows::material3::List {
     return {roo_windows::PreferredSize::MatchParentWidth(),
             roo_windows::PreferredSize::WrapContentHeight()};
   }
-
-  /// Insets the section from the surrounding screen edges.
-  roo_windows::Margins getMargins() const override {
-    return roo_windows::Margins(roo_windows::Scaled(8));
-  }
 };
 
 }  // namespace roo_windows_wifi::material3::internal

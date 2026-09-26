@@ -76,6 +76,8 @@ class WifiSavedNetworksDestination::Impl {
     networks_.add(list_);
     app_bar_.setTitle("Saved networks");
     app_bar_.setLeading(back_);
+    scaffold_.setPadding(roo_windows::PaddingSize::kSmall,
+                         roo_windows::PaddingSize::kNone);
     scaffold_.setTopBar(app_bar_);
     scaffold_.setBody(scroller_);
     footer_.add(status_);

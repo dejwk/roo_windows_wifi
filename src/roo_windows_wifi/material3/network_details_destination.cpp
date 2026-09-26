@@ -172,6 +172,8 @@ class WifiNetworkDetailsDestination::Impl {
     body_.add(settings_);
     body_.add(details_caption_);
     body_.add(info_);
+    scaffold_.setPadding(roo_windows::PaddingSize::kSmall,
+                         roo_windows::PaddingSize::kNone);
     scaffold_.setTopBar(bar_);
     scaffold_.setBody(scroll_);
   }
