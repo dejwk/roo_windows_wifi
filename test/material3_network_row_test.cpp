@@ -38,6 +38,43 @@ TEST(WifiSignalGlyphTest, RetainsBoundSemanticState) {
   EXPECT_EQ(glyph.signalState(), WifiSignalState::kConnecting);
 }
 
+// Verifies recycled network segments match Material list corners and colors,
+// including the rounded selection treatment for the current network.
+TEST(WifiNetworkRowTest, SegmentsMatchMaterialListTreatment) {
+  using namespace roo_windows::material3;
+  roo_scheduler::Scheduler scheduler;
+  roo_windows::Environment environment(scheduler);
+  roo_windows::ApplicationContext context = MakeContext(environment);
+  RecordingListener listener;
+  WifiNetworkRow row(context, listener);
+  ListEntry reference(context);
+  WifiNetworkSummary summary;
+  summary.ssid = "Network";
+  for (bool current : {false, true}) {
+    summary.current = current;
+    for (ListItemPosition position :
+         {ListItemPosition::kSingle, ListItemPosition::kFirst,
+          ListItemPosition::kMiddle, ListItemPosition::kLast}) {
+      row.bind(3, summary);
+      ListEntryVisualContext visual;
+      visual.style = ListStyle::kSegmented;
+      visual.position = position;
+      visual.selected = current;
+      row.setVisualContext(visual);
+      reference.setVisualContext(visual);
+      EXPECT_EQ(row.containerRole(), reference.containerRole());
+      EXPECT_EQ(row.background(), reference.background());
+      const auto actual = row.getBorderStyle().corner_radii();
+      const auto expected = reference.getBorderStyle().corner_radii();
+      EXPECT_EQ(actual.top_left, expected.top_left);
+      EXPECT_EQ(actual.top_right, expected.top_right);
+      EXPECT_EQ(actual.bottom_left, expected.bottom_left);
+      EXPECT_EQ(actual.bottom_right, expected.bottom_right);
+    }
+  }
+  EXPECT_EQ(row.getMargins().top() + row.getMargins().bottom(), 0);
+}
+
 // Verifies recycling replaces every model-derived row property.
 TEST(WifiNetworkRowTest, RebindsAllPresentationState) {
   roo_scheduler::Scheduler scheduler;

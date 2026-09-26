@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "roo_windows/core/environment.h"
+#include "roo_windows/material3/list/list.h"
 #include "roo_windows/material3/text_field/text_field.h"
 #include "roo_windows_wifi/material3/config_form.h"
 
@@ -26,6 +27,48 @@ class FormTest : public testing::Test {
   }
   roo_wifi::Status build() { return form.build(settings, credential, policy); }
 };
+
+// Verifies advanced options fill the form width and regroup visible segments
+// when capabilities hide intermediate choices.
+TEST_F(FormTest, AdvancedOptionsFillWidthAndGroupVisibleRows) {
+  using namespace roo_windows;
+  using namespace roo_windows::material3;
+  form.setAdvanced(true);
+  for (int width : {320, 480}) {
+    const Dimensions size =
+        form.measure(WidthSpec::Exactly(width), HeightSpec::Unspecified(0));
+    form.layout(Rect(0, 0, size.width() - 1, size.height() - 1));
+    int lists = 0;
+    Widget& form_widget = form;
+    for (int i = 0; i < form_widget.focusChildCount(); ++i) {
+      auto* list = dynamic_cast<List*>(form_widget.focusChildAt(i));
+      if (list == nullptr || list->isGone()) continue;
+      ++lists;
+      EXPECT_EQ(list->width(), width - 2 * Scaled(8));
+      std::vector<ListEntry*> visible;
+      Widget& list_widget = *list;
+      for (int j = 0; j < list_widget.focusChildCount(); ++j) {
+        auto* row = static_cast<ListEntry*>(list_widget.focusChildAt(j));
+        if (row->isGone()) continue;
+        visible.push_back(row);
+        EXPECT_EQ(row->width(), list->width());
+        EXPECT_EQ(row->visualContext().style, ListStyle::kSegmented);
+      }
+      ASSERT_FALSE(visible.empty());
+      EXPECT_EQ(visible.front()->visualContext().position,
+                visible.size() == 1 ? ListItemPosition::kSingle
+                                    : ListItemPosition::kFirst);
+      if (visible.size() > 1) {
+        EXPECT_EQ(visible.back()->visualContext().position,
+                  ListItemPosition::kLast);
+        EXPECT_EQ(visible[1]->offsetTop() - visible[0]->offsetTop() -
+                      visible[0]->height(),
+                  Scaled(2));
+      }
+    }
+    EXPECT_EQ(lists, 3);
+  }
+}
 
 // Verifies original byte lengths are rejected without silently changing SSIDs.
 TEST_F(FormTest, RejectsOverlongAndEmptySsid) {

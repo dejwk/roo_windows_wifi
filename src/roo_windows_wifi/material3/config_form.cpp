@@ -6,6 +6,7 @@
 #include "roo_windows/material3/button/button.h"
 #include "roo_windows/material3/list/list.h"
 #include "roo_windows/material3/text_field/secure_text_field.h"
+#include "roo_windows_wifi/material3/internal/segmented_list.h"
 
 namespace roo_windows_wifi::material3 {
 namespace {
@@ -96,7 +97,7 @@ const char* WifiStatusText(roo_wifi::Status status) {
     case roo_wifi::Status::kNotFound:
       return "Saved network or available profile key not found";
     case roo_wifi::Status::kConnectionFailed:
-      return "Could not connect. Check the password and try again";
+      return "Could not connect. Try again";
     case roo_wifi::Status::kTimeout:
       return "Operation timed out. Try again";
     case roo_wifi::Status::kCancelled:
@@ -141,7 +142,10 @@ class WifiConfigForm::Impl {
         policies_(policies),
         hidden_(context, "Hidden network"),
         automatic_(context, "Auto-connect"),
-        advanced_(context, "Advanced options", ButtonVariant::kText) {
+        advanced_(context, "Advanced options", ButtonVariant::kText),
+        security_(context),
+        switches_(context),
+        options_(context) {
     for (int i = 0; i < kFieldCount; ++i) {
       if (i == kPassword)
         fields_[i] = std::make_unique<ObservedField<SecureTextField>>(
@@ -158,12 +162,15 @@ class WifiConfigForm::Impl {
       });
     }
     form_.add(*fields_[kSsid]);
-    form_.add(*choices_[kSecurity]);
+    security_.add(*choices_[kSecurity]);
+    form_.add(security_);
     form_.add(*fields_[kPassword]);
-    form_.add(hidden_);
-    form_.add(automatic_);
+    switches_.add(hidden_);
+    switches_.add(automatic_);
+    form_.add(switches_);
     form_.add(advanced_);
-    for (int i = kPrivacy; i < kChoiceCount; ++i) form_.add(*choices_[i]);
+    for (int i = kPrivacy; i < kChoiceCount; ++i) options_.add(*choices_[i]);
+    form_.add(options_);
     for (int i = kAddress; i < kFieldCount; ++i) form_.add(*fields_[i]);
     hidden_.item().setOnInvoked([this]() {
       if (changed_) changed_();
@@ -194,6 +201,7 @@ class WifiConfigForm::Impl {
       choices_[i]->setVisibility(
           expanded_ && (supported || values_[i] != 0) ? V::kVisible : V::kGone);
     }
+    options_.setVisibility(expanded_ ? V::kVisible : V::kGone);
     for (int i = kAddress; i < kFieldCount; ++i) {
       bool visible = expanded_ && (i < kProxyHost ? values_[kIp] != 0
                                                   : values_[kProxy] != 0);
@@ -225,6 +233,9 @@ class WifiConfigForm::Impl {
   ListRow<SwitchListItem> hidden_;
   ListRow<SwitchListItem> automatic_;
   Button advanced_;
+  internal::SegmentedList security_;
+  internal::SegmentedList switches_;
+  internal::SegmentedList options_;
   int values_[kChoiceCount] = {};
   bool expanded_ = false;
   bool keep_ = false;

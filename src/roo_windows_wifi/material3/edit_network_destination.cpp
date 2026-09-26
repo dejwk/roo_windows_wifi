@@ -17,6 +17,7 @@
 #include "roo_windows/material3/typography.h"
 #include "roo_windows/widgets/text_block.h"
 #include "roo_windows_wifi/material3/internal/borrowed_layout.h"
+#include "roo_windows_wifi/material3/internal/segmented_list.h"
 
 namespace roo_windows_wifi::material3 {
 namespace {
@@ -83,7 +84,7 @@ class ChoiceDestination : public Destination {
   AppBar bar_;
   IconButton back_;
   std::unique_ptr<ListRow<RadioListItem>> rows_[8];
-  List list_;
+  internal::SegmentedList list_;
   SimpleScrollablePanel scroll_;
   LayoutScaffold scaffold_;
 };

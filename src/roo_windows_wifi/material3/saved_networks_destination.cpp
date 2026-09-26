@@ -4,21 +4,23 @@
 #include "roo_icons/outlined/24/navigation.h"
 #include "roo_icons/outlined/36/navigation.h"
 #include "roo_icons/outlined/48/navigation.h"
-#include "roo_windows/containers/list_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/button.h"
 #include "roo_windows/material3/button/icon_button.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
+#include "roo_windows/material3/list/dynamic_list.h"
 #include "roo_windows/material3/typography.h"
 #include "roo_windows/widgets/text_block.h"
 #include "roo_windows_wifi/material3/internal/borrowed_layout.h"
+#include "roo_windows_wifi/material3/internal/segmented_list.h"
 
 namespace roo_windows_wifi {
 namespace material3 {
 namespace {
 
-class SavedProfileModel : public roo_windows::ListModel {
+class SavedProfileModel
+    : public roo_windows::material3::DynamicListModel<WifiNetworkRow> {
  public:
   explicit SavedProfileModel(WifiSavedNetworksDestination& destination)
       : destination_(destination) {
@@ -27,9 +29,22 @@ class SavedProfileModel : public roo_windows::ListModel {
 
   int elementCount() const override { return destination_.profileCount(); }
 
-  void set(int index, roo_windows::Widget& widget) const override {
+  roo_windows::material3::DynamicListSectionState sectionState() const override {
+    return {true, roo_windows::material3::DynamicListFocusTarget::kRowSurface};
+  }
+
+  void bind(int index, WifiNetworkRow& widget) const override {
     destination_.profileSummary(static_cast<size_t>(index), scratch_);
-    static_cast<WifiNetworkRow&>(widget).bind(index, scratch_);
+    widget.bind(index, scratch_);
+  }
+
+  // Connection state owns the highlight independently of list interaction.
+  bool ownsSelection() const override { return true; }
+
+  roo_windows::material3::DynamicListRowState rowState(
+      int index) const override {
+    destination_.profileSummary(static_cast<size_t>(index), scratch_);
+    return {scratch_.current, {}};
   }
 
  private:
@@ -56,11 +71,13 @@ class WifiSavedNetworksDestination::Impl {
                     context,
                     static_cast<WifiNetworkRow::Listener&>(destination_));
               }),
-        scroller_(context, list_),
+        networks_(context),
+        scroller_(context, networks_),
         status_(context, "", roo_windows::material3::text_style_body_medium()),
         retry_(context, "Retry", roo_windows::material3::ButtonVariant::kText),
         footer_(context),
         scaffold_(context) {
+    networks_.add(list_);
     app_bar_.setTitle("Saved networks");
     back_.setOnInteractiveChange([this]() { destination_.exit(); });
     app_bar_.setLeading(back_);
@@ -77,7 +94,8 @@ class WifiSavedNetworksDestination::Impl {
     const bool has_profiles = destination_.profileCount() > 0;
     scroller_.setVisibility(has_profiles ? roo_windows::Visibility::kVisible
                                          : roo_windows::Visibility::kGone);
-    if (has_profiles) list_.modelChanged();
+    list_.beginModelReset();
+    list_.endModelReset();
     bool failed = destination_.model_.profileStatus() != roo_wifi::Status::kOk;
     bool unreadable = !destination_.model_.unreadableProfileIds().empty();
     status_.setText(failed         ? "Saved networks could not be refreshed"
@@ -97,7 +115,8 @@ class WifiSavedNetworksDestination::Impl {
   roo_windows::material3::AppBar app_bar_;
   roo_windows::material3::IconButton back_;
   SavedProfileModel list_model_;
-  roo_windows::ListLayout list_;
+  roo_windows::material3::DynamicList<WifiNetworkRow> list_;
+  internal::SegmentedList networks_;
   roo_windows::SimpleScrollablePanel scroller_;
   roo_windows::TextBlock status_;
   roo_windows::material3::Button retry_;
@@ -162,7 +181,7 @@ void WifiSavedNetworksDestination::profileSummary(
   summary.saved = true;
   const WifiNetworkSummary* current = model_.current();
   if (current != nullptr && current->ssid == summary.ssid &&
-      current->security == summary.security &&
+      roo_wifi::SecurityAllows(summary.security, current->security) &&
       current->profile_id == profile.id) {
     summary.current = true;
     summary.connecting = current->connecting;
@@ -172,7 +191,8 @@ void WifiSavedNetworksDestination::profileSummary(
     summary.rssi_dbm = current->rssi_dbm;
   }
   for (const WifiNetworkSummary& scanned : model_.networks()) {
-    if (scanned.ssid == summary.ssid && scanned.security == summary.security) {
+    if (scanned.ssid == summary.ssid &&
+        roo_wifi::SecurityAllows(summary.security, scanned.security)) {
       summary.in_range = true;
       summary.rssi_dbm = scanned.rssi_dbm;
       summary.bssid = scanned.bssid;

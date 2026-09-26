@@ -30,6 +30,26 @@ void PublishScan(roo_wifi::Controller& controller,
   roo_wifi::Pump(scheduler);
 }
 
+// Empty SSIDs are valid hidden beacons, but cannot be selected by name.
+TEST(WifiPresentationModelTest, OmitsUnnamedAccessPoints) {
+  roo_scheduler::Scheduler scheduler;
+  roo_wifi::TestStation station;
+  roo_wifi::OrderedInterface radio(station);
+  roo_wifi::MemoryStore store;
+  store.enabled = true;
+  roo_wifi::Controller controller(radio, store, scheduler);
+  ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  WifiPresentationModel model(controller);
+  station.aps.push_back(Record("", roo_wifi::AuthMode::kOpen, -30, 1));
+  station.aps.push_back(Record("Home", roo_wifi::AuthMode::kWpa2Personal, -50, 2));
+  station.aps.push_back(Record("", roo_wifi::AuthMode::kWpa2Personal, -40, 3));
+  PublishScan(controller, station, scheduler);
+  EXPECT_EQ(controller.scanSnapshot().count, 3u);
+  ASSERT_EQ(model.networks().size(), 1u);
+  EXPECT_EQ(model.networks()[0].ssid, "Home");
+}
+
 // Verifies scan progress does not invalidate network rows until new results
 // arrive; profile changes still refresh the network model independently.
 TEST(WifiPresentationModelTest, ScanProgressOnlyNotifiesScanListeners) {

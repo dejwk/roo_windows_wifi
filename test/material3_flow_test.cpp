@@ -184,7 +184,7 @@ roo_windows::material3::Button* FindButton(roo_windows::Widget& widget) {
 }
 
 // Verifies a connection update hiding the pressed button cannot restart a
-// hidden animation on release or block the next disconnect click.
+// hidden animation on release or block a disconnect click while awaiting IP.
 TEST(WifiFlow, ConnectionChangeDuringPressDoesNotBlockInput) {
   roo_scheduler::Scheduler scheduler;
   roo_wifi::TestStation station;
@@ -248,6 +248,11 @@ TEST(WifiFlow, ConnectionChangeDuringPressDoesNotBlockInput) {
     ASSERT_TRUE(app.refresh());
   }
   ASSERT_FALSE(app.root().click_animation().isBusy());
+  station.associated();
+  roo_wifi::Pump(scheduler);
+  ASSERT_TRUE(app.refresh());
+  ASSERT_EQ(controller.state().station,
+            roo_wifi::Controller::StationPhase::kAwaitingIp);
   auto* disconnect = FindButton(details.getContents());
   ASSERT_NE(disconnect, nullptr);
   ASSERT_NE(disconnect, button);
@@ -268,8 +273,8 @@ TEST(WifiFlow, ConnectionChangeDuringPressDoesNotBlockInput) {
   EXPECT_FALSE(app.root().click_animation().isBusy());
 }
 
-// Pending saves preserve the controls' appearance while blocking interaction.
-// Each transition must write any given display pixel at most once.
+// Verifies details remain interactive after saves and preserve unchanged
+// pixels across connection transitions.
 TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
   roo_scheduler::Scheduler scheduler;
   roo_wifi::TestStation station;
@@ -343,7 +348,7 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
     path.clear();
     EXPECT_TRUE(body->fillTouchTargetPath(x, y, path));
     EXPECT_TRUE(button->isEnabled());
-    EXPECT_TRUE(button->isEnabled());
+    EXPECT_EQ(path.back(), button);
     expect_no_writes(*row);
     expect_no_writes(*static_cast<roo_windows::Widget*>(body)->focusChildAt(0));
     EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
@@ -532,9 +537,11 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
   auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
       *static_cast<roo_windows::Widget&>(scaffold).focusChildAt(1));
   auto& column = static_cast<internal::BorrowedColumn&>(*scroll.contents());
-  auto& list = static_cast<roo_windows::ListLayout&>(column.child_at(4));
+  auto& list = static_cast<roo_windows::ListLayout&>(
+      *column.child_at(4).focusChildAt(0));
   EXPECT_EQ(scroll.height(), 240 - roo_windows::Scaled(64));
-  EXPECT_EQ(list.height(), 40 * roo_windows::Scaled(72));
+  EXPECT_EQ(list.height(),
+            40 * roo_windows::Scaled(72) + 39 * roo_windows::Scaled(2));
   EXPECT_LT(list.children().size(), 8u);
   for (int offset : {40, 120, 300, 800, 1400, 2200, 100}) {
     device.reset();
@@ -550,13 +557,15 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
   ASSERT_TRUE(app.refresh());
   EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
   Golden(device.raster(), "wifi_navigation_scrolled");
-  EXPECT_EQ(column.child_at(0).width(), scroll.width());
-  EXPECT_EQ(column.child_at(5).width(), scroll.width());
-  EXPECT_EQ(column.child_at(6).width(), scroll.width());
-  column.child_at(6).onClicked();
+  EXPECT_EQ(column.child_at(0).width(),
+            scroll.width() - roo_windows::Scaled(16));
+  roo_windows::Widget& actions = column.child_at(5);
+  EXPECT_EQ(actions.width(), scroll.width() - roo_windows::Scaled(16));
+  ASSERT_EQ(actions.focusChildCount(), 2);
+  actions.focusChildAt(1)->onClicked();
   EXPECT_TRUE(navigation.isCurrent(flow.savedNetworksDestination()));
   navigation.pop();
-  column.child_at(5).onClicked();
+  actions.focusChildAt(0)->onClicked();
   EXPECT_TRUE(navigation.isCurrent(flow.editDestination()));
   navigation.clear();
 }

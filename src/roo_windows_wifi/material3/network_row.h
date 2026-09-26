@@ -2,8 +2,8 @@
 
 #include <stddef.h>
 
-#include "roo_windows/core/basic_surface_widget.h"
 #include "roo_windows/core/basic_widget.h"
+#include "roo_windows/material3/list/list.h"
 #include "roo_windows_wifi/material3/presentation_model.h"
 
 namespace roo_windows_wifi {
@@ -47,8 +47,8 @@ class WifiSignalGlyph : public roo_windows::BasicWidget {
   WifiSignalState state_ = WifiSignalState::kAvailable;
 };
 
-/// Recyclable, owner-painted network row for `roo_windows::ListLayout`.
-class WifiNetworkRow : public roo_windows::BasicSurfaceWidget {
+/// Recyclable, owner-painted Material 3 list entry.
+class WifiNetworkRow : public roo_windows::material3::ListEntry {
  public:
   /// Receives activation by stable model index from recycled rows.
   class Listener {
@@ -62,7 +62,9 @@ class WifiNetworkRow : public roo_windows::BasicSurfaceWidget {
   /// Creates an initially unbound row borrowing `listener`.
   WifiNetworkRow(roo_windows::ApplicationContext& context, Listener& listener);
 
-  /// Rebinds this recycled row to one model entry.
+  ~WifiNetworkRow() override { clearItem(); }
+
+  /// Rebinds this recycled row to @p summary and activation @p index.
   void bind(size_t index, const WifiNetworkSummary& summary);
 
   /// Returns the currently bound model index.
@@ -80,16 +82,6 @@ class WifiNetworkRow : public roo_windows::BasicSurfaceWidget {
   /// Returns true because every bound network row supports activation.
   bool isClickable() const override { return true; }
 
-  /// Uses internal row insets instead of adding margins to its 72dp height.
-  roo_windows::Margins getDefaultMargins() const override {
-    return roo_windows::Margins(0);
-  }
-
-  /// Paint already accounts for the row's complete internal insets.
-  roo_windows::Padding getDefaultPadding() const override {
-    return roo_windows::Padding(0);
-  }
-
   /// Fills its column while retaining the fixed row height.
   roo_windows::PreferredSize getPreferredSize() const override {
     return {roo_windows::PreferredSize::MatchParentWidth(),
@@ -99,19 +91,28 @@ class WifiNetworkRow : public roo_windows::BasicSurfaceWidget {
   /// Returns the fixed dimensions used by the recycled list.
   roo_windows::Dimensions getSuggestedMinimumDimensions() const override;
 
-  /// Returns the row's Material 3 container color role.
-  roo_windows::material3::ColorToken containerRole() const override;
-
-  /// Returns the resolved row background color.
-  roo_display::Color background() const override;
-
   /// Paints row text and the signal glyph in one surface pass.
   void paint(roo_windows::PaintContext& ctx) const override;
 
-  /// Activates the currently bound model index.
-  void onClicked() override;
+ protected:
+  roo_windows::Dimensions onMeasure(roo_windows::WidthSpec width,
+                                    roo_windows::HeightSpec height) override {
+    return {width.resolveSize(0), height.resolveSize(roo_windows::Scaled(72))};
+  }
 
  private:
+  // Supplies Material list invocation without allocating framework text slots.
+  class Action : public roo_windows::material3::ListItem {
+   public:
+    explicit Action(WifiNetworkRow& row) : row_(row) {}
+    bool isInvokable() const override { return true; }
+    void invoke() override {
+      row_.listener_.onWifiNetworkActivated(row_.index_);
+    }
+
+   private:
+    WifiNetworkRow& row_;
+  } action_;
   Listener& listener_;
   WifiNetworkSummary summary_;
   size_t index_ = 0;

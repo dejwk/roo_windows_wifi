@@ -5,10 +5,11 @@
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
 #include "roo_display/core/offscreen.h"
-#include "roo_windows/containers/list_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/application.h"
 #include "roo_windows/core/environment.h"
+#include "roo_windows/material3/list/dynamic_list.h"
+#include "roo_windows_wifi/material3/internal/segmented_list.h"
 #include "roo_windows_wifi/material3/settings_flow.h"
 
 namespace {
@@ -47,7 +48,8 @@ class Actions : public WifiSavedNetworksDestination::Actions,
                 public WifiNetworkRow::Listener {
  public:
   void showSavedNetworkDetails(const WifiNetworkSummary&) override {}
-  void onWifiNetworkActivated(size_t) override {}
+  void onWifiNetworkActivated(size_t index) override { activated = index; }
+  size_t activated = 0;
 };
 
 // Verifies long-SSID saved-row binding allocates neither temporary text nor row
@@ -88,16 +90,18 @@ TEST(WifiResources, LongSsidRebindingDoesNotAllocate) {
   std::cout << "row_object_bytes=" << sizeof(WifiNetworkRow) << "\n";
 }
 
-class FortyNetworks : public roo_windows::ListModel {
+class FortyNetworks
+    : public roo_windows::material3::DynamicListModel<WifiNetworkRow> {
  public:
   FortyNetworks() {
     summary.ssid = "12345678901234567890123456789012";
     summary.in_range = true;
   }
-  int elementCount() const override { return 40; }
-  void set(int index, roo_windows::Widget& widget) const override {
-    static_cast<WifiNetworkRow&>(widget).bind(index, summary);
+  int elementCount() const override { return count; }
+  void bind(int index, WifiNetworkRow& widget) const override {
+    widget.bind(index, summary);
   }
+  int count = 40;
   WifiNetworkSummary summary;
 };
 
@@ -113,15 +117,23 @@ TEST(WifiResources, ScrollingRetainsPoolAndFixedRowHeight) {
   FortyNetworks model;
   Actions actions;
   int rows = 0;
-  roo_windows::ListLayout list(app.context(), model, [&]() {
+  class TestList : public roo_windows::material3::DynamicList<WifiNetworkRow> {
+   public:
+    using DynamicList::DynamicList;
+    using DynamicList::materializedRow;
+  };
+  TestList list(app.context(), model, [&]() {
     ++rows;
     return std::make_unique<WifiNetworkRow>(app.context(), actions);
   });
-  roo_windows::SimpleScrollablePanel scroller(app.context(), list);
+  internal::SegmentedList networks(app.context());
+  networks.add(list);
+  roo_windows::SimpleScrollablePanel scroller(app.context(), networks);
   auto& task = app.addTaskFullScreen(scroller);
   ASSERT_TRUE(app.refresh());
   const int retained = rows;
-  EXPECT_EQ(list.height(), 40 * roo_windows::Scaled(72));
+  EXPECT_EQ(list.height(),
+            40 * roo_windows::Scaled(72) + 39 * roo_windows::Scaled(2));
   for (int i = 0; i < 10; ++i) {
     scroller.scrollTo(0, -i * roo_windows::Scaled(144));
     app.refresh();
@@ -129,6 +141,33 @@ TEST(WifiResources, ScrollingRetainsPoolAndFixedRowHeight) {
   EXPECT_EQ(rows, retained);
   EXPECT_LT(rows, 8);
   EXPECT_GT(list.first(), 0);
+  using namespace roo_windows::material3;
+  auto& recycled =
+      static_cast<WifiNetworkRow&>(*list.materializedRow(list.first()));
+  EXPECT_EQ(recycled.visualContext().position, ListItemPosition::kMiddle);
+  EXPECT_EQ(recycled.index(), static_cast<size_t>(list.first()));
+  EXPECT_EQ(recycled.height(), roo_windows::Scaled(72));
+  recycled.onClicked();
+  EXPECT_EQ(actions.activated, recycled.index());
+
+  // Resetting to one or zero results releases old bindings and updates shape
+  // and extent without retaining the previous logical row positions.
+  list.beginModelReset();
+  model.count = 1;
+  list.endModelReset();
+  scroller.scrollTo(0, 0);
+  ASSERT_TRUE(app.refresh());
+  ASSERT_NE(list.materializedRow(0), nullptr);
+  auto& single =
+      static_cast<WifiNetworkRow&>(*list.materializedRow(list.first()));
+  EXPECT_EQ(single.visualContext().position, ListItemPosition::kSingle);
+  EXPECT_EQ(single.visualContext().style, ListStyle::kSegmented);
+  EXPECT_EQ(list.height(), roo_windows::Scaled(72));
+  list.beginModelReset();
+  model.count = 0;
+  list.endModelReset();
+  ASSERT_TRUE(app.refresh());
+  EXPECT_EQ(networks.height(), 0);
   task.navigation().clear();
   std::cout << "retained_rows_including_prototype=" << retained << "\n";
 }

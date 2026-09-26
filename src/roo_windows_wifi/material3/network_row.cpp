@@ -87,9 +87,12 @@ void WifiSignalGlyph::paint(roo_windows::PaintContext& ctx) const {
 
 WifiNetworkRow::WifiNetworkRow(roo_windows::ApplicationContext& context,
                                Listener& listener)
-    : roo_windows::BasicSurfaceWidget(context), listener_(listener) {
+    : roo_windows::material3::ListEntry(context),
+      action_(*this),
+      listener_(listener) {
   // SSIDs are backend-bounded at 32 bytes. Reserve once, outside row rebind.
   summary_.ssid.reserve(32);
+  setItem(action_);
 }
 
 void WifiNetworkRow::bind(size_t index, const WifiNetworkSummary& summary) {
@@ -130,17 +133,6 @@ const char* WifiNetworkRow::supportingText() const {
 
 roo_windows::Dimensions WifiNetworkRow::getSuggestedMinimumDimensions() const {
   return roo_windows::Dimensions(0, roo_windows::Scaled(kRowHeightDp));
-}
-
-roo_windows::material3::ColorToken WifiNetworkRow::containerRole() const {
-  return summary_.current
-             ? roo_windows::material3::ColorToken::kSecondaryContainer
-             : roo_windows::material3::ColorToken::kSurface;
-}
-
-roo_display::Color WifiNetworkRow::background() const {
-  const auto& colors = theme().material3Theme().color;
-  return summary_.current ? colors.secondaryContainer : colors.surface;
 }
 
 void WifiNetworkRow::paint(roo_windows::PaintContext& ctx) const {
@@ -187,8 +179,6 @@ void WifiNetworkRow::paint(roo_windows::PaintContext& ctx) const {
   // Settle only the remaining surface; never prefill beneath text or icons.
   ctx.clear();
 }
-
-void WifiNetworkRow::onClicked() { listener_.onWifiNetworkActivated(index_); }
 
 }  // namespace material3
 }  // namespace roo_windows_wifi

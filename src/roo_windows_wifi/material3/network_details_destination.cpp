@@ -21,6 +21,7 @@
 #include "roo_windows/material3/typography.h"
 #include "roo_windows/widgets/text_label.h"
 #include "roo_windows_wifi/material3/internal/borrowed_layout.h"
+#include "roo_windows_wifi/material3/internal/segmented_list.h"
 #include "roo_windows_wifi/material3/network_row.h"
 
 namespace roo_windows_wifi::material3 {
@@ -32,19 +33,6 @@ using namespace roo_windows::material3;
 class NoopRowListener : public WifiNetworkRow::Listener {
  public:
   void onWifiNetworkActivated(size_t) override {}
-};
-
-// Diagnostic rows form a full-width section within the details column.
-class FullWidthList : public List {
- public:
-  explicit FullWidthList(ApplicationContext& context) : List(context) {}
-
-  PreferredSize getPreferredSize() const override {
-    return {PreferredSize::MatchParentWidth(),
-            PreferredSize::WrapContentHeight()};
-  }
-
-  Margins getMargins() const override { return Margins(Scaled(8)); }
 };
 
 // Preserves unchanged pixels when diagnostic rows resize the details column.
@@ -132,6 +120,7 @@ class WifiNetworkDetailsDestination::Impl {
         back_(context, SCALED_ROO_ICON(outlined, navigation_arrow_back),
               IconButtonStyle::kStandard),
         summary_(context, listener_),
+        summary_list_(context),
         connect_(context, "Connect", ButtonVariant::kText),
         disconnect_(context, "Disconnect", ButtonVariant::kText),
         edit_(context, "Edit", ButtonVariant::kText),
@@ -173,8 +162,6 @@ class WifiNetworkDetailsDestination::Impl {
       });
       settings_.add(*setting_rows_[i]);
     }
-    settings_.setVariant(ListVariant::kExpressive);
-    settings_.setStyle(ListStyle::kSegmented);
     details_caption_.setPadding(PaddingSize::kLarge, PaddingSize::kNone);
     static const char* const info_labels[] = {
         "Security", "BSSID",       "Station MAC",   "IP address",
@@ -184,9 +171,11 @@ class WifiNetworkDetailsDestination::Impl {
           context, info_labels[i]);
       info_.add(*info_rows_[i]);
     }
-    info_.setVariant(ListVariant::kExpressive);
-    info_.setStyle(ListStyle::kSegmented);
-    body_.add(summary_);
+    summary_list_.add(summary_);
+    summary_list_.setSelectionPolicy({SelectionMode::kSingle,
+                                      SelectionAffordance::kNone,
+                                      AffordancePlacement::kTrailing, false});
+    body_.add(summary_list_);
     body_.add(buttons_);
     body_.add(settings_);
     body_.add(details_caption_);
@@ -208,15 +197,16 @@ class WifiNetworkDetailsDestination::Impl {
   AppBar bar_;
   IconButton back_;
   WifiNetworkRow summary_;
+  internal::SegmentedList summary_list_;
   Button connect_, disconnect_, edit_, forget_;
   internal::BorrowedRow buttons_;
   ListRow<SwitchListItem> automatic_;
   std::unique_ptr<ListRow<InvokableListItemBase>> setting_rows_[4];
-  FullWidthList settings_;
+  internal::SegmentedList settings_;
   StringViewLabel details_caption_;
   std::string info_values_[8];
   std::unique_ptr<ListRow<SupportingTextListItem>> info_rows_[8];
-  FullWidthList info_;
+  internal::SegmentedList info_;
   DetailsColumn body_;
   internal::FormScroll scroll_;
   ForgetDialog dialog_;
@@ -405,7 +395,7 @@ void WifiNetworkDetailsDestination::syncControls() {
   }
   roo_wifi::LinkState link = model_.controller().linkState();
   std::string info_values[] = {
-      WifiSecurityText(selected_.security),
+      WifiSecurityText(selected_.current ? link.security : selected_.security),
       MacText(selected_.current ? link.bssid : selected_.bssid),
       MacText(link.station_mac),
       IpText(link.address),
@@ -444,9 +434,14 @@ void WifiNetworkDetailsDestination::refreshSelection() {
   selected_.disconnecting = false;
   selected_.current = false;
   selected_.connecting = false;
+  roo_wifi::Profile saved_profile;
+  const bool has_profile = id != 0 &&
+      model_.controller().loadProfile(id, saved_profile) == roo_wifi::Status::kOk;
+  const auto policy = has_profile ? saved_profile.settings.connection.security
+                                  : selected_.security;
   for (const WifiNetworkSummary& network : model_.networks()) {
     if (network.ssid == selected_.ssid &&
-        network.security == selected_.security) {
+        roo_wifi::SecurityAllows(policy, network.security)) {
       selected_ = network;
       break;
     }
@@ -459,11 +454,15 @@ void WifiNetworkDetailsDestination::refreshSelection() {
   }
   const WifiNetworkSummary* current = model_.current();
   selected_.current = current != nullptr && current->ssid == selected_.ssid &&
-                      current->security == selected_.security &&
+                      roo_wifi::SecurityAllows(policy, current->security) &&
                       (id == 0 || current->profile_id == id);
   selected_.connecting = selected_.current && current->connecting;
   selected_.disconnecting = selected_.current && current->disconnecting;
   impl_->summary_.bind(0, selected_);
+  if (selected_.current)
+    impl_->summary_list_.select(impl_->summary_);
+  else
+    impl_->summary_list_.clearSelection();
 }
 
 void WifiNetworkDetailsDestination::onWifiModelChanged() {
