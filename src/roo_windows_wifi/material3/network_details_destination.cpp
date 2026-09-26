@@ -4,17 +4,13 @@
 #include <cstdio>
 #include <cstring>
 
-#include "roo_icons/outlined/18/navigation.h"
-#include "roo_icons/outlined/24/navigation.h"
-#include "roo_icons/outlined/36/navigation.h"
-#include "roo_icons/outlined/48/navigation.h"
 #include "roo_windows/containers/horizontal_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/containers/vertical_layout.h"
 #include "roo_windows/core/task.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/button.h"
-#include "roo_windows/material3/button/icon_button.h"
+#include "roo_windows/material3/button/navigation.h"
 #include "roo_windows/material3/dialog/basic_dialog.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
 #include "roo_windows/material3/list/list.h"
@@ -117,8 +113,7 @@ class WifiNetworkDetailsDestination::Impl {
       : owner_(owner),
         policies_(policies),
         bar_(context),
-        back_(context, SCALED_ROO_ICON(outlined, navigation_arrow_back),
-              IconButtonStyle::kStandard),
+        back_(context),
         summary_(context, listener_),
         summary_list_(context),
         connect_(context, "Connect", ButtonVariant::kText),
@@ -135,11 +130,6 @@ class WifiNetworkDetailsDestination::Impl {
         dialog_(context, owner),
         scaffold_(context) {
     bar_.setTitle("Network details");
-    back_.setOnInteractiveChange([this]() {
-      if (this->owner_.getTask() != nullptr) {
-        this->owner_.getTask()->requestBack();
-      }
-    });
     bar_.setLeading(back_);
     connect_.setOnInteractiveChange([this]() { this->owner_.connect(); });
     disconnect_.setOnInteractiveChange([this]() { this->owner_.disconnect(); });
@@ -197,7 +187,7 @@ class WifiNetworkDetailsDestination::Impl {
   std::string feedback_;
   NoopRowListener listener_;
   AppBar bar_;
-  IconButton back_;
+  BackButton back_;
   WifiNetworkRow summary_;
   internal::SegmentedList summary_list_;
   Button connect_, disconnect_, edit_, forget_;

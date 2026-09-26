@@ -1,13 +1,9 @@
 #include "roo_windows_wifi/material3/saved_networks_destination.h"
 
-#include "roo_icons/outlined/18/navigation.h"
-#include "roo_icons/outlined/24/navigation.h"
-#include "roo_icons/outlined/36/navigation.h"
-#include "roo_icons/outlined/48/navigation.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/button.h"
-#include "roo_windows/material3/button/icon_button.h"
+#include "roo_windows/material3/button/navigation.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
 #include "roo_windows/material3/list/dynamic_list.h"
 #include "roo_windows/material3/typography.h"
@@ -63,8 +59,7 @@ class WifiSavedNetworksDestination::Impl {
        WifiSavedNetworksDestination& destination)
       : destination_(destination),
         app_bar_(context),
-        back_(context, SCALED_ROO_ICON(outlined, navigation_arrow_back),
-              roo_windows::material3::IconButtonStyle::kStandard),
+        back_(context),
         list_model_(destination),
         list_(context, list_model_,
               [this, &context]() {
@@ -80,7 +75,6 @@ class WifiSavedNetworksDestination::Impl {
         scaffold_(context) {
     networks_.add(list_);
     app_bar_.setTitle("Saved networks");
-    back_.setOnInteractiveChange([this]() { destination_.exit(); });
     app_bar_.setLeading(back_);
     scaffold_.setTopBar(app_bar_);
     scaffold_.setBody(scroller_);
@@ -114,7 +108,7 @@ class WifiSavedNetworksDestination::Impl {
  private:
   WifiSavedNetworksDestination& destination_;
   roo_windows::material3::AppBar app_bar_;
-  roo_windows::material3::IconButton back_;
+  roo_windows::material3::BackButton back_;
   SavedProfileModel list_model_;
   roo_windows::material3::DynamicList<WifiNetworkRow> list_;
   internal::SegmentedList networks_;

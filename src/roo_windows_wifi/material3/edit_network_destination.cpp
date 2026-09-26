@@ -2,16 +2,12 @@
 
 #include <cstring>
 
-#include "roo_icons/outlined/18/navigation.h"
-#include "roo_icons/outlined/24/navigation.h"
-#include "roo_icons/outlined/36/navigation.h"
-#include "roo_icons/outlined/48/navigation.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/core/task.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/button.h"
-#include "roo_windows/material3/button/icon_button.h"
+#include "roo_windows/material3/button/navigation.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
 #include "roo_windows/material3/list/list.h"
 #include "roo_windows/material3/typography.h"
@@ -31,14 +27,10 @@ class ChoiceDestination : public Destination {
   ChoiceDestination(ApplicationContext& context, WifiConfigForm& form)
       : form_(form),
         bar_(context),
-        back_(context, SCALED_ROO_ICON(outlined, navigation_arrow_back),
-              IconButtonStyle::kStandard),
+        back_(context),
         list_(context),
         scroll_(context, list_),
         scaffold_(context) {
-    back_.setOnInteractiveChange([this]() {
-      if (getTask() != nullptr) getTask()->requestBack();
-    });
     bar_.setLeading(back_);
     for (int i = 0; i < 8; ++i) {
       rows_[i] = std::make_unique<ListRow<RadioListItem>>(context, "");
@@ -82,7 +74,7 @@ class ChoiceDestination : public Destination {
   WifiConfigForm& form_;
   WifiConfigForm::Choice choice_ = WifiConfigForm::kSecurity;
   AppBar bar_;
-  IconButton back_;
+  BackButton back_;
   std::unique_ptr<ListRow<RadioListItem>> rows_[8];
   internal::SegmentedList list_;
   SimpleScrollablePanel scroll_;
@@ -100,8 +92,7 @@ class WifiEditNetworkDestination::Impl {
       : owner_(owner),
         policies_(policies),
         bar_(context),
-        back_(context, SCALED_ROO_ICON(outlined, navigation_arrow_back),
-              IconButtonStyle::kStandard),
+        back_(context),
         form_(context, controller.support(), policies_),
         choice_(context, form_),
         message_(context, "", text_style_body_medium()),
@@ -110,11 +101,6 @@ class WifiEditNetworkDestination::Impl {
         body_(context),
         scroll_(context, body_),
         scaffold_(context) {
-    back_.setOnInteractiveChange([this]() {
-      if (this->owner_.getTask() != nullptr) {
-        this->owner_.getTask()->requestBack();
-      }
-    });
     bar_.setLeading(back_);
     body_.add(form_);
     body_.add(message_);
@@ -148,7 +134,7 @@ class WifiEditNetworkDestination::Impl {
   bool discarded_ = false;
   std::string feedback_;
   AppBar bar_;
-  IconButton back_;
+  BackButton back_;
   WifiConfigForm form_;
   ChoiceDestination choice_;
   TextBlock message_;
