@@ -236,7 +236,7 @@ class WifiSettingsDestination::Impl {
   roo_windows::material3::AppBar app_bar_;
   roo_windows::material3::IconButton refresh_;
   SettingsBody body_;
-  internal::FormScroll scroller_;
+  roo_windows::ScrollableBlitPanel scroller_;
   WifiSettingsDestination& destination_;
   uint8_t wifi_request_pending_ : 1;
   uint8_t desired_wifi_enabled_ : 1;

@@ -80,9 +80,19 @@ class NoKeys : public roo_windows::KeySource {
 class CountingDisplay
     : public roo_display::OffscreenDevice<roo_display::Argb4444> {
  public:
-  explicit CountingDisplay(roo::byte* data)
+  explicit CountingDisplay(roo::byte* data, bool blit_enabled = true)
       : OffscreenDevice(320, 240, data, roo_display::Argb4444()),
-        writes(320 * 240) {}
+        writes(320 * 240), blit_enabled_(blit_enabled) {}
+  const Capabilities& getCapabilities() const override {
+    static const Capabilities kNoBlit(true, false);
+    return blit_enabled_ ? OffscreenDevice::getCapabilities() : kNoBlit;
+  }
+  void blitCopy(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
+                int16_t dx, int16_t dy) override {
+    ++blit_calls;
+    OffscreenDevice::blitCopy(x0, y0, x1, y1, dx, dy);
+  }
+  int blit_calls = 0;
   void reset() { std::fill(writes.begin(), writes.end(), 0); }
   void setAddress(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
                   roo_display::BlendingMode mode) override {
@@ -139,8 +149,59 @@ class CountingDisplay
   std::vector<uint8_t> writes;
 
  private:
+  bool blit_enabled_;
   int left = 0, right = 0, x = 0, y = 0;
 };
+
+class WifiScrollRendering : public testing::TestWithParam<bool> {};
+
+// Verifies newly exposed fields match a full repaint and small moves reuse
+// framebuffer pixels when supported, with a correct non-blitting fallback.
+TEST_P(WifiScrollRendering, EditorMatchesFullRepaint) {
+  roo_scheduler::Scheduler scheduler;
+  roo_wifi::TestStation station;
+  roo_wifi::OrderedInterface radio(station);
+  roo_wifi::MemoryStore store;
+  roo_wifi::Controller controller(radio, store, scheduler);
+  ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo::byte pixels[320 * 240 * 2] = {};
+  CountingDisplay device(pixels, GetParam());
+  roo_display::Display display(device);
+  roo_windows::Environment environment(scheduler);
+  roo_windows::Application app(&environment, display);
+  WifiSettingsFlow flow(app.context(), controller);
+  auto& task = app.addTaskFullScreen();
+  auto& editor = flow.editDestination();
+  editor.beginAdd();
+  auto& form = editor.form();
+  form.setChoice(WifiConfigForm::kIp, 1);
+  form.setText(WifiConfigForm::kAddress, "192.168.1.20");
+  form.setText(WifiConfigForm::kGateway, "192.168.1.1");
+  form.setAdvanced(true);
+  task.navigation().push(editor);
+  ASSERT_TRUE(app.refresh());
+  auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
+      *form.parent()->parent()->parent());
+  for (int offset : {20, 60, 100, 140, 180, 240, 300, 400, 500, 520, 480, 0}) {
+    SCOPED_TRACE(offset);
+    const int blits_before = device.blit_calls;
+    scroll.scrollTo(0, -offset);
+    ASSERT_TRUE(app.refresh());
+    if (offset == 20 && GetParam()) {
+      EXPECT_GT(device.blit_calls, blits_before);
+    }
+    const std::vector<roo::byte> before(std::begin(pixels), std::end(pixels));
+    app.root().invalidateInterior();
+    ASSERT_TRUE(app.refresh());
+    EXPECT_TRUE(before == std::vector<roo::byte>(std::begin(pixels), std::end(pixels)));
+  }
+  if (!GetParam()) EXPECT_EQ(device.blit_calls, 0);
+  task.navigation().clear();
+}
+
+INSTANTIATE_TEST_SUITE_P(BlitAndFallback, WifiScrollRendering,
+                        testing::Bool());
 
 // Stores reviewable RGB snapshots; updates require an explicit repository path.
 void Golden(const roo_display::Rasterizable& raster, const char* name) {
@@ -460,7 +521,7 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   form.setAdvanced(true);
   ASSERT_TRUE(app.refresh());
   auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
-      *form.parent()->parent());
+      *form.parent()->parent()->parent());
   scroll.scrollTo(0, -roo_windows::Scaled(500));
   ASSERT_TRUE(app.refresh());
   Golden(device.raster(), "wifi_static_ip");
@@ -543,7 +604,8 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
       flow.main().getContents());
   auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
       *static_cast<roo_windows::Widget&>(scaffold).focusChildAt(1));
-  auto& column = static_cast<internal::BorrowedColumn&>(*scroll.contents());
+  auto& cache = static_cast<roo_windows::BlitCacheContainer&>(*scroll.contents());
+  auto& column = static_cast<internal::BorrowedColumn&>(*cache.child());
   auto& list = static_cast<roo_windows::ListLayout&>(
       *column.child_at(4).focusChildAt(0));
   EXPECT_EQ(scroll.height(), 240 - roo_windows::Scaled(64));

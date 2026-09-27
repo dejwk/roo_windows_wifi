@@ -1,7 +1,6 @@
 #pragma once
 
 #include "roo_windows/containers/horizontal_layout.h"
-#include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/containers/vertical_layout.h"
 
 namespace roo_windows_wifi::material3::internal {
@@ -27,19 +26,6 @@ class BorrowedRow : public roo_windows::HorizontalLayout {
       : HorizontalLayout(context) {}
 
   ~BorrowedRow() override { removeAll(); }
-};
-
-/// Repaints the bounded viewport after moving rich field/list contents.
-/// Text-field interior clips must be recomputed when previously hidden fields
-/// enter the viewport; a scroll does not preserve their old dirty subregions.
-class FormScroll : public roo_windows::SimpleScrollablePanel {
- public:
-  FormScroll(roo_windows::ApplicationContext& context,
-             roo_windows::Widget& body)
-      : SimpleScrollablePanel(context, body) {}
-
- protected:
-  void onScrollPositionChanged() override { invalidateInterior(); }
 };
 
 }  // namespace roo_windows_wifi::material3::internal
