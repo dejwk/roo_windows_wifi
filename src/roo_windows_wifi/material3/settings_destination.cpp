@@ -124,7 +124,6 @@ class SettingsBody : public internal::BorrowedColumn {
                    }),
         add_(context, context, AddIcon(), "Add network"),
         saved_(context, context, SavedIcon(), "Saved networks"),
-        current_list_(context),
         networks_(context),
         toggle_(context),
         navigation_(context) {
@@ -134,14 +133,13 @@ class SettingsBody : public internal::BorrowedColumn {
     add_.item().setOnInvoked([&actions]() { actions.addNetwork(); });
     saved_.item().setOnInvoked([&actions]() { actions.showSavedNetworks(); });
     toggle_.add(enabled_);
-    add(toggle_);
-    current_list_.add(current_);
-    current_list_.setSelectionPolicy(
+    toggle_.add(current_);
+    toggle_.setSelectionPolicy(
         {roo_windows::material3::SelectionMode::kSingle,
          roo_windows::material3::SelectionAffordance::kNone,
          roo_windows::material3::AffordancePlacement::kTrailing, false});
-    current_list_.select(current_);
-    add(current_list_);
+    toggle_.select(current_);
+    add(toggle_);
     add(heading_);
     add(status_);
     networks_.add(available_);
@@ -158,7 +156,7 @@ class SettingsBody : public internal::BorrowedColumn {
     using roo_windows::Visibility;
     enabled_.item().setOn(enabled);
     enabled_.refreshFromItem();
-    current_list_.setVisibility(
+    current_.setVisibility(
         enabled && model_.current() ? Visibility::kVisible : Visibility::kGone);
     if (enabled && model_.current()) {
       current_.bind(kCurrentNetworkIndex, *model_.current());
@@ -199,7 +197,6 @@ class SettingsBody : public internal::BorrowedColumn {
       add_;
   roo_windows::material3::ListRow<roo_windows::material3::NavigationListItem>
       saved_;
-  internal::SegmentedList current_list_;
   internal::SegmentedList networks_;
   internal::SegmentedList toggle_;
   internal::SegmentedList navigation_;
@@ -228,8 +225,8 @@ class WifiSettingsDestination::Impl {
     app_bar_.setTitle("Wi-Fi");
     refresh_.setOnInteractiveChange([this]() { destination_.refreshScan(); });
     app_bar_.setTrailing(0, refresh_);
-    scaffold_.setPadding(roo_windows::PaddingSize::kSmall,
-                         roo_windows::PaddingSize::kNone);
+    // scaffold_.setPadding(roo_windows::PaddingSize::kSmall,
+    //                      roo_windows::PaddingSize::kNone);
     scaffold_.setTopBar(app_bar_);
     scaffold_.setBody(scroller_);
   }
