@@ -156,8 +156,8 @@ class SettingsBody : public internal::BorrowedColumn {
     using roo_windows::Visibility;
     enabled_.item().setOn(enabled);
     enabled_.refreshFromItem();
-    current_.setVisibility(
-        enabled && model_.current() ? Visibility::kVisible : Visibility::kGone);
+    current_.setVisibility(enabled && model_.current() ? Visibility::kVisible
+                                                       : Visibility::kGone);
     if (enabled && model_.current()) {
       current_.bind(kCurrentNetworkIndex, *model_.current());
     }
