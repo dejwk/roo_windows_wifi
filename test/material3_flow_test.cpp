@@ -82,13 +82,14 @@ class CountingDisplay
  public:
   explicit CountingDisplay(roo::byte* data, bool blit_enabled = true)
       : OffscreenDevice(320, 240, data, roo_display::Argb4444()),
-        writes(320 * 240), blit_enabled_(blit_enabled) {}
+        writes(320 * 240),
+        blit_enabled_(blit_enabled) {}
   const Capabilities& getCapabilities() const override {
     static const Capabilities kNoBlit(true, false);
     return blit_enabled_ ? OffscreenDevice::getCapabilities() : kNoBlit;
   }
-  void blitCopy(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
-                int16_t dx, int16_t dy) override {
+  void blitCopy(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t dx,
+                int16_t dy) override {
     ++blit_calls;
     OffscreenDevice::blitCopy(x0, y0, x1, y1, dx, dy);
   }
@@ -155,6 +156,40 @@ class CountingDisplay
 
 class WifiScrollRendering : public testing::TestWithParam<bool> {};
 
+// Compares incremental scrolling with a fresh full render at the same position.
+void VerifyScrolling(roo_windows::Application& app, CountingDisplay& device,
+                     roo::byte* pixels,
+                     roo_windows::SimpleScrollablePanel& scroll,
+                     bool blit_enabled, bool expect_initial_blit = true) {
+  if (expect_initial_blit) {
+    for (int offset : {5, 10, 15}) {
+      const int blits_before = device.blit_calls;
+      scroll.scrollTo(0, -offset);
+      ASSERT_TRUE(app.refresh());
+      if (blit_enabled) {
+        EXPECT_GT(device.blit_calls, blits_before);
+      }
+    }
+  }
+  for (int offset : {20, 60, 100, 140, 180, 240, 300, 400, 500, 520, 480, 0}) {
+    SCOPED_TRACE(offset);
+    const int blits_before = device.blit_calls;
+    scroll.scrollTo(0, -offset);
+    ASSERT_TRUE(app.refresh());
+    if (offset == 20 && blit_enabled && expect_initial_blit) {
+      EXPECT_GT(device.blit_calls, blits_before);
+    }
+    const std::vector<roo::byte> before(pixels, pixels + 320 * 240 * 2);
+    app.root().invalidateInterior();
+    ASSERT_TRUE(app.refresh());
+    EXPECT_TRUE(before ==
+                std::vector<roo::byte>(pixels, pixels + 320 * 240 * 2));
+  }
+  if (!blit_enabled) {
+    EXPECT_EQ(device.blit_calls, 0);
+  }
+}
+
 // Verifies newly exposed fields match a full repaint and small moves reuse
 // framebuffer pixels when supported, with a correct non-blitting fallback.
 TEST_P(WifiScrollRendering, EditorMatchesFullRepaint) {
@@ -183,25 +218,68 @@ TEST_P(WifiScrollRendering, EditorMatchesFullRepaint) {
   ASSERT_TRUE(app.refresh());
   auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
       *form.parent()->parent()->parent());
-  for (int offset : {20, 60, 100, 140, 180, 240, 300, 400, 500, 520, 480, 0}) {
-    SCOPED_TRACE(offset);
-    const int blits_before = device.blit_calls;
-    scroll.scrollTo(0, -offset);
-    ASSERT_TRUE(app.refresh());
-    if (offset == 20 && GetParam()) {
-      EXPECT_GT(device.blit_calls, blits_before);
-    }
-    const std::vector<roo::byte> before(std::begin(pixels), std::end(pixels));
-    app.root().invalidateInterior();
-    ASSERT_TRUE(app.refresh());
-    EXPECT_TRUE(before == std::vector<roo::byte>(std::begin(pixels), std::end(pixels)));
-  }
-  if (!GetParam()) EXPECT_EQ(device.blit_calls, 0);
+  VerifyScrolling(app, device, pixels, scroll, GetParam());
+  form.setText(WifiConfigForm::kAddress, "10.0.0.42");
+  VerifyScrolling(app, device, pixels, scroll, GetParam(), false);
   task.navigation().clear();
 }
 
-INSTANTIATE_TEST_SUITE_P(BlitAndFallback, WifiScrollRendering,
-                        testing::Bool());
+// Verifies settings row recycling and details lists scroll correctly on both
+// display types, while preserving the fast path for unchanged content.
+TEST_P(WifiScrollRendering, SettingsAndDetailsMatchFullRepaint) {
+  roo_scheduler::Scheduler scheduler;
+  roo_wifi::TestStation station;
+  roo_wifi::OrderedInterface radio(station);
+  roo_wifi::MemoryStore store;
+  store.enabled = true;
+  for (int i = 0; i < 40; ++i) {
+    roo_wifi::ScanRecord ap;
+    ap.ssid =
+        roo_wifi::TestConfig(("Network " + std::to_string(i)).c_str()).ssid;
+    ap.security = roo_wifi::AuthMode::kWpa2Personal;
+    ap.rssi_dbm = -45;
+    station.aps.push_back(ap);
+  }
+  roo_wifi::Controller controller(radio, store, scheduler);
+  ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo_wifi::ProfileSettings settings;
+  settings.connection = roo_wifi::TestConfig("Saved");
+  roo_wifi::CredentialUpdate clear;
+  clear.intent = roo_wifi::CredentialIntent::kClear;
+  ASSERT_EQ(controller.saveProfile(settings, clear), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo::byte pixels[320 * 240 * 2] = {};
+  CountingDisplay device(pixels, GetParam());
+  roo_display::Display display(device);
+  roo_windows::Environment environment(scheduler);
+  roo_windows::Application app(&environment, display);
+  WifiSettingsFlow flow(app.context(), controller);
+  auto& navigation = app.addTaskFullScreen().navigation();
+  navigation.push(flow.main());
+  roo_wifi::Pump(scheduler);
+  station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(scheduler);
+  ASSERT_TRUE(app.refresh());
+  auto& settings_scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
+      *flow.main().getContents().focusChildAt(1));
+  VerifyScrolling(app, device, pixels, settings_scroll, GetParam());
+  auto& details = flow.detailsDestination();
+  WifiNetworkSummary selected;
+  selected.ssid = "Saved";
+  selected.security = roo_wifi::AuthMode::kOpen;
+  selected.profile_ssid = settings.connection.ssid;
+  selected.saved = true;
+  details.setNetwork(selected);
+  navigation.push(details);
+  ASSERT_TRUE(app.refresh());
+  auto& details_scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
+      *details.getContents().focusChildAt(1));
+  VerifyScrolling(app, device, pixels, details_scroll, GetParam());
+  navigation.clear();
+}
+
+INSTANTIATE_TEST_SUITE_P(BlitAndFallback, WifiScrollRendering, testing::Bool());
 
 // Stores reviewable RGB snapshots; updates require an explicit repository path.
 void Golden(const roo_display::Rasterizable& raster, const char* name) {
@@ -604,7 +682,8 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
       flow.main().getContents());
   auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
       *static_cast<roo_windows::Widget&>(scaffold).focusChildAt(1));
-  auto& cache = static_cast<roo_windows::BlitCacheContainer&>(*scroll.contents());
+  auto& cache =
+      static_cast<roo_windows::BlitCacheContainer&>(*scroll.contents());
   auto& column = static_cast<internal::BorrowedColumn&>(*cache.child());
   auto& list = static_cast<roo_windows::ListLayout&>(
       *column.child_at(4).focusChildAt(0));
