@@ -62,7 +62,7 @@ void PaintSignal(roo_windows::PaintContext& ctx,
 }  // namespace
 
 WifiSignalGlyph::WifiSignalGlyph(roo_windows::ApplicationContext& context)
-    : roo_windows::BasicWidget(context) {}
+    : roo_windows::Widget(context) {}
 
 void WifiSignalGlyph::set(int8_t rssi_dbm, bool locked, WifiSignalState state) {
   rssi_dbm_ = rssi_dbm;

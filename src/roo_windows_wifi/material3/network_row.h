@@ -2,7 +2,7 @@
 
 #include <stddef.h>
 
-#include "roo_windows/core/basic_widget.h"
+#include "roo_windows/core/widget.h"
 #include "roo_windows/material3/list/list.h"
 #include "roo_windows_wifi/material3/presentation_model.h"
 
@@ -18,7 +18,7 @@ enum class WifiSignalState : uint8_t {
 };
 
 /// Material 3 Wi-Fi signal glyph backed by the framework's scaled icon set.
-class WifiSignalGlyph : public roo_windows::BasicWidget {
+class WifiSignalGlyph : public roo_windows::Widget {
  public:
   /// Creates an available-network glyph.
   explicit WifiSignalGlyph(roo_windows::ApplicationContext& context);

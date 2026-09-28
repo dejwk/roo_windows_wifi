@@ -8,7 +8,9 @@
 #include "roo_windows/composites/menu/title.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/core/destination.h"
+#include "roo_windows/core/margins_mixin.h"
 #include "roo_windows/core/navigation_host.h"
+#include "roo_windows/core/padding_mixin.h"
 #include "roo_windows/widgets/icon.h"
 #include "roo_windows/widgets/text_field.h"
 #include "roo_windows_wifi/model.h"
@@ -71,10 +73,13 @@ class PasswordBar : public roo_windows::FlexLayout {
   void stopEditing() { text_.editor().edit(nullptr); }
 
  private:
+  using SpacedEditedPassword =
+      roo_windows::MarginsMixin<roo_windows::PaddingMixin<EditedPassword>>;
+
   void visibilityChanged() { text_.setStarred(visibility_.isOff()); }
 
   roo_windows::VisibilityToggle visibility_;
-  EditedPassword text_;
+  SpacedEditedPassword text_;
   roo_windows::SimpleButton enter_;
 };
 

@@ -14,6 +14,7 @@
 #include "roo_icons/outlined/48/navigation.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/container.h"
+#include "roo_windows/core/margins_mixin.h"
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/icon_button.h"
@@ -88,9 +89,11 @@ class AvailableNetworkModel
   WifiPresentationModel& model_;
 };
 
-class SectionText : public roo_windows::TextBlock {
+using SectionTextBase = roo_windows::MarginsMixin<roo_windows::TextBlock>;
+
+class SectionText : public SectionTextBase {
  public:
-  using roo_windows::TextBlock::TextBlock;
+  using SectionTextBase::SectionTextBase;
 
   roo_windows::Margins getDefaultMargins() const override {
     return {roo_windows::Scaled(16), roo_windows::Scaled(8)};
@@ -225,8 +228,8 @@ class WifiSettingsDestination::Impl {
     app_bar_.setTitle("Wi-Fi");
     refresh_.setOnInteractiveChange([this]() { destination_.refreshScan(); });
     app_bar_.setTrailing(0, refresh_);
-    // scaffold_.setPadding(roo_windows::PaddingSize::kSmall,
-    //                      roo_windows::PaddingSize::kNone);
+    // scroller_.setMargins(roo_windows::MarginSize::kSmall,
+    //                      roo_windows::MarginSize::kSmall);
     scaffold_.setTopBar(app_bar_);
     scaffold_.setBody(scroller_);
   }

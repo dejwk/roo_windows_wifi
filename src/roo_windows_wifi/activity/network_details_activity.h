@@ -9,6 +9,7 @@
 #include "roo_windows/containers/stacked_layout.h"
 #include "roo_windows/core/destination.h"
 #include "roo_windows/core/navigation_host.h"
+#include "roo_windows/core/padding_mixin.h"
 #include "roo_windows/core/task.h"
 #include "roo_windows/indicators/wifi.h"
 #include "roo_windows/widgets/divider.h"
@@ -134,6 +135,11 @@ class NetworkDetailsActivityContents : public roo_windows::FlexLayout {
   }
 
  private:
+  using PaddedWifiIndicator =
+      roo_windows::PaddingMixin<roo_windows::WifiIndicatorLarge>;
+  using PaddedIconWithCaption =
+      roo_windows::PaddingMixin<roo_windows::IconWithCaption>;
+
   void connect() { wifi_model_.connect(); }
 
   void disconnect() { wifi_model_.disconnect(); }
@@ -147,13 +153,13 @@ class NetworkDetailsActivityContents : public roo_windows::FlexLayout {
   Model& wifi_model_;
   roo_windows::menu::Title title_;
   roo_windows::Icon edit_;
-  roo_windows::WifiIndicatorLarge indicator_;
+  PaddedWifiIndicator indicator_;
   roo_windows::TextLabel ssid_;
   roo_windows::TextLabel status_;
   roo_windows::HorizontalDivider d1_;
   roo_windows::FlexLayout actions_;
-  roo_windows::IconWithCaption button_forget_;
-  roo_windows::IconWithCaption button_connect_;
+  PaddedIconWithCaption button_forget_;
+  PaddedIconWithCaption button_connect_;
   std::function<void()> exit_fn_;
 };
 
