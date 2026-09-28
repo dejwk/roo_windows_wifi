@@ -110,6 +110,7 @@ class SettingsBody : public roo_windows::FlexLayout {
         networks_(context, "Networks"),
         saved_networks_(context) {
     setGap(roo_windows::Scaled(8));
+    setPadding(roo_windows::PaddingSize::k8dp);
     enabled_.item().setOnInvoked([this, &destination]() {
       destination.setWifiEnabled(enabled_.item().isOn());
     });
@@ -199,7 +200,6 @@ class WifiSettingsDestination::Impl {
     app_bar_.setTitle("Wi-Fi");
     refresh_.setOnInteractiveChange([this]() { destination_.refreshScan(); });
     app_bar_.setTrailing(0, refresh_);
-    scroller_.setMargins(roo_windows::MarginSize::k8dp);
     scaffold_.setTopBar(app_bar_);
     scaffold_.setBody(scroller_);
   }
@@ -209,7 +209,7 @@ class WifiSettingsDestination::Impl {
   roo_windows::material3::AppBar app_bar_;
   roo_windows::material3::IconButton refresh_;
   SettingsBody body_;
-  roo_windows::MarginsMixin<roo_windows::ScrollableBlitPanel> scroller_;
+  roo_windows::ScrollableBlitPanel scroller_;
   WifiSettingsDestination& destination_;
   bool scan_after_enable_ = false;
   roo_time::Duration scan_max_age_ = roo_time::Seconds(30);

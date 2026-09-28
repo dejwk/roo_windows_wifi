@@ -3,7 +3,6 @@
 #include <cstring>
 
 #include "roo_windows/containers/scrollable_panel.h"
-#include "roo_windows/core/margins_mixin.h"
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/core/task.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
@@ -30,7 +29,8 @@ class ChoiceDestination : public Destination {
         bar_(context),
         back_(context),
         list_(context),
-        scroll_(context, list_),
+        body_(context),
+        scroll_(context, body_),
         scaffold_(context) {
     bar_.setLeading(back_);
     for (int i = 0; i < 8; ++i) {
@@ -41,9 +41,10 @@ class ChoiceDestination : public Destination {
       });
       list_.add(*rows_[i]);
     }
+    body_.add(list_);
     scaffold_.setTopBar(bar_);
     scaffold_.setBody(scroll_);
-    scroll_.setMargins(MarginSize::k8dp);
+    body_.setPadding(PaddingSize::k8dp);
   }
   Widget& getContents() override { return scaffold_; }
   void configure(WifiConfigForm::Choice choice) {
@@ -79,7 +80,8 @@ class ChoiceDestination : public Destination {
   BackButton back_;
   std::unique_ptr<ListRow<RadioListItem>> rows_[8];
   internal::SegmentedList list_;
-  MarginsMixin<SimpleScrollablePanel> scroll_;
+  internal::FlexColumn body_;
+  SimpleScrollablePanel scroll_;
   LayoutScaffold scaffold_;
 };
 
@@ -110,7 +112,7 @@ class WifiEditNetworkDestination::Impl {
     body_.add(connect_);
     scaffold_.setTopBar(bar_);
     scaffold_.setBody(scroll_);
-    scroll_.setMargins(MarginSize::k8dp);
+    body_.setPadding(PaddingSize::k8dp);
     save_.setOnInteractiveChange([this]() { this->owner_.save(); });
     connect_.setOnInteractiveChange([this]() { this->owner_.connect(); });
     form_.setOnChanged([this]() { this->owner_.updateActions(); });
@@ -144,7 +146,7 @@ class WifiEditNetworkDestination::Impl {
   Button save_;
   Button connect_;
   internal::FlexColumn body_;
-  MarginsMixin<ScrollableBlitPanel> scroll_;
+  ScrollableBlitPanel scroll_;
   LayoutScaffold scaffold_;
 };
 

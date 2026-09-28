@@ -6,7 +6,6 @@
 
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
-#include "roo_windows/core/margins_mixin.h"
 #include "roo_windows/core/task.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/button.h"
@@ -177,7 +176,7 @@ class WifiNetworkDetailsDestination::Impl {
     body_.add(info_);
     scaffold_.setTopBar(bar_);
     scaffold_.setBody(scroll_);
-    scroll_.setMargins(MarginSize::k8dp);
+    body_.setPadding(PaddingSize::k8dp);
   }
   void report(roo_wifi::Status status, const char* text = nullptr) {
     feedback_ = text != nullptr ? text : WifiStatusText(status);
@@ -203,7 +202,7 @@ class WifiNetworkDetailsDestination::Impl {
   std::unique_ptr<ListRow<SupportingTextListItem>> info_rows_[8];
   internal::CaptionedSegmentedList info_;
   DetailsColumn body_;
-  MarginsMixin<ScrollableBlitPanel> scroll_;
+  ScrollableBlitPanel scroll_;
   ForgetDialog dialog_;
   LayoutScaffold scaffold_;
 };
