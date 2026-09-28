@@ -14,6 +14,7 @@
 #include "roo_icons/outlined/48/navigation.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/container.h"
+#include "roo_windows/core/margins_mixin.h"
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/icon_button.h"
@@ -22,6 +23,7 @@
 #include "roo_windows/material3/list/list.h"
 #include "roo_windows/material3/typography.h"
 #include "roo_windows/widgets/text_block.h"
+#include "roo_windows/widgets/text_label.h"
 #include "roo_windows_wifi/material3/internal/borrowed_layout.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
 #include "roo_windows_wifi/material3/network_policy.h"
@@ -88,12 +90,15 @@ class AvailableNetworkModel
   WifiPresentationModel& model_;
 };
 
-class SectionText : public roo_windows::TextBlock {
+class SectionText : public roo_windows::StringViewLabel {
  public:
-  using roo_windows::TextBlock::TextBlock;
+  SectionText(roo_windows::ApplicationContext& context, roo::string_view text)
+      : StringViewLabel(context, text,
+                        roo_windows::material3::text_style_title_small()) {}
 
   roo_windows::Margins getMargins() const override {
-    return {roo_windows::Scaled(16), roo_windows::Scaled(8)};
+    return {roo_windows::MarginSize::k16dp, roo_windows::MarginSize::k16dp,
+            roo_windows::MarginSize::k16dp, roo_windows::MarginSize::k8dp};
   }
   roo_windows::PreferredSize getPreferredSize() const override {
     return {roo_windows::PreferredSize::MatchParentWidth(),
@@ -112,11 +117,12 @@ class SettingsBody : public internal::BorrowedColumn {
                WifiSettingsDestination::Actions& actions)
       : BorrowedColumn(context),
         model_(model),
+        heading_label_(context, "Status"),
         enabled_(context, "Use Wi-Fi", ""),
         current_(context, listener),
-        heading_(context, "Available networks",
-                 roo_windows::material3::text_style_title_small()),
-        status_(context, "", roo_windows::material3::text_style_body_medium()),
+        networks_label_(context, "Networks"),
+        // status_(context, "",
+        // roo_windows::material3::text_style_body_medium()),
         available_model_(model),
         available_(context, available_model_,
                    [&context, &listener]() {
@@ -139,9 +145,10 @@ class SettingsBody : public internal::BorrowedColumn {
          roo_windows::material3::SelectionAffordance::kNone,
          roo_windows::material3::AffordancePlacement::kTrailing, false});
     toggle_.select(current_);
+    add(heading_label_);
     add(toggle_);
-    add(heading_);
-    add(status_);
+    add(networks_label_);
+    // add(status_);
     networks_.add(available_);
     add(networks_);
     navigation_.add(add_);
@@ -161,7 +168,8 @@ class SettingsBody : public internal::BorrowedColumn {
     if (enabled && model_.current()) {
       current_.bind(kCurrentNetworkIndex, *model_.current());
     }
-    heading_.setVisibility(enabled ? Visibility::kVisible : Visibility::kGone);
+    networks_label_.setVisibility(enabled ? Visibility::kVisible
+                                          : Visibility::kGone);
     networks_.setVisibility(enabled && availableCount() > 0
                                 ? Visibility::kVisible
                                 : Visibility::kGone);
@@ -171,11 +179,11 @@ class SettingsBody : public internal::BorrowedColumn {
   }
 
   void setStatus(const std::string& text, bool busy) {
-    status_.setText(text);
-    status_.setVisibility(text.empty() || text == "Select a network" ||
-                                  text == "Connected"
-                              ? roo_windows::Visibility::kGone
-                              : roo_windows::Visibility::kVisible);
+    // status_.setText(text);
+    // status_.setVisibility(text.empty() || text == "Select a network" ||
+    //                               text == "Connected"
+    //                           ? roo_windows::Visibility::kGone
+    //                           : roo_windows::Visibility::kVisible);
     networks_.setEnabled(!busy);
   }
 
@@ -186,11 +194,12 @@ class SettingsBody : public internal::BorrowedColumn {
 
  private:
   WifiPresentationModel& model_;
+  SectionText heading_label_;
   roo_windows::material3::ListRow<roo_windows::material3::SwitchListItem>
       enabled_;
   WifiNetworkRow current_;
-  SectionText heading_;
-  SectionText status_;
+  SectionText networks_label_;
+  // SectionText status_;
   AvailableNetworkModel available_model_;
   roo_windows::material3::DynamicList<WifiNetworkRow> available_;
   roo_windows::material3::ListRow<roo_windows::material3::NavigationListItem>
@@ -225,8 +234,8 @@ class WifiSettingsDestination::Impl {
     app_bar_.setTitle("Wi-Fi");
     refresh_.setOnInteractiveChange([this]() { destination_.refreshScan(); });
     app_bar_.setTrailing(0, refresh_);
-    // scroller_.setMargins(roo_windows::MarginSize::kSmall,
-    //                      roo_windows::MarginSize::kSmall);
+    scroller_.setMargins(roo_windows::MarginSize::k8dp,
+                         roo_windows::MarginSize::kNone);
     scaffold_.setTopBar(app_bar_);
     scaffold_.setBody(scroller_);
   }
@@ -236,7 +245,7 @@ class WifiSettingsDestination::Impl {
   roo_windows::material3::AppBar app_bar_;
   roo_windows::material3::IconButton refresh_;
   SettingsBody body_;
-  roo_windows::ScrollableBlitPanel scroller_;
+  roo_windows::MarginsMixin<roo_windows::ScrollableBlitPanel> scroller_;
   WifiSettingsDestination& destination_;
   uint8_t wifi_request_pending_ : 1;
   uint8_t desired_wifi_enabled_ : 1;
