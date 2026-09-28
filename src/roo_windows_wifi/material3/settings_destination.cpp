@@ -14,7 +14,6 @@
 #include "roo_icons/outlined/48/navigation.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/container.h"
-#include "roo_windows/core/margins_mixin.h"
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/icon_button.h"
@@ -89,13 +88,11 @@ class AvailableNetworkModel
   WifiPresentationModel& model_;
 };
 
-using SectionTextBase = roo_windows::MarginsMixin<roo_windows::TextBlock>;
-
-class SectionText : public SectionTextBase {
+class SectionText : public roo_windows::TextBlock {
  public:
-  using SectionTextBase::SectionTextBase;
+  using roo_windows::TextBlock::TextBlock;
 
-  roo_windows::Margins getDefaultMargins() const override {
+  roo_windows::Margins getMargins() const override {
     return {roo_windows::Scaled(16), roo_windows::Scaled(8)};
   }
   roo_windows::PreferredSize getPreferredSize() const override {
