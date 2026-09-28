@@ -5,13 +5,11 @@
 
 namespace roo_windows_wifi::material3::internal {
 
-/// Detaches borrowed inline widgets before the column itself is destroyed.
+/// Column that fills the available width and wraps its content height.
 class BorrowedColumn : public roo_windows::VerticalLayout {
  public:
   explicit BorrowedColumn(roo_windows::ApplicationContext& context)
       : VerticalLayout(context) {}
-
-  ~BorrowedColumn() override { removeAll(); }
 
   roo_windows::PreferredSize getPreferredSize() const override {
     return {roo_windows::PreferredSize::MatchParentWidth(),
@@ -19,13 +17,7 @@ class BorrowedColumn : public roo_windows::VerticalLayout {
   }
 };
 
-/// Detaches borrowed inline widgets before the action row is destroyed.
-class BorrowedRow : public roo_windows::HorizontalLayout {
- public:
-  explicit BorrowedRow(roo_windows::ApplicationContext& context)
-      : HorizontalLayout(context) {}
-
-  ~BorrowedRow() override { removeAll(); }
-};
+/// Action row; Panel handles detaching its borrowed children.
+using BorrowedRow = roo_windows::HorizontalLayout;
 
 }  // namespace roo_windows_wifi::material3::internal
