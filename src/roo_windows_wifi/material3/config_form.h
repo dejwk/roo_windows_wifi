@@ -3,14 +3,14 @@
 #include <functional>
 #include <memory>
 
-#include "roo_windows/containers/vertical_layout.h"
+#include "roo_windows/containers/flex_layout.h"
 #include "roo_windows_wifi/material3/network_policy.h"
 
 namespace roo_windows_wifi::material3 {
 
 /// One editable configuration, with text owned by its Material 3 fields.
 /// Conversion to backend and application policy values happens only on demand.
-class WifiConfigForm : public roo_windows::VerticalLayout {
+class WifiConfigForm : public roo_windows::FlexLayout {
  public:
   /// Identifies text fields for programmatic prefilling and focused validation.
   enum Field {

@@ -1,15 +1,18 @@
 #pragma once
 
+#include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/horizontal_layout.h"
-#include "roo_windows/containers/vertical_layout.h"
 
 namespace roo_windows_wifi::material3::internal {
 
-/// Column that fills the available width and wraps its content height.
-class BorrowedColumn : public roo_windows::VerticalLayout {
+/// Column flex layout that fills its parent width and wraps its content height.
+class FlexColumn : public roo_windows::FlexLayout {
  public:
-  explicit BorrowedColumn(roo_windows::ApplicationContext& context)
-      : VerticalLayout(context) {}
+  explicit FlexColumn(roo_windows::ApplicationContext& context,
+                      int16_t gap = 0)
+      : FlexLayout(context, roo_windows::FlexDirection::kColumn) {
+    setGap(gap);
+  }
 
   roo_windows::PreferredSize getPreferredSize() const override {
     return {roo_windows::PreferredSize::MatchParentWidth(),

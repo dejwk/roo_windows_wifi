@@ -145,9 +145,9 @@ class WifiConfigForm::Impl {
         hidden_(context, "Hidden network"),
         automatic_(context, "Auto-connect"),
         advanced_(context, "Advanced options", ButtonVariant::kText),
-        security_(context),
-        switches_(context),
-        options_(context) {
+        security_(context, "Connection"),
+        switches_(context, "Network options"),
+        options_(context, "Advanced options") {
     for (int i = 0; i < kFieldCount; ++i) {
       if (i == kPassword) {
         fields_[i] = std::make_unique<ObservedField<SecureTextField>>(
@@ -165,14 +165,16 @@ class WifiConfigForm::Impl {
       });
     }
     form_.add(*fields_[kSsid]);
-    security_.add(*choices_[kSecurity]);
+    security_.list().add(*choices_[kSecurity]);
     form_.add(security_);
     form_.add(*fields_[kPassword]);
-    switches_.add(hidden_);
-    switches_.add(automatic_);
+    switches_.list().add(hidden_);
+    switches_.list().add(automatic_);
     form_.add(switches_);
     form_.add(advanced_);
-    for (int i = kPrivacy; i < kChoiceCount; ++i) options_.add(*choices_[i]);
+    for (int i = kPrivacy; i < kChoiceCount; ++i) {
+      options_.list().add(*choices_[i]);
+    }
     form_.add(options_);
     for (int i = kAddress; i < kFieldCount; ++i) form_.add(*fields_[i]);
     hidden_.item().setOnInvoked([this]() {
@@ -240,9 +242,9 @@ class WifiConfigForm::Impl {
   ListRow<SwitchListItem> hidden_;
   ListRow<SwitchListItem> automatic_;
   Button advanced_;
-  internal::SegmentedList security_;
-  internal::SegmentedList switches_;
-  internal::SegmentedList options_;
+  internal::CaptionedSegmentedList security_;
+  internal::CaptionedSegmentedList switches_;
+  internal::CaptionedSegmentedList options_;
   int values_[kChoiceCount] = {};
   bool expanded_ = false;
   bool keep_ = false;
@@ -252,8 +254,10 @@ class WifiConfigForm::Impl {
 WifiConfigForm::WifiConfigForm(ApplicationContext& context,
                                roo_wifi::Support support,
                                NetworkPolicyProvider* policies)
-    : VerticalLayout(context),
-      impl_(std::make_unique<Impl>(context, *this, support, policies)) {}
+    : FlexLayout(context, FlexDirection::kColumn),
+      impl_(std::make_unique<Impl>(context, *this, support, policies)) {
+  setGap(Scaled(8));
+}
 
 WifiConfigForm::~WifiConfigForm() { removeAll(); }
 

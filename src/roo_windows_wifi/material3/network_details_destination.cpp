@@ -4,9 +4,9 @@
 #include <cstdio>
 #include <cstring>
 
-#include "roo_windows/containers/horizontal_layout.h"
+#include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
-#include "roo_windows/containers/vertical_layout.h"
+#include "roo_windows/core/margins_mixin.h"
 #include "roo_windows/core/task.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/button.h"
@@ -14,8 +14,6 @@
 #include "roo_windows/material3/dialog/basic_dialog.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
 #include "roo_windows/material3/list/list.h"
-#include "roo_windows/material3/typography.h"
-#include "roo_windows/widgets/text_label.h"
 #include "roo_windows_wifi/material3/internal/borrowed_layout.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
 #include "roo_windows_wifi/material3/network_row.h"
@@ -32,16 +30,24 @@ class NoopRowListener : public WifiNetworkRow::Listener {
 };
 
 // Preserves unchanged pixels when diagnostic rows resize the details column.
-class DetailsColumn : public internal::BorrowedColumn {
+class DetailsColumn : public FlexLayout {
  public:
-  using internal::BorrowedColumn::BorrowedColumn;
+  explicit DetailsColumn(ApplicationContext& context)
+      : FlexLayout(context, FlexDirection::kColumn) {
+    setGap(Scaled(8));
+  }
 
-  using internal::BorrowedColumn::invalidateInterior;
+  PreferredSize getPreferredSize() const override {
+    return {PreferredSize::MatchParentWidth(),
+            PreferredSize::WrapContentHeight()};
+  }
+
+  using FlexLayout::invalidateInterior;
   void invalidateInterior() override {
     if (resizing_height_) {
-      internal::BorrowedColumn::invalidateInterior(resize_damage_);
+      FlexLayout::invalidateInterior(resize_damage_);
     } else {
-      internal::BorrowedColumn::invalidateInterior();
+      FlexLayout::invalidateInterior();
     }
   }
 
@@ -57,7 +63,7 @@ class DetailsColumn : public internal::BorrowedColumn {
       resize_damage_ = Rect(0, std::min(height(), rect.height()), width() - 1,
                             std::max(height(), rect.height()) - 1);
     }
-    internal::BorrowedColumn::moveTo(rect);
+    FlexLayout::moveTo(rect);
     resizing_height_ = false;
   }
 
@@ -115,16 +121,15 @@ class WifiNetworkDetailsDestination::Impl {
         bar_(context),
         back_(context),
         summary_(context, listener_),
-        summary_list_(context),
+        summary_list_(context, "Network"),
         connect_(context, "Connect", ButtonVariant::kText),
         disconnect_(context, "Disconnect", ButtonVariant::kText),
         edit_(context, "Edit", ButtonVariant::kText),
         forget_(context, "Forget", ButtonVariant::kText),
         buttons_(context),
         automatic_(context, "Auto-connect"),
-        settings_(context),
-        details_caption_(context, "Details", text_style_title_small()),
-        info_(context),
+        settings_(context, "Settings"),
+        info_(context, "Details"),
         body_(context),
         scroll_(context, body_),
         dialog_(context, owner),
@@ -143,7 +148,7 @@ class WifiNetworkDetailsDestination::Impl {
     buttons_.add(forget_);
     automatic_.item().setOnInvoked(
         [this]() { this->owner_.setAutoConnect(automatic_.item().isOn()); });
-    settings_.add(automatic_);
+    settings_.list().add(automatic_);
     static const char* const labels[] = {"Privacy", "Metered", "IP settings",
                                          "Proxy"};
     for (int i = 0; i < 4; ++i) {
@@ -152,30 +157,27 @@ class WifiNetworkDetailsDestination::Impl {
       setting_rows_[i]->item().setOnInvoked([this]() {
         this->owner_.actions_.editSelectedNetwork(this->owner_.selected_);
       });
-      settings_.add(*setting_rows_[i]);
+      settings_.list().add(*setting_rows_[i]);
     }
-    details_caption_.setPadding(PaddingSize::kLarge, PaddingSize::kNone);
     static const char* const info_labels[] = {
         "Security", "BSSID",       "Station MAC",   "IP address",
         "Gateway",  "Primary DNS", "Secondary DNS", "Channel / Signal"};
     for (int i = 0; i < 8; ++i) {
       info_rows_[i] = std::make_unique<ListRow<SupportingTextListItem>>(
           context, info_labels[i]);
-      info_.add(*info_rows_[i]);
+      info_.list().add(*info_rows_[i]);
     }
-    summary_list_.add(summary_);
-    summary_list_.setSelectionPolicy({SelectionMode::kSingle,
-                                      SelectionAffordance::kNone,
-                                      AffordancePlacement::kTrailing, false});
+    summary_list_.list().add(summary_);
+    summary_list_.list().setSelectionPolicy(
+        {SelectionMode::kSingle, SelectionAffordance::kNone,
+         AffordancePlacement::kTrailing, false});
     body_.add(summary_list_);
     body_.add(buttons_);
     body_.add(settings_);
-    body_.add(details_caption_);
     body_.add(info_);
-    scaffold_.setPadding(roo_windows::PaddingSize::kSmall,
-                         roo_windows::PaddingSize::kNone);
     scaffold_.setTopBar(bar_);
     scaffold_.setBody(scroll_);
+    scroll_.setMargins(MarginSize::k8dp);
   }
   void report(roo_wifi::Status status, const char* text = nullptr) {
     feedback_ = text != nullptr ? text : WifiStatusText(status);
@@ -191,18 +193,17 @@ class WifiNetworkDetailsDestination::Impl {
   AppBar bar_;
   BackButton back_;
   WifiNetworkRow summary_;
-  internal::SegmentedList summary_list_;
+  internal::CaptionedSegmentedList summary_list_;
   Button connect_, disconnect_, edit_, forget_;
   internal::BorrowedRow buttons_;
   ListRow<SwitchListItem> automatic_;
   std::unique_ptr<ListRow<InvokableListItemBase>> setting_rows_[4];
-  internal::SegmentedList settings_;
-  StringViewLabel details_caption_;
+  internal::CaptionedSegmentedList settings_;
   std::string info_values_[8];
   std::unique_ptr<ListRow<SupportingTextListItem>> info_rows_[8];
-  internal::SegmentedList info_;
+  internal::CaptionedSegmentedList info_;
   DetailsColumn body_;
-  ScrollableBlitPanel scroll_;
+  MarginsMixin<ScrollableBlitPanel> scroll_;
   ForgetDialog dialog_;
   LayoutScaffold scaffold_;
 };
@@ -463,9 +464,9 @@ void WifiNetworkDetailsDestination::refreshSelection() {
   selected_.disconnecting = selected_.current && current->disconnecting;
   impl_->summary_.bind(0, selected_);
   if (selected_.current) {
-    impl_->summary_list_.select(impl_->summary_);
+    impl_->summary_list_.list().select(impl_->summary_);
   } else {
-    impl_->summary_list_.clearSelection();
+    impl_->summary_list_.list().clearSelection();
   }
 }
 

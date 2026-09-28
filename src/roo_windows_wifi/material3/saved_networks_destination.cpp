@@ -1,6 +1,7 @@
 #include "roo_windows_wifi/material3/saved_networks_destination.h"
 
 #include "roo_windows/containers/scrollable_panel.h"
+#include "roo_windows/core/margins_mixin.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/button.h"
 #include "roo_windows/material3/button/navigation.h"
@@ -67,19 +68,20 @@ class WifiSavedNetworksDestination::Impl {
                     context,
                     static_cast<WifiNetworkRow::Listener&>(destination_));
               }),
-        networks_(context),
+        networks_(context, "Networks"),
         scroller_(context, networks_),
         status_(context, "", roo_windows::material3::text_style_body_medium()),
         retry_(context, "Retry", roo_windows::material3::ButtonVariant::kText),
-        footer_(context),
+        footer_(context, roo_windows::Scaled(8)),
         scaffold_(context) {
-    networks_.add(list_);
+    networks_.list().add(list_);
     app_bar_.setTitle("Saved networks");
     app_bar_.setLeading(back_);
     scaffold_.setPadding(roo_windows::PaddingSize::kSmall,
                          roo_windows::PaddingSize::kNone);
     scaffold_.setTopBar(app_bar_);
     scaffold_.setBody(scroller_);
+    scroller_.setMargins(roo_windows::MarginSize::k8dp);
     footer_.add(status_);
     footer_.add(retry_);
     retry_.setOnInteractiveChange([this]() { destination_.onResume(); });
@@ -113,11 +115,11 @@ class WifiSavedNetworksDestination::Impl {
   roo_windows::material3::BackButton back_;
   SavedProfileModel list_model_;
   roo_windows::material3::DynamicList<WifiNetworkRow> list_;
-  internal::SegmentedList networks_;
-  roo_windows::SimpleScrollablePanel scroller_;
+  internal::CaptionedSegmentedList networks_;
+  roo_windows::MarginsMixin<roo_windows::SimpleScrollablePanel> scroller_;
   roo_windows::TextBlock status_;
   roo_windows::material3::Button retry_;
-  internal::BorrowedColumn footer_;
+  internal::FlexColumn footer_;
   roo_windows::material3::LayoutScaffold scaffold_;
 };
 

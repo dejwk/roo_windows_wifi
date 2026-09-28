@@ -12,8 +12,8 @@
 #include "roo_icons/outlined/36/navigation.h"
 #include "roo_icons/outlined/48/content.h"
 #include "roo_icons/outlined/48/navigation.h"
+#include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
-#include "roo_windows/core/container.h"
 #include "roo_windows/core/margins_mixin.h"
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
@@ -21,10 +21,6 @@
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
 #include "roo_windows/material3/list/dynamic_list.h"
 #include "roo_windows/material3/list/list.h"
-#include "roo_windows/material3/typography.h"
-#include "roo_windows/widgets/text_block.h"
-#include "roo_windows/widgets/text_label.h"
-#include "roo_windows_wifi/material3/internal/borrowed_layout.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
 #include "roo_windows_wifi/material3/network_policy.h"
 
@@ -90,39 +86,19 @@ class AvailableNetworkModel
   WifiPresentationModel& model_;
 };
 
-class SectionText : public roo_windows::StringViewLabel {
- public:
-  SectionText(roo_windows::ApplicationContext& context, roo::string_view text)
-      : StringViewLabel(context, text,
-                        roo_windows::material3::text_style_title_small()) {}
-
-  roo_windows::Margins getMargins() const override {
-    return {roo_windows::MarginSize::k16dp, roo_windows::MarginSize::k16dp,
-            roo_windows::MarginSize::k16dp, roo_windows::MarginSize::k8dp};
-  }
-  roo_windows::PreferredSize getPreferredSize() const override {
-    return {roo_windows::PreferredSize::MatchParentWidth(),
-            roo_windows::PreferredSize::WrapContentHeight()};
-  }
-};
-
 // One scroll coordinate space for settings, recycled results and navigation.
 // ListLayout allocates its row pool from the window viewport, not its logical
 // content height; the surrounding column adds only these fixed-count widgets.
-class SettingsBody : public internal::BorrowedColumn {
+class SettingsBody : public roo_windows::FlexLayout {
  public:
   SettingsBody(roo_windows::ApplicationContext& context,
                WifiPresentationModel& model, WifiNetworkRow::Listener& listener,
                WifiSettingsDestination& destination,
                WifiSettingsDestination::Actions& actions)
-      : BorrowedColumn(context),
+      : FlexLayout(context, roo_windows::FlexDirection::kColumn),
         model_(model),
-        heading_label_(context, "Status"),
         enabled_(context, "Use Wi-Fi", ""),
         current_(context, listener),
-        networks_label_(context, "Networks"),
-        // status_(context, "",
-        // roo_windows::material3::text_style_body_medium()),
         available_model_(model),
         available_(context, available_model_,
                    [&context, &listener]() {
@@ -130,34 +106,37 @@ class SettingsBody : public internal::BorrowedColumn {
                    }),
         add_(context, context, AddIcon(), "Add network"),
         saved_(context, context, SavedIcon(), "Saved networks"),
-        networks_(context),
-        toggle_(context),
-        navigation_(context) {
+        state_(context, "Status"),
+        networks_(context, "Networks"),
+        saved_networks_(context) {
+    setGap(roo_windows::Scaled(8));
     enabled_.item().setOnInvoked([this, &destination]() {
       destination.setWifiEnabled(enabled_.item().isOn());
     });
     add_.item().setOnInvoked([&actions]() { actions.addNetwork(); });
     saved_.item().setOnInvoked([&actions]() { actions.showSavedNetworks(); });
-    toggle_.add(enabled_);
-    toggle_.add(current_);
-    toggle_.setSelectionPolicy(
+    state_.list().add(enabled_);
+    state_.list().add(current_);
+    state_.list().setSelectionPolicy(
         {roo_windows::material3::SelectionMode::kSingle,
          roo_windows::material3::SelectionAffordance::kNone,
          roo_windows::material3::AffordancePlacement::kTrailing, false});
-    toggle_.select(current_);
-    add(heading_label_);
-    add(toggle_);
-    add(networks_label_);
-    // add(status_);
-    networks_.add(available_);
+    state_.list().select(current_);
+    add(state_);
+    networks_.list().add(available_);
+    networks_.list().add(add_);
     add(networks_);
-    navigation_.add(add_);
-    navigation_.add(saved_);
-    add(navigation_);
+    saved_networks_.add(saved_);
+    add(saved_networks_);
     sync(model_.controller().isEnabled());
   }
 
   ~SettingsBody() override { removeAll(); }
+
+  roo_windows::PreferredSize getPreferredSize() const override {
+    return {roo_windows::PreferredSize::MatchParentWidth(),
+            roo_windows::PreferredSize::WrapContentHeight()};
+  }
 
   void sync(bool enabled) {
     using roo_windows::Visibility;
@@ -168,22 +147,13 @@ class SettingsBody : public internal::BorrowedColumn {
     if (enabled && model_.current()) {
       current_.bind(kCurrentNetworkIndex, *model_.current());
     }
-    networks_label_.setVisibility(enabled ? Visibility::kVisible
-                                          : Visibility::kGone);
-    networks_.setVisibility(enabled && availableCount() > 0
-                                ? Visibility::kVisible
-                                : Visibility::kGone);
+    networks_.setVisibility(enabled ? Visibility::kVisible : Visibility::kGone);
     available_.beginModelReset();
     available_.endModelReset();
     requestLayout();
   }
 
-  void setStatus(const std::string& text, bool busy) {
-    // status_.setText(text);
-    // status_.setVisibility(text.empty() || text == "Select a network" ||
-    //                               text == "Connected"
-    //                           ? roo_windows::Visibility::kGone
-    //                           : roo_windows::Visibility::kVisible);
+  void setBusy(bool busy) {
     networks_.setEnabled(!busy);
   }
 
@@ -194,21 +164,18 @@ class SettingsBody : public internal::BorrowedColumn {
 
  private:
   WifiPresentationModel& model_;
-  SectionText heading_label_;
   roo_windows::material3::ListRow<roo_windows::material3::SwitchListItem>
       enabled_;
   WifiNetworkRow current_;
-  SectionText networks_label_;
-  // SectionText status_;
   AvailableNetworkModel available_model_;
   roo_windows::material3::DynamicList<WifiNetworkRow> available_;
   roo_windows::material3::ListRow<roo_windows::material3::NavigationListItem>
       add_;
   roo_windows::material3::ListRow<roo_windows::material3::NavigationListItem>
       saved_;
-  internal::SegmentedList networks_;
-  internal::SegmentedList toggle_;
-  internal::SegmentedList navigation_;
+  internal::CaptionedSegmentedList state_;
+  internal::CaptionedSegmentedList networks_;
+  internal::SegmentedList saved_networks_;
 };
 
 }  // namespace
@@ -226,16 +193,13 @@ class WifiSettingsDestination::Impl {
         body_(context, model, listener, destination, actions),
         scroller_(context, body_),
         destination_(destination),
-        wifi_request_pending_(false),
-        desired_wifi_enabled_(false),
         scaffold_(context) {
     // Reserve storage for bounded operation feedback.
     feedback_.reserve(128);
     app_bar_.setTitle("Wi-Fi");
     refresh_.setOnInteractiveChange([this]() { destination_.refreshScan(); });
     app_bar_.setTrailing(0, refresh_);
-    scroller_.setMargins(roo_windows::MarginSize::k8dp,
-                         roo_windows::MarginSize::kNone);
+    scroller_.setMargins(roo_windows::MarginSize::k8dp);
     scaffold_.setTopBar(app_bar_);
     scaffold_.setBody(scroller_);
   }
@@ -247,9 +211,6 @@ class WifiSettingsDestination::Impl {
   SettingsBody body_;
   roo_windows::MarginsMixin<roo_windows::ScrollableBlitPanel> scroller_;
   WifiSettingsDestination& destination_;
-  uint8_t wifi_request_pending_ : 1;
-  uint8_t desired_wifi_enabled_ : 1;
-  WifiNetworkSummary requested_;
   bool scan_after_enable_ = false;
   roo_time::Duration scan_max_age_ = roo_time::Seconds(30);
   // Declared last so it detaches its borrowed slots before their destruction.
@@ -345,7 +306,6 @@ void WifiSettingsDestination::activateNetwork(size_t model_index) {
     actions_.editNetwork(network);
     return;
   }
-  impl_->requested_ = network;
   roo_wifi::Status status;
   if (network.saved && network.profile_ssid.size != 0) {
     status = model_.controller().connect(network.profile_ssid);
@@ -370,7 +330,7 @@ void WifiSettingsDestination::syncBody() {
   bool busy = model_.controller().isScanning() ||
               phase == roo_wifi::LinkPhase::kConnecting ||
               phase == roo_wifi::LinkPhase::kAssociated;
-  impl_->body_.setStatus(impl_->feedback_, busy);
+  impl_->body_.setBusy(busy);
 
   impl_->refresh_.setEnabled(
       wifiEnabled() && !busy &&

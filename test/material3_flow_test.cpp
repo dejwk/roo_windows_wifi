@@ -7,13 +7,14 @@
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
 #include "roo_display/core/offscreen.h"
+#include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/list_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/application.h"
 #include "roo_windows/core/environment.h"
 #include "roo_windows/material3/button/button.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
-#include "roo_windows_wifi/material3/internal/borrowed_layout.h"
+#include "roo_windows_wifi/material3/internal/segmented_list.h"
 #include "roo_windows_wifi/material3/settings_flow.h"
 
 namespace roo_windows::test {
@@ -684,10 +685,13 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
       *static_cast<roo_windows::Widget&>(scaffold).focusChildAt(1));
   auto& cache =
       static_cast<roo_windows::BlitCacheContainer&>(*scroll.contents());
-  auto& column = static_cast<internal::BorrowedColumn&>(*cache.child());
+  auto& column = static_cast<roo_windows::FlexLayout&>(*cache.child());
+  auto& networks =
+      static_cast<internal::CaptionedSegmentedList&>(column.child_at(1));
   auto& list = static_cast<roo_windows::ListLayout&>(
-      *column.child_at(4).focusChildAt(0));
-  EXPECT_EQ(scroll.height(), 240 - roo_windows::Scaled(64));
+      *static_cast<roo_windows::Widget&>(networks.list()).focusChildAt(0));
+  EXPECT_EQ(scroll.height(),
+            240 - roo_windows::Scaled(64) - roo_windows::Scaled(16));
   EXPECT_EQ(list.height(),
             40 * roo_windows::Scaled(72) + 39 * roo_windows::Scaled(2));
   EXPECT_LT(list.children().size(), 8u);
@@ -705,16 +709,12 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
   ASSERT_TRUE(app.refresh());
   EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
   Golden(device.raster(), "wifi_navigation_scrolled");
-  EXPECT_EQ(column.child_at(0).width(),
-            scroll.width() - roo_windows::Scaled(16));
-  roo_windows::Widget& actions = column.child_at(5);
-  EXPECT_EQ(actions.width(), scroll.width() - roo_windows::Scaled(16));
-  ASSERT_EQ(actions.focusChildCount(), 2);
-  actions.focusChildAt(1)->onClicked();
-  EXPECT_TRUE(navigation.isCurrent(flow.savedNetworksDestination()));
-  navigation.pop();
+  EXPECT_EQ(column.child_at(0).width(), scroll.width());
+  roo_windows::Widget& actions = column.child_at(2);
+  EXPECT_EQ(actions.width(), scroll.width());
+  ASSERT_EQ(actions.focusChildCount(), 1);
   actions.focusChildAt(0)->onClicked();
-  EXPECT_TRUE(navigation.isCurrent(flow.editDestination()));
+  EXPECT_TRUE(navigation.isCurrent(flow.savedNetworksDestination()));
   navigation.clear();
 }
 }  // namespace

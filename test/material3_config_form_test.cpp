@@ -3,6 +3,7 @@
 #include "roo_windows/material3/list/list.h"
 #include "roo_windows/material3/text_field/text_field.h"
 #include "roo_windows_wifi/material3/config_form.h"
+#include "roo_windows_wifi/material3/internal/segmented_list.h"
 
 namespace roo_windows_wifi::material3 {
 namespace {
@@ -41,17 +42,19 @@ TEST_F(FormTest, AdvancedOptionsFillWidthAndGroupVisibleRows) {
     int lists = 0;
     Widget& form_widget = form;
     for (int i = 0; i < form_widget.focusChildCount(); ++i) {
-      auto* list = dynamic_cast<List*>(form_widget.focusChildAt(i));
-      if (list == nullptr || list->isGone()) continue;
+      auto* group = dynamic_cast<internal::CaptionedSegmentedList*>(
+          form_widget.focusChildAt(i));
+      if (group == nullptr || group->isGone()) continue;
       ++lists;
-      EXPECT_EQ(list->width(), width - 2 * Scaled(8));
+      List& list = group->list();
+      EXPECT_EQ(list.width(), width);
       std::vector<ListEntry*> visible;
-      Widget& list_widget = *list;
+      Widget& list_widget = list;
       for (int j = 0; j < list_widget.focusChildCount(); ++j) {
         auto* row = static_cast<ListEntry*>(list_widget.focusChildAt(j));
         if (row->isGone()) continue;
         visible.push_back(row);
-        EXPECT_EQ(row->width(), list->width());
+        EXPECT_EQ(row->width(), list.width());
         EXPECT_EQ(row->visualContext().style, ListStyle::kSegmented);
       }
       ASSERT_FALSE(visible.empty());
