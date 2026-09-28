@@ -55,9 +55,7 @@ class NetworkDetailsActivityContents : public roo_windows::FlexLayout {
     indicator_.setPadding(roo_windows::PaddingSize::kTiny);
     add(indicator_);
     ssid_.setPadding(roo_windows::PaddingSize::kNone);
-    ssid_.setMargins(roo_windows::MarginSize::kNone);
     status_.setPadding(roo_windows::PaddingSize::kNone);
-    status_.setMargins(roo_windows::MarginSize::kNone);
     add(ssid_);
     add(status_);
     add(d1_, {.flex_grow = 1,

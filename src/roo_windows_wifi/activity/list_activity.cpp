@@ -36,7 +36,6 @@ WifiListItem::WifiListItem(roo_windows::ApplicationContext& env,
                                   roo_windows::PaddingSize::kTiny));
   setGap(roo_windows::Scaled(8));
   add(icon_, {.flex_grow = 0, .flex_shrink = 0});
-  ssid_.setMargins(roo_windows::MarginSize::kNone);
   ssid_.setPadding(roo_windows::PaddingSize::kNone,
                    roo_windows::PaddingSize::kTiny);
   add(ssid_, {.flex_grow = 1, .flex_shrink = 1});
@@ -76,7 +75,6 @@ Enable::Enable(roo_windows::ApplicationContext& env, Model& model)
                                   roo_windows::PaddingSize::kTiny));
   setGap(roo_windows::Scaled(8));
   add(gap_, {.flex_grow = 0, .flex_shrink = 0});
-  label_.setMargins(roo_windows::MarginSize::kNone);
   label_.setPadding(roo_windows::PaddingSize::kNone,
                     roo_windows::PaddingSize::kTiny);
   add(label_, {.flex_grow = 1, .flex_shrink = 1});
@@ -114,9 +112,7 @@ CurrentNetwork::CurrentNetwork(roo_windows::ApplicationContext& env,
   setGap(roo_windows::Scaled(8));
   add(indicator_, {.flex_grow = 0, .flex_shrink = 0});
   ssid_.setPadding(roo_windows::PaddingSize::kNone);
-  ssid_.setMargins(roo_windows::MarginSize::kNone);
   status_.setPadding(roo_windows::PaddingSize::kNone);
-  status_.setMargins(roo_windows::MarginSize::kNone);
   ssid_status_.add(ssid_);
   ssid_status_.add(status_);
   add(ssid_status_, {.flex_grow = 1, .flex_shrink = 1});
