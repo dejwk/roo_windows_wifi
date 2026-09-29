@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 #include "roo_scheduler.h"
 #include "roo_windows/core/environment.h"
+#include "roo_windows/widgets/text_label.h"
 #include "roo_windows_wifi/material3/network_row.h"
 
 namespace roo_windows_wifi {
@@ -138,8 +139,8 @@ TEST(WifiNetworkRowTest, DistinguishesUnknownAvailabilityAndDisconnecting) {
   EXPECT_STREQ(row.supportingText(), "Saved");
 }
 
-// Rebinding metadata keeps settled pixels, while actual text/icon changes
-// still invalidate the row and recycled activation uses the newest index.
+// Verifies metadata-only binds preserve settled pixels, while presentation
+// changes refresh the standard slots and activation uses the newest index.
 TEST(WifiNetworkRowTest, InvalidatesOnlyWhenPresentationChanges) {
   class TestRow : public WifiNetworkRow {
    public:
@@ -183,6 +184,57 @@ TEST(WifiNetworkRowTest, InvalidatesOnlyWhenPresentationChanges) {
   summary.ssid = "Other";
   row.bind(3, summary);
   EXPECT_TRUE(row.isDirty());
+}
+
+// Verifies text and signal use standard slots, and recycled text views are
+// restored even when rebinding the same network after release.
+TEST(WifiNetworkRowTest, RetainsAndRestoresStandardSlots) {
+  class TestRow : public WifiNetworkRow {
+   public:
+    using WifiNetworkRow::getChild;
+    using WifiNetworkRow::getChildrenCount;
+    using WifiNetworkRow::WifiNetworkRow;
+  };
+  roo_scheduler::Scheduler scheduler;
+  roo_windows::Environment environment(scheduler);
+  roo_windows::ApplicationContext context = MakeContext(environment);
+  RecordingListener listener;
+  TestRow row(context, listener);
+  WifiNetworkSummary summary;
+  summary.ssid = "Roo Guest";
+  summary.current = true;
+  summary.rssi_dbm = -47;
+  row.bind(0, summary);
+
+  ASSERT_EQ(row.getChildrenCount(), 3);
+  auto* glyph = dynamic_cast<WifiSignalGlyph*>(row.item()->leading());
+  ASSERT_NE(glyph, nullptr);
+  EXPECT_EQ(glyph->signalState(), WifiSignalState::kConnected);
+  EXPECT_EQ(glyph->rssiDbm(), -47);
+  roo_windows::StringViewLabel* headline = nullptr;
+  roo_windows::StringViewLabel* supporting = nullptr;
+  for (int i = 0; i < row.getChildrenCount(); ++i) {
+    auto* label = dynamic_cast<roo_windows::StringViewLabel*>(&row.getChild(i));
+    if (label == nullptr) continue;
+    if (label->text() == "Roo Guest") headline = label;
+    if (label->text() == "Connected") supporting = label;
+  }
+  ASSERT_NE(headline, nullptr);
+  ASSERT_NE(supporting, nullptr);
+  row.releaseTextViews();
+  EXPECT_TRUE(headline->text().empty());
+  EXPECT_TRUE(supporting->text().empty());
+  row.bind(1, summary);
+  EXPECT_EQ(headline->text(), "Roo Guest");
+  EXPECT_EQ(supporting->text(), "Connected");
+  summary.ssid.clear();
+  row.bind(2, summary);
+  summary.ssid = "Other";
+  summary.current = false;
+  row.bind(3, summary);
+  EXPECT_EQ(headline->text(), "Other");
+  EXPECT_EQ(supporting->text(), row.supportingText());
+  EXPECT_EQ(glyph->signalState(), WifiSignalState::kAvailable);
 }
 
 // Verifies activation reports the model index from the latest bind.

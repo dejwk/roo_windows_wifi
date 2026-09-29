@@ -3,23 +3,16 @@
 #include <cstring>
 
 #include "roo_display/ui/alignment.h"
-#include "roo_display/ui/text_label.h"
 #include "roo_icons/filled/18/device.h"
 #include "roo_icons/filled/24/device.h"
 #include "roo_icons/filled/36/device.h"
 #include "roo_icons/filled/48/device.h"
 #include "roo_windows/core/theme.h"
 #include "roo_windows/material3/theme.h"
-#include "roo_windows/material3/typography.h"
 
 namespace roo_windows_wifi {
 namespace material3 {
 namespace {
-
-constexpr int16_t kRowHeightDp = 72;
-constexpr int16_t kHorizontalInsetDp = 16;
-constexpr int16_t kIconSlotDp = 24;
-constexpr int16_t kIconTextGapDp = 16;
 
 int SignalBars(int8_t rssi_dbm) {
   if (rssi_dbm > -55) return 4;
@@ -89,10 +82,15 @@ WifiNetworkRow::WifiNetworkRow(roo_windows::ApplicationContext& context,
                                Listener& listener)
     : roo_windows::material3::ListEntry(context),
       action_(*this),
+      signal_(context),
       listener_(listener) {
   // SSIDs are backend-bounded at 32 bytes. Reserve once, outside row rebind.
   summary_.ssid.reserve(32);
+  // Prepare both text slots before the row enters a recycling pool.
+  summary_.ssid = " ";
   setItem(action_);
+  summary_.ssid.clear();
+  refreshFromItem();
 }
 
 void WifiNetworkRow::bind(size_t index, const WifiNetworkSummary& summary) {
@@ -100,13 +98,15 @@ void WifiNetworkRow::bind(size_t index, const WifiNetworkSummary& summary) {
       summary_.ssid != summary.ssid || summary_.current != summary.current ||
       summary_.isOpen() != summary.isOpen() ||
       SignalBars(summary_.rssi_dbm) != SignalBars(summary.rssi_dbm);
-  const auto old_signal = signalState();
+  const WifiSignalState old_signal = signalState();
   const char* old_supporting = supportingText();
   index_ = index;
   summary_ = summary;
+  // Released text views dirty the row; restore them even for identical data.
   if (changed || old_signal != signalState() ||
-      std::strcmp(old_supporting, supportingText()) != 0) {
-    invalidateInterior();
+      std::strcmp(old_supporting, supportingText()) != 0 || isDirty()) {
+    signal_.set(summary_.rssi_dbm, !summary_.isOpen(), signalState());
+    refreshFromItem();
   }
 }
 
@@ -128,55 +128,6 @@ const char* WifiNetworkRow::supportingText() const {
   if (summary_.range_known && !summary_.in_range) return "Out of range";
   if (summary_.saved) return "Saved";
   return summary_.isOpen() ? "Open network" : "Secured network";
-}
-
-roo_windows::Dimensions WifiNetworkRow::getSuggestedMinimumDimensions() const {
-  return roo_windows::Dimensions(0, roo_windows::Scaled(kRowHeightDp));
-}
-
-void WifiNetworkRow::paint(roo_windows::PaintContext& ctx) const {
-  using roo_display::kLeft;
-  using roo_display::kMiddle;
-  using roo_display::StringViewLabel;
-  using roo_windows::Rect;
-  using roo_windows::Scaled;
-
-  const auto& colors = theme().material3Theme().color;
-  const roo_display::Color foreground =
-      summary_.current ? colors.onSecondaryContainer : colors.onSurface;
-  const roo_display::Color supporting =
-      summary_.current ? colors.onSecondaryContainer : colors.onSurfaceVariant;
-
-  const int16_t inset = Scaled(kHorizontalInsetDp);
-  const int16_t icon_slot = Scaled(kIconSlotDp);
-  const int16_t text_x = inset + icon_slot + Scaled(kIconTextGapDp);
-  const Rect icon_bounds(inset, (height() - icon_slot) / 2,
-                         inset + icon_slot - 1, (height() + icon_slot) / 2 - 1);
-
-  PaintSignal(
-      ctx, icon_bounds, summary_.rssi_dbm, !summary_.isOpen(), signalState(),
-      signalState() == WifiSignalState::kAvailable ? colors.onSurfaceVariant
-                                                   : colors.primary,
-      true);
-  ctx.addExclusion(icon_bounds);
-
-  const Rect headline_bounds(text_x, Scaled(12), width() - inset - 1,
-                             height() / 2 - 1);
-  const Rect supporting_bounds(text_x, height() / 2, width() - inset - 1,
-                               height() - Scaled(12) - 1);
-  const auto& headline_style = roo_windows::material3::text_style_body_large();
-  const auto& supporting_style =
-      roo_windows::material3::text_style_body_medium();
-  ctx.drawTiled(StringViewLabel(summary_.ssid, headline_style.font(),
-                                foreground, headline_style.fontOptions()),
-                headline_bounds, kLeft | kMiddle);
-  ctx.addExclusion(headline_bounds);
-  ctx.drawTiled(StringViewLabel(supportingText(), supporting_style.font(),
-                                supporting, supporting_style.fontOptions()),
-                supporting_bounds, kLeft | kMiddle);
-  ctx.addExclusion(supporting_bounds);
-  // Settle only the remaining surface; never prefill beneath text or icons.
-  ctx.clear();
 }
 
 }  // namespace material3

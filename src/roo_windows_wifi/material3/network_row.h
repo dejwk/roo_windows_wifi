@@ -47,7 +47,7 @@ class WifiSignalGlyph : public roo_windows::Widget {
   WifiSignalState state_ = WifiSignalState::kAvailable;
 };
 
-/// Recyclable, owner-painted Material 3 list entry.
+/// Recyclable Material 3 list entry with standard text and a signal glyph.
 class WifiNetworkRow : public roo_windows::material3::ListEntry {
  public:
   /// Receives activation by stable model index from recycled rows.
@@ -88,23 +88,25 @@ class WifiNetworkRow : public roo_windows::material3::ListEntry {
             roo_windows::PreferredSize::ExactHeight(roo_windows::Scaled(72))};
   }
 
-  /// Returns the fixed dimensions used by the recycled list.
-  roo_windows::Dimensions getSuggestedMinimumDimensions() const override;
-
-  /// Paints row text and the signal glyph in one surface pass.
-  void paint(roo_windows::PaintContext& ctx) const override;
-
  protected:
-  roo_windows::Dimensions onMeasure(roo_windows::WidthSpec width,
-                                    roo_windows::HeightSpec height) override {
-    return {width.resolveSize(0), height.resolveSize(roo_windows::Scaled(72))};
-  }
+  /// Retains prepared labels across empty content and recycled bindings.
+  bool retainsTextSlots() const override { return true; }
 
  private:
-  // Supplies Material list invocation without allocating framework text slots.
+  // Supplies standard list content and invocation from the bound summary.
   class Action : public roo_windows::material3::ListItem {
    public:
     explicit Action(WifiNetworkRow& row) : row_(row) {}
+    roo::string_view headlineText() const override {
+      return row_.summary_.ssid;
+    }
+    roo::string_view supportingText() const override {
+      return row_.supportingText();
+    }
+    roo_windows::Widget* leading() override { return &row_.signal_; }
+    const roo_windows::Widget* leading() const override {
+      return &row_.signal_;
+    }
     bool isInvokable() const override { return true; }
     void invoke() override {
       row_.listener_.onWifiNetworkActivated(row_.index_);
@@ -113,6 +115,7 @@ class WifiNetworkRow : public roo_windows::material3::ListEntry {
    private:
     WifiNetworkRow& row_;
   } action_;
+  WifiSignalGlyph signal_;
   Listener& listener_;
   WifiNetworkSummary summary_;
   size_t index_ = 0;
