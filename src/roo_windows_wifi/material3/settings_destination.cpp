@@ -104,8 +104,8 @@ class SettingsBody : public roo_windows::FlexLayout {
                    [&context, &listener]() {
                      return std::make_unique<WifiNetworkRow>(context, listener);
                    }),
-        add_(context, context, AddIcon(), "Add network"),
-        saved_(context, context, SavedIcon(), "Saved networks"),
+        add_(context, AddIcon(), "Add network"),
+        saved_(context, "Saved networks"),
         state_(context, "Status"),
         networks_(context, "Networks"),
         saved_networks_(context) {
@@ -165,7 +165,7 @@ class SettingsBody : public roo_windows::FlexLayout {
   roo_windows::material3::DynamicList<WifiNetworkRow> available_;
   roo_windows::material3::ListRow<roo_windows::material3::NavigationListItem>
       add_;
-  roo_windows::material3::ListRow<roo_windows::material3::NavigationListItem>
+  roo_windows::material3::ListRow<roo_windows::material3::InvokableListItemBase>
       saved_;
   internal::CaptionedSegmentedList state_;
   internal::CaptionedSegmentedList networks_;
