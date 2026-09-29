@@ -89,6 +89,12 @@ class WifiNetworkRow : public roo_windows::material3::ListEntry {
   }
 
  protected:
+  /// Rebinds the item and prepares text slots after constructing row visuals.
+  void prepareItem();
+
+  /// Supplies an optional borrowed trailing visual for a specialized row.
+  virtual roo_windows::Widget* trailingVisual() { return nullptr; }
+
   /// Retains prepared labels across empty content and recycled bindings.
   bool retainsTextSlots() const override { return true; }
 
@@ -106,6 +112,10 @@ class WifiNetworkRow : public roo_windows::material3::ListEntry {
     roo_windows::Widget* leading() override { return &row_.signal_; }
     const roo_windows::Widget* leading() const override {
       return &row_.signal_;
+    }
+    roo_windows::Widget* trailing() override { return row_.trailingVisual(); }
+    const roo_windows::Widget* trailing() const override {
+      return row_.trailingVisual();
     }
     bool isInvokable() const override { return true; }
     void invoke() override {

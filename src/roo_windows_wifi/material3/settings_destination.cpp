@@ -4,12 +4,16 @@
 #include <cstring>
 #include <limits>
 
+#include "roo_icons/outlined/18/action.h"
 #include "roo_icons/outlined/18/content.h"
 #include "roo_icons/outlined/18/navigation.h"
+#include "roo_icons/outlined/24/action.h"
 #include "roo_icons/outlined/24/content.h"
 #include "roo_icons/outlined/24/navigation.h"
+#include "roo_icons/outlined/36/action.h"
 #include "roo_icons/outlined/36/content.h"
 #include "roo_icons/outlined/36/navigation.h"
+#include "roo_icons/outlined/48/action.h"
 #include "roo_icons/outlined/48/content.h"
 #include "roo_icons/outlined/48/navigation.h"
 #include "roo_windows/containers/flex_layout.h"
@@ -21,6 +25,7 @@
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
 #include "roo_windows/material3/list/dynamic_list.h"
 #include "roo_windows/material3/list/list.h"
+#include "roo_windows/widgets/icon.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
 #include "roo_windows_wifi/material3/network_policy.h"
 
@@ -41,6 +46,32 @@ const roo_display::Pictogram& SavedIcon() {
       SCALED_ROO_ICON(outlined, content_save));
   return icon;
 }
+
+const roo_display::Pictogram& SettingsIcon() {
+  static const roo_display::Pictogram icon(
+      SCALED_ROO_ICON(outlined, action_settings));
+  return icon;
+}
+
+// The settings page's current network opens details through the whole row.
+class CurrentNetworkRow : public WifiNetworkRow {
+ public:
+  CurrentNetworkRow(roo_windows::ApplicationContext& context,
+                    Listener& listener)
+      : WifiNetworkRow(context, listener),
+        settings_icon_(context, SettingsIcon()) {
+    // Rebind now that the derived row's trailing visual is constructed.
+    prepareItem();
+  }
+
+  ~CurrentNetworkRow() override { clearItem(); }
+
+ protected:
+  roo_windows::Widget* trailingVisual() override { return &settings_icon_; }
+
+ private:
+  roo_windows::Icon settings_icon_;
+};
 
 constexpr size_t kCurrentNetworkIndex = std::numeric_limits<size_t>::max();
 
@@ -165,7 +196,7 @@ class SettingsBody : public roo_windows::FlexLayout {
   WifiPresentationModel& model_;
   roo_windows::material3::ListRow<roo_windows::material3::SwitchListItem>
       enabled_;
-  WifiNetworkRow current_;
+  CurrentNetworkRow current_;
   AvailableNetworkModel available_model_;
   roo_windows::material3::DynamicList<WifiNetworkRow> available_;
   roo_windows::material3::ListRow<roo_windows::material3::NavigationListItem>

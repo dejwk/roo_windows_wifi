@@ -86,6 +86,11 @@ WifiNetworkRow::WifiNetworkRow(roo_windows::ApplicationContext& context,
       listener_(listener) {
   // SSIDs are backend-bounded at 32 bytes. Reserve once, outside row rebind.
   summary_.ssid.reserve(32);
+  prepareItem();
+}
+
+void WifiNetworkRow::prepareItem() {
+  clearItem();
   // Prepare both text slots before the row enters a recycling pool.
   summary_.ssid = " ";
   setItem(action_);
