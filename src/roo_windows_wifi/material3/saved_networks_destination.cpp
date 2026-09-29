@@ -35,15 +35,6 @@ class SavedProfileModel
     widget.bind(index, scratch_);
   }
 
-  // Connection state owns the highlight independently of list interaction.
-  bool ownsSelection() const override { return true; }
-
-  roo_windows::material3::DynamicListRowState rowState(
-      int index) const override {
-    destination_.profileSummary(static_cast<size_t>(index), scratch_);
-    return {scratch_.current, {}};
-  }
-
  private:
   WifiSavedNetworksDestination& destination_;
   mutable WifiNetworkSummary scratch_;
@@ -77,8 +68,6 @@ class WifiSavedNetworksDestination::Impl {
     networks_.list().add(list_);
     app_bar_.setTitle("Saved networks");
     app_bar_.setLeading(back_);
-    scaffold_.setPadding(roo_windows::PaddingSize::kSmall,
-                         roo_windows::PaddingSize::kNone);
     scaffold_.setTopBar(app_bar_);
     scaffold_.setBody(scroller_);
     body_.add(networks_);
