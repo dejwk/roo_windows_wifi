@@ -136,6 +136,11 @@ class SettingsBody : public roo_windows::FlexLayout {
 
   void sync(bool enabled) {
     using roo_windows::Visibility;
+    const size_t saved_count = model_.savedProfiles().size();
+    saved_supporting_ = std::to_string(saved_count) +
+                        (saved_count == 1 ? " network" : " networks");
+    saved_.item().setSupportingText(saved_supporting_);
+    saved_.refreshFromItem();
     enabled_.item().setOn(enabled);
     enabled_.refreshFromItem();
     current_.setVisibility(enabled && model_.current() ? Visibility::kVisible
@@ -165,6 +170,7 @@ class SettingsBody : public roo_windows::FlexLayout {
   roo_windows::material3::DynamicList<WifiNetworkRow> available_;
   roo_windows::material3::ListRow<roo_windows::material3::NavigationListItem>
       add_;
+  std::string saved_supporting_;
   roo_windows::material3::ListRow<roo_windows::material3::InvokableListItemBase>
       saved_;
   internal::CaptionedSegmentedList state_;
