@@ -118,11 +118,6 @@ class SettingsBody : public roo_windows::FlexLayout {
     saved_.item().setOnInvoked([&actions]() { actions.showSavedNetworks(); });
     state_.list().add(enabled_);
     state_.list().add(current_);
-    state_.list().setSelectionPolicy(
-        {roo_windows::material3::SelectionMode::kSingle,
-         roo_windows::material3::SelectionAffordance::kNone,
-         roo_windows::material3::AffordancePlacement::kTrailing, false});
-    state_.list().select(current_);
     add(state_);
     networks_.list().add(available_);
     networks_.list().add(add_);
@@ -154,9 +149,7 @@ class SettingsBody : public roo_windows::FlexLayout {
     requestLayout();
   }
 
-  void setBusy(bool busy) {
-    networks_.setEnabled(!busy);
-  }
+  void setBusy(bool busy) { networks_.setEnabled(!busy); }
 
   size_t availableCount() const { return available_model_.elementCount(); }
   bool hasCurrent() const {

@@ -84,6 +84,44 @@ struct Fixture {
   WifiSettingsDestination destination;
 };
 
+// Finds the connected row through the destination's composed widget tree.
+WifiNetworkRow* FindCurrentRow(roo_windows::Widget& widget) {
+  auto* row = dynamic_cast<WifiNetworkRow*>(&widget);
+  if (row != nullptr && row->summary().current) return row;
+  for (int i = 0; i < widget.focusChildCount(); ++i) {
+    row = FindCurrentRow(*widget.focusChildAt(i));
+    if (row != nullptr) return row;
+  }
+  return nullptr;
+}
+
+// Verifies an already-connected network opens details without participating in
+// selection, including when the settings destination is first constructed.
+TEST(WifiSettingsDestinationTest, CurrentNetworkInvokesWithoutSelection) {
+  Fixture fixture;
+  fixture.begin();
+  fixture.station.aps.push_back(Record("Cafe", roo_wifi::AuthMode::kOpen, -45));
+  PublishScan(fixture.controller, fixture.station, fixture.scheduler);
+  fixture.destination.activateNetwork(0);
+  roo_wifi::Pump(fixture.scheduler);
+  fixture.station.associated();
+  fixture.station.ready();
+  roo_wifi::Pump(fixture.scheduler);
+  ASSERT_NE(fixture.model.current(), nullptr);
+
+  WifiSettingsDestination destination(fixture.context, fixture.model,
+                                      fixture.actions);
+  WifiNetworkRow* row = FindCurrentRow(destination.getContents());
+  ASSERT_NE(row, nullptr);
+  auto* list = dynamic_cast<roo_windows::material3::List*>(row->parent());
+  ASSERT_NE(list, nullptr);
+  EXPECT_FALSE(list->select(*row));
+  EXPECT_FALSE(row->visualContext().selected);
+  row->onClicked();
+  EXPECT_EQ(fixture.actions.details_, "Cafe");
+  EXPECT_FALSE(row->visualContext().selected);
+}
+
 // Verifies radio state controls the current and available-network sections.
 TEST(WifiSettingsDestinationTest, PresentsEnabledAndDisabledSections) {
   Fixture fixture;
