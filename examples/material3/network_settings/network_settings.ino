@@ -97,7 +97,7 @@ roo_windows_wifi::WifiSettingsFlow wifi_settings(app.context(), wifi);
 void setup() {
   SPI.begin();
   CHECK(wifi.begin() == roo_wifi::Status::kOk);
-  // display.enableTurbo();
+  display.enableTurbo();
   display.init();
   task.navigation().push(wifi_settings.main());
   app.start();
