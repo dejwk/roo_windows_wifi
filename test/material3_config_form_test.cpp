@@ -9,7 +9,7 @@ namespace roo_windows_wifi::material3 {
 namespace {
 class FormTest : public testing::Test {
  protected:
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_windows::Environment environment{scheduler};
   roo_windows::ApplicationContext context{environment.scheduler(),
                                           environment.theme(),

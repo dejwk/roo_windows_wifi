@@ -23,7 +23,7 @@ roo_wifi::ScanRecord Record(const char* ssid, roo_wifi::AuthMode security,
 /// Completes one fake scan and publishes its records through the controller.
 void PublishScan(roo_wifi::Controller& controller,
                  roo_wifi::TestStation& station,
-                 roo_scheduler::Scheduler& scheduler) {
+                 roo_scheduler::SchedulingService& scheduler) {
   ASSERT_EQ(controller.startScan(), roo_wifi::Status::kOk);
   roo_wifi::Pump(scheduler);
   station.emit({roo_wifi::NativeStation::Event::kScanDone});
@@ -32,7 +32,7 @@ void PublishScan(roo_wifi::Controller& controller,
 
 // Empty SSIDs are valid hidden beacons, but cannot be selected by name.
 TEST(WifiPresentationModelTest, OmitsUnnamedAccessPoints) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -54,7 +54,7 @@ TEST(WifiPresentationModelTest, OmitsUnnamedAccessPoints) {
 // Verifies scan progress does not invalidate network rows until new results
 // arrive; profile changes still refresh the network model independently.
 TEST(WifiPresentationModelTest, ScanProgressOnlyNotifiesScanListeners) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -95,7 +95,7 @@ TEST(WifiPresentationModelTest, ScanProgressOnlyNotifiesScanListeners) {
 // Verifies exact security grouping, strongest-AP selection, and deterministic
 // presentation ordering.
 TEST(WifiPresentationModelTest, GroupsAndOrdersScanResults) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -123,7 +123,7 @@ TEST(WifiPresentationModelTest, GroupsAndOrdersScanResults) {
 // Verifies enumerated profiles match only the same SSID/security pair and
 // repeated saves of one SSID update that same configuration.
 TEST(WifiPresentationModelTest, MatchesEnumeratedProfilesWithoutGuessing) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -164,7 +164,7 @@ TEST(WifiPresentationModelTest, MatchesEnumeratedProfilesWithoutGuessing) {
 // Verifies failed enumeration retains the last complete profile model while a
 // corrupt settings report an error without replacing that model.
 TEST(WifiPresentationModelTest, HandlesEnumerationAndMetadataFailures) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -196,7 +196,7 @@ TEST(WifiPresentationModelTest, HandlesEnumerationAndMetadataFailures) {
 
 // Verifies the current link remains available even when no scan row exists.
 TEST(WifiPresentationModelTest, RetainsCurrentOutOfRangeLink) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -222,7 +222,7 @@ TEST(WifiPresentationModelTest, RetainsCurrentOutOfRangeLink) {
 
 // Verifies saved connection identity survives absent scans and duplicate names.
 TEST(WifiPresentationModelTest, TracksCompletedProfileWithoutScan) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;

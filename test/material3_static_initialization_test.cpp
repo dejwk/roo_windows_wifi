@@ -8,7 +8,7 @@ namespace {
 // Arduino sketches construct the flow before main(), potentially before the
 // library's translation-unit globals. Keep this target statically linked so
 // shared-library initialization does not hide an ordering dependency.
-roo_scheduler::Scheduler scheduler;
+roo_scheduler::SchedulingService scheduler;
 roo_wifi::TestStation station;
 roo_wifi::OrderedInterface radio(station);
 roo_wifi::MemoryStore store;

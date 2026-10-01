@@ -27,7 +27,7 @@ class RecordingListener : public WifiNetworkRow::Listener {
 
 // Verifies the glyph retains all semantic state supplied by its latest bind.
 TEST(WifiSignalGlyphTest, RetainsBoundSemanticState) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_windows::Environment environment(scheduler);
   roo_windows::ApplicationContext context = MakeContext(environment);
   WifiSignalGlyph glyph(context);
@@ -43,7 +43,7 @@ TEST(WifiSignalGlyphTest, RetainsBoundSemanticState) {
 // including the rounded selection treatment for the current network.
 TEST(WifiNetworkRowTest, SegmentsMatchMaterialListTreatment) {
   using namespace roo_windows::material3;
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_windows::Environment environment(scheduler);
   roo_windows::ApplicationContext context = MakeContext(environment);
   RecordingListener listener;
@@ -78,7 +78,7 @@ TEST(WifiNetworkRowTest, SegmentsMatchMaterialListTreatment) {
 
 // Verifies recycling replaces every model-derived row property.
 TEST(WifiNetworkRowTest, RebindsAllPresentationState) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_windows::Environment environment(scheduler);
   roo_windows::ApplicationContext context = MakeContext(environment);
   RecordingListener listener;
@@ -116,7 +116,7 @@ TEST(WifiNetworkRowTest, RebindsAllPresentationState) {
 // Verifies unknown availability never implies out of range, and teardown
 // takes precedence over both connected and saved labels.
 TEST(WifiNetworkRowTest, DistinguishesUnknownAvailabilityAndDisconnecting) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_windows::Environment environment(scheduler);
   roo_windows::ApplicationContext context = MakeContext(environment);
   RecordingListener listener;
@@ -147,7 +147,7 @@ TEST(WifiNetworkRowTest, InvalidatesOnlyWhenPresentationChanges) {
     using WifiNetworkRow::WifiNetworkRow;
     void settle() { markClean(); }
   };
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_windows::Environment environment(scheduler);
   auto context = MakeContext(environment);
   RecordingListener listener;
@@ -195,7 +195,7 @@ TEST(WifiNetworkRowTest, RetainsAndRestoresStandardSlots) {
     using WifiNetworkRow::getChildrenCount;
     using WifiNetworkRow::WifiNetworkRow;
   };
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_windows::Environment environment(scheduler);
   roo_windows::ApplicationContext context = MakeContext(environment);
   RecordingListener listener;
@@ -239,7 +239,7 @@ TEST(WifiNetworkRowTest, RetainsAndRestoresStandardSlots) {
 
 // Verifies activation reports the model index from the latest bind.
 TEST(WifiNetworkRowTest, RoutesActivationByCurrentModelIndex) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_windows::Environment environment(scheduler);
   roo_windows::ApplicationContext context = MakeContext(environment);
   RecordingListener listener;

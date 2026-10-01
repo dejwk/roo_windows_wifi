@@ -29,7 +29,7 @@ roo_wifi::ScanRecord Record(const char* ssid, roo_wifi::AuthMode security,
 /// Completes an active scan, admitting one first when necessary.
 void PublishScan(roo_wifi::Controller& controller,
                  roo_wifi::TestStation& station,
-                 roo_scheduler::Scheduler& scheduler) {
+                 roo_scheduler::SchedulingService& scheduler) {
   if (!controller.isScanning()) {
     ASSERT_EQ(controller.startScan(), roo_wifi::Status::kOk);
     roo_wifi::Pump(scheduler);
@@ -72,7 +72,7 @@ struct Fixture {
     ASSERT_EQ(model.refresh(), roo_wifi::Status::kOk);
   }
 
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio;
   roo_wifi::MemoryStore store;

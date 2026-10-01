@@ -22,7 +22,7 @@ class Actions : public WifiSavedNetworksDestination::Actions {
 // Verifies saved profiles are enumerated, sorted, and activated with their
 // persistent identity.
 TEST(WifiSavedNetworksDestinationTest, EnumeratesSortsAndSelectsProfiles) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -63,7 +63,7 @@ TEST(WifiSavedNetworksDestinationTest, EnumeratesSortsAndSelectsProfiles) {
 // Verifies an empty recycled list can be attached and painted without
 // dereferencing a missing row.
 TEST(WifiSavedNetworksDestinationTest, EmptyAttachedListPaintsWithoutCrash) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;

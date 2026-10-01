@@ -85,7 +85,7 @@ Display display(screen, touch,
                 TouchCalibration(269, 249, 3829, 3684,
                                  Orientation::LeftDown()));
 
-roo_scheduler::Scheduler scheduler;
+roo_scheduler::SchedulingService scheduler;
 Environment environment(scheduler);
 Application app(&environment, display);
 Task& task = app.addTaskFullScreen();

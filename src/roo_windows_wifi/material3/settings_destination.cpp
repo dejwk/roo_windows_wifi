@@ -41,12 +41,6 @@ const roo_display::Pictogram& AddIcon() {
   return icon;
 }
 
-const roo_display::Pictogram& SavedIcon() {
-  static const roo_display::Pictogram icon(
-      SCALED_ROO_ICON(outlined, content_save));
-  return icon;
-}
-
 const roo_display::Pictogram& SettingsIcon() {
   static const roo_display::Pictogram icon(
       SCALED_ROO_ICON(outlined, action_settings));

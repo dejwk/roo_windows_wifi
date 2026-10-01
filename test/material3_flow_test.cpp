@@ -194,7 +194,7 @@ void VerifyScrolling(roo_windows::Application& app, CountingDisplay& device,
 // Verifies newly exposed fields match a full repaint and small moves reuse
 // framebuffer pixels when supported, with a correct non-blitting fallback.
 TEST_P(WifiScrollRendering, EditorMatchesFullRepaint) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -228,7 +228,7 @@ TEST_P(WifiScrollRendering, EditorMatchesFullRepaint) {
 // Verifies settings row recycling and details lists scroll correctly on both
 // display types, while preserving the fast path for unchanged content.
 TEST_P(WifiScrollRendering, SettingsAndDetailsMatchFullRepaint) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -326,7 +326,7 @@ roo_windows::material3::Button* FindButton(roo_windows::Widget& widget) {
 // Verifies a connection update hiding the pressed button cannot restart a
 // hidden animation on release or block a disconnect click while awaiting IP.
 TEST(WifiFlow, ConnectionChangeDuringPressDoesNotBlockInput) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -416,7 +416,7 @@ TEST(WifiFlow, ConnectionChangeDuringPressDoesNotBlockInput) {
 // Verifies details remain interactive after saves and preserve unchanged
 // pixels across connection transitions.
 TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -550,7 +550,7 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
 // forget through the real controller, including dialog cancellation and
 // teardown.
 TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -649,7 +649,7 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
 }
 // Exercises actual root composition, recycling and final-pixel writes together.
 TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;

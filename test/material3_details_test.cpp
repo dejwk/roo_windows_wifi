@@ -17,7 +17,7 @@ TEST(WifiNetworkDetailsDestinationTest, MixedProfileSurvivesRouterModeChanges) {
   using roo_wifi::AuthMode;
   for (auto advertised : {AuthMode::kWpa2Wpa3Personal, AuthMode::kWpa2Personal,
                           AuthMode::kWpa3Personal}) {
-    roo_scheduler::Scheduler scheduler;
+    roo_scheduler::SchedulingService scheduler;
     roo_wifi::TestStation station;
     roo_wifi::OrderedInterface radio(station);
     roo_wifi::MemoryStore store;
@@ -107,7 +107,7 @@ TEST(WifiNetworkDetailsDestinationTest, MixedProfileSurvivesRouterModeChanges) {
 // Verifies retained details survive scan loss and operate on the selected
 // persistent SSID.
 TEST(WifiNetworkDetailsDestinationTest, RetainsSelectionOutOfRangeAndUsesId) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;

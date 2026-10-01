@@ -9,7 +9,7 @@ namespace {
 // Verifies a secured-network draft retains its prefilled identity and submits
 // entered credentials to the controller.
 TEST(WifiEditNetworkDestinationTest, PrefillsAndConnectsSecuredNetwork) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -36,7 +36,7 @@ TEST(WifiEditNetworkDestinationTest, PrefillsAndConnectsSecuredNetwork) {
 }
 class EditorTest : public testing::Test {
  protected:
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio{station};
   roo_wifi::MemoryStore store;

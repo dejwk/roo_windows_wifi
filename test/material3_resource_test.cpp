@@ -55,7 +55,7 @@ class Actions : public WifiSavedNetworksDestination::Actions,
 // Verifies long-SSID saved-row binding allocates neither temporary text nor row
 // storage.
 TEST(WifiResources, LongSsidRebindingDoesNotAllocate) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;
@@ -107,7 +107,7 @@ class FortyNetworks
 
 // Verifies scrolling forty networks retains only a viewport-sized widget pool.
 TEST(WifiResources, ScrollingRetainsPoolAndFixedRowHeight) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_windows::Environment environment(scheduler);
   roo::byte raster[320 * 240 * 2] = {};
   roo_display::OffscreenDevice<roo_display::Argb4444> device(
@@ -175,7 +175,7 @@ TEST(WifiResources, ScrollingRetainsPoolAndFixedRowHeight) {
 // Records host ABI construction cost separately from layout pools and text
 // paint.
 TEST(WifiResources, RecordsPreallocatedFlowCost) {
-  roo_scheduler::Scheduler scheduler;
+  roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
   roo_wifi::OrderedInterface radio(station);
   roo_wifi::MemoryStore store;

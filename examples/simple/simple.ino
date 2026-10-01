@@ -87,7 +87,7 @@ Display display(screen, touch,
                 TouchCalibration(269, 249, 3829, 3684,
                                  Orientation::LeftDown()));
 
-roo_scheduler::Scheduler scheduler;
+roo_scheduler::SchedulingService scheduler;
 Environment env(scheduler);
 
 roo_windows::Application app(&env, display);
