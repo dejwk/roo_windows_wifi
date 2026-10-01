@@ -7,4 +7,4 @@ bazel_dep(name = "googletest", version = "1.18.0.bcr.1")
 bazel_dep(name = "roo_wifi", version = "2.0.0")
 bazel_dep(name = "roo_windows", version = "1.7.0")
 
-bazel_dep(name = "roo_scheduler", version = "2.3.0" dev_dependency = True)
+bazel_dep(name = "roo_scheduler", version = "2.3.0", dev_dependency = True)
