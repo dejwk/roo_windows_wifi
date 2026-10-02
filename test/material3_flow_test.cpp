@@ -690,8 +690,12 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
       static_cast<internal::CaptionedSegmentedList&>(column.child_at(1));
   auto& list = static_cast<roo_windows::ListLayout&>(
       *static_cast<roo_windows::Widget&>(networks.list()).focusChildAt(0));
-  EXPECT_EQ(scroll.height(),
-            240 - roo_windows::Scaled(64) - roo_windows::Scaled(16));
+  // Padding belongs to the scrolling column, so the viewport fills the body.
+  EXPECT_EQ(scroll.height(), 240 - roo_windows::Scaled(64));
+  EXPECT_EQ(scroll.width(), 320);
+  EXPECT_EQ(column.width(), scroll.width());
+  EXPECT_EQ(column.child_at(0).parent_bounds().xMin(), roo_windows::Scaled(8));
+  EXPECT_EQ(column.child_at(0).parent_bounds().yMin(), roo_windows::Scaled(8));
   EXPECT_EQ(list.height(),
             40 * roo_windows::Scaled(72) + 39 * roo_windows::Scaled(2));
   EXPECT_LT(list.children().size(), 8u);
@@ -709,9 +713,10 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
   ASSERT_TRUE(app.refresh());
   EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
   Golden(device.raster(), "wifi_navigation_scrolled");
-  EXPECT_EQ(column.child_at(0).width(), scroll.width());
+  EXPECT_EQ(column.child_at(0).width(),
+            scroll.width() - 2 * roo_windows::Scaled(8));
   roo_windows::Widget& actions = column.child_at(2);
-  EXPECT_EQ(actions.width(), scroll.width());
+  EXPECT_EQ(actions.width(), scroll.width() - 2 * roo_windows::Scaled(8));
   ASSERT_EQ(actions.focusChildCount(), 1);
   actions.focusChildAt(0)->onClicked();
   EXPECT_TRUE(navigation.isCurrent(flow.savedNetworksDestination()));
