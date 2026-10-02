@@ -1,3 +1,14 @@
+# roo_windows_wifi 2.0.0
+
+- Add Material 3 Wi-Fi settings through `WifiSettingsFlow`, with scrollable network lists, saved-network browsing, connection details, add/edit forms, and confirmed removal.
+- Support hidden networks, auto-connect, MAC privacy, DHCP/static IPv4, and capability-aware security choices. Add optional application-provided proxy and metered-network settings.
+- Preserve credentials when unchanged, allow saving with Wi-Fi off, retain drafts after failed saves, and report asynchronous errors and partial success.
+- Refresh stale scans while retaining cached results on failure, and display connection progress, including IP-address acquisition.
+- Migrate the legacy configurator to the updated `roo_wifi` backend. Upgrade `roo_wifi` to 3.0.0, `roo_windows` to 1.8.1, `roo_testing` to 2.3.1, and the development dependency `roo_scheduler` to 2.3.0.
+- Add a runnable Material 3 example, integration documentation, and regression coverage for navigation, rendering, scrolling, and resource usage. Update host-testing tooling with ESP-IDF profile selection and a multi-profile test runner.
+
+---
+
 # roo_windows_wifi 1.1.4
 
 - **Breaking API change:** Adopt `ApplicationContext`, `Destination`, and `NavigationHost`. Construct with `Configurator(app.context(), wifi)`; the separate text-editor argument is removed.
