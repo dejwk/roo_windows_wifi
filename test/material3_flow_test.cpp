@@ -14,6 +14,7 @@
 #include "roo_windows/core/environment.h"
 #include "roo_windows/material3/button/button.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
+#include "roo_windows/material3/menu/menu.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
 #include "roo_windows_wifi/material3/settings_flow.h"
 
@@ -544,6 +545,62 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
   expect_no_writes(settings_section);
   expect_clean_repaint_matches();
   EXPECT_TRUE(button->requestFocus());
+}
+
+// Verifies both security buttons open the menu, selecting Open updates the
+// draft and dismisses it, and Back closes it without leaving the editor.
+TEST(WifiFlow, AddNetworkSecurityMenu) {
+  using namespace roo_windows;
+  using namespace roo_windows::material3;
+  roo_scheduler::SchedulingService scheduler;
+  roo_wifi::TestStation station;
+  roo_wifi::OrderedInterface radio(station);
+  roo_wifi::MemoryStore store;
+  roo_wifi::Controller controller(radio, store, scheduler);
+  ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo::byte pixels[320 * 240 * 2] = {};
+  CountingDisplay device(pixels);
+  roo_display::Display display(device);
+  Environment environment(scheduler);
+  Application app(&environment, display);
+  WifiSettingsFlow flow(app.context(), controller);
+  Task& task = app.addTaskFullScreen();
+  auto& editor = flow.editDestination();
+  task.navigation().push(editor);
+  ASSERT_TRUE(app.refresh());
+  Golden(device.raster(), "wifi_add_network");
+  auto& buttons = static_cast<FlexLayout&>(editor.form().child_at(2));
+  EXPECT_EQ(buttons.width(), editor.form().width());
+  Widget* scope = task.focus().scopeRoot();
+  buttons.child_at(1).onClicked();
+  ASSERT_TRUE(app.refresh());
+  EXPECT_NE(task.focus().scopeRoot(), scope);
+  Golden(device.raster(), "wifi_security_menu");
+  ASSERT_TRUE(task.focus().moveFocus(*task.focus().scopeRoot(), false));
+  auto* entry = dynamic_cast<MenuEntry*>(task.focus().focused());
+  ASSERT_NE(entry, nullptr);
+  EXPECT_EQ(entry->menuItem()->headlineText(), "Open");
+  static_cast<Widget*>(entry)->onClicked();
+  ASSERT_TRUE(app.refresh());
+  EXPECT_EQ(editor.form().choice(WifiConfigForm::kSecurity),
+            static_cast<int>(roo_wifi::AuthMode::kOpen));
+  EXPECT_TRUE(editor.form().child_at(3).isGone());
+  EXPECT_EQ(task.focus().scopeRoot(), scope);
+  buttons.child_at(0).onClicked();
+  ASSERT_TRUE(app.refresh());
+  EXPECT_NE(task.focus().scopeRoot(), scope);
+  task.requestBack();
+  EXPECT_EQ(task.focus().scopeRoot(), scope);
+  EXPECT_TRUE(task.navigation().isCurrent(editor));
+  editor.form().setAdvanced(true);
+  ASSERT_TRUE(app.refresh());
+  auto& scroll = static_cast<SimpleScrollablePanel&>(
+      *editor.form().parent()->parent()->parent());
+  scroll.scrollTo(0, -Scaled(170));
+  ASSERT_TRUE(app.refresh());
+  Golden(device.raster(), "wifi_advanced_options");
+  task.navigation().clear();
 }
 
 // Verifies the retained destination graph renders and completes save/connect/

@@ -4,8 +4,11 @@
 #include <cstring>
 
 #include "roo_windows/material3/button/button.h"
+#include "roo_windows/material3/button/navigation.h"
 #include "roo_windows/material3/list/list.h"
+#include "roo_windows/material3/menu/menu.h"
 #include "roo_windows/material3/text_field/secure_text_field.h"
+#include "roo_windows_wifi/material3/internal/borrowed_layout.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
 
 namespace roo_windows_wifi::material3 {
@@ -50,7 +53,7 @@ class ObservedField : public Base {
  public:
   ObservedField(ApplicationContext& context, const char* label,
                 std::function<void()>& changed)
-      : Base(context, label, TextFieldVariant::kOutlined), changed_(changed) {}
+      : Base(context, label, TextFieldVariant::kFilled), changed_(changed) {}
 
   PreferredSize getPreferredSize() const override {
     return {PreferredSize::MatchParentWidth(),
@@ -59,6 +62,7 @@ class ObservedField : public Base {
 
  protected:
   void onTextChanged() override {
+    this->clearError();
     if (changed_ != nullptr) changed_();
   }
 
@@ -66,15 +70,53 @@ class ObservedField : public Base {
   std::function<void()>& changed_;
 };
 
-constexpr const char* kLabels[] = {"Network name",
+// Menu entries commit the selected authentication mode directly to the draft.
+class SecurityItem : public StandardMenuItem {
+ public:
+  SecurityItem(WifiConfigForm& form, int mode)
+      : StandardMenuItem(
+            {WifiSecurityText(static_cast<roo_wifi::AuthMode>(mode)),
+             {},
+             nullptr,
+             StandardMenuItemFlags::kSelectable}),
+        form_(form),
+        mode_(mode) {}
+  void onInvoked() override {
+    form_.setChoice(WifiConfigForm::kSecurity, mode_);
+  }
+
+ private:
+  WifiConfigForm& form_;
+  int mode_;
+};
+
+class AdvancedItem : public InvokableListItemBase {
+ public:
+  explicit AdvancedItem(ApplicationContext& context)
+      : InvokableListItemBase("Advanced options", {}, {}, {}, true),
+        toggle_(NavigationButtonExpandMore(context)) {
+    toggle_.setOnInteractiveChange([this]() { invoke(); });
+  }
+  Widget* trailing() override { return &toggle_; }
+  const Widget* trailing() const override { return &toggle_; }
+  void setExpanded(ApplicationContext& context, bool expanded) {
+    toggle_.setIcon(expanded ? NavigationButtonExpandLess(context).icon()
+                             : NavigationButtonExpandMore(context).icon());
+  }
+
+ private:
+  NavigationButton toggle_;
+};
+
+constexpr const char* kLabels[] = {"Network name*",
                                    "Password",
-                                   "IP address",
-                                   "Prefix length",
-                                   "Gateway",
-                                   "Primary DNS",
+                                   "IP address*",
+                                   "Prefix length*",
+                                   "Gateway*",
+                                   "Primary DNS*",
                                    "Secondary DNS (optional)",
-                                   "Proxy host",
-                                   "Proxy port",
+                                   "Proxy host*",
+                                   "Proxy port*",
                                    "Bypass list"};
 constexpr const char* kChoices[] = {"Security", "Privacy", "Metered",
                                     "IP settings", "Proxy"};
@@ -144,10 +186,14 @@ class WifiConfigForm::Impl {
         policies_(policies),
         hidden_(context, "Hidden network"),
         automatic_(context, "Auto-connect"),
-        advanced_(context, "Advanced options", ButtonVariant::kText),
-        security_(context, "Connection"),
-        switches_(context, "Network options"),
-        options_(context, "Advanced options") {
+        advanced_(context, context),
+        security_caption_(context, "Security", text_style_title_small()),
+        security_button_(context, "", ButtonVariant::kFilledTonal),
+        security_down_(NavigationButtonExpandMore(context)),
+        security_(context),
+        security_group_(context),
+        security_menu_(context),
+        options_(context) {
     for (int i = 0; i < kFieldCount; ++i) {
       if (i == kPassword) {
         fields_[i] = std::make_unique<ObservedField<SecureTextField>>(
@@ -157,7 +203,11 @@ class WifiConfigForm::Impl {
             context, kLabels[i], changed_);
       }
     }
-    for (int i = 0; i < kChoiceCount; ++i) {
+    for (int i = 0; i < kFieldCount; ++i) {
+      if (i != kDns2 && i != kProxyBypass)
+        fields_[i]->setSupportingText("* required");
+    }
+    for (int i = kPrivacy; i < kChoiceCount; ++i) {
       choices_[i] = std::make_unique<ListRow<InvokableListItemBase>>(
           context, kChoices[i]);
       choices_[i]->item().setOnInvoked([this, i]() {
@@ -165,26 +215,47 @@ class WifiConfigForm::Impl {
       });
     }
     form_.add(*fields_[kSsid]);
-    security_.list().add(*choices_[kSecurity]);
+    form_.add(security_caption_);
+    security_.setFlexDirection(FlexDirection::kRow);
+    security_.add(security_button_, {.flex_grow = 1});
+    security_.add(security_down_);
+    security_down_.setStyle(IconButtonStyle::kFilledTonal);
     form_.add(security_);
     form_.add(*fields_[kPassword]);
-    switches_.list().add(hidden_);
-    switches_.list().add(automatic_);
-    form_.add(switches_);
-    form_.add(advanced_);
+    options_.add(advanced_);
+    options_.add(hidden_);
+    options_.add(automatic_);
     for (int i = kPrivacy; i < kChoiceCount; ++i) {
-      options_.list().add(*choices_[i]);
+      options_.add(*choices_[i]);
     }
     form_.add(options_);
     for (int i = kAddress; i < kFieldCount; ++i) form_.add(*fields_[i]);
+    for (int i = 1; i <= 7; ++i) {
+      if (!WifiCanProvision(static_cast<roo_wifi::AuthMode>(i), support_))
+        continue;
+      security_rows_[i] =
+          std::make_unique<MenuRow<SecurityItem>>(context, form_, i);
+      security_group_.add(*security_rows_[i]);
+    }
+    MenuPolicy policy;
+    policy.selection_mode = SelectionMode::kSingle;
+    security_menu_.setPolicy(policy);
+    security_menu_.addGroup(security_group_);
+    security_button_.setOnInteractiveChange([this]() { showSecurity(); });
+    security_down_.setOnInteractiveChange([this]() { showSecurity(); });
     hidden_.item().setOnInvoked([this]() {
       if (changed_ != nullptr) changed_();
     });
     automatic_.item().setOnInvoked([this]() {
       if (changed_ != nullptr) changed_();
     });
-    advanced_.setOnInteractiveChange(
+    advanced_.item().setOnInvoked(
         [this]() { this->form_.setAdvanced(!expanded_); });
+  }
+
+  void showSecurity() {
+    Task* task = form_.getTask();
+    if (task != nullptr) security_menu_.show(*task, security_);
   }
 
   void sync() {
@@ -193,9 +264,10 @@ class WifiConfigForm::Impl {
         values_[kSecurity] == static_cast<int>(roo_wifi::AuthMode::kOpen)
             ? V::kGone
             : V::kVisible);
-    hidden_.setVisibility(support_.hidden_networks || hidden_.item().isOn()
-                              ? V::kVisible
-                              : V::kGone);
+    hidden_.setVisibility(
+        expanded_ && (support_.hidden_networks || hidden_.item().isOn())
+            ? V::kVisible
+            : V::kGone);
     for (int i = kPrivacy; i < kChoiceCount; ++i) {
       bool supported = i == kPrivacy ? support_.randomized_mac
                        : i == kIp
@@ -206,13 +278,15 @@ class WifiConfigForm::Impl {
       choices_[i]->setVisibility(
           expanded_ && (supported || values_[i] != 0) ? V::kVisible : V::kGone);
     }
-    options_.setVisibility(expanded_ ? V::kVisible : V::kGone);
+    automatic_.setVisibility(expanded_ ? V::kVisible : V::kGone);
+    advanced_.item().setExpanded(form_.context(), expanded_);
+    advanced_.refreshFromItem();
     for (int i = kAddress; i < kFieldCount; ++i) {
       bool visible = expanded_ && (i < kProxyHost ? values_[kIp] != 0
                                                   : values_[kProxy] != 0);
       fields_[i]->setVisibility(visible ? V::kVisible : V::kGone);
     }
-    choices_[kSecurity]->item().setSupportingText(
+    security_button_.setLabel(
         WifiSecurityText(static_cast<roo_wifi::AuthMode>(values_[kSecurity])));
     choices_[kPrivacy]->item().setSupportingText(
         values_[kPrivacy] != 0 ? "Randomized MAC" : "Device MAC");
@@ -224,10 +298,19 @@ class WifiConfigForm::Impl {
                                                  : values_[kMetered] == 1
                                                      ? "Metered"
                                                      : "Unmetered");
-    for (const std::unique_ptr<ListRow<InvokableListItemBase>>& row :
-         choices_) {
-      row->refreshFromItem();
+    for (int i = kPrivacy; i < kChoiceCount; ++i)
+      choices_[i]->refreshFromItem();
+    for (int i = 1; i <= 7; ++i) {
+      if (security_rows_[i] != nullptr) {
+        security_rows_[i]->item().setSelected(i == values_[kSecurity]);
+      }
     }
+    bool password_required =
+        !keep_ || values_[kSecurity] != static_cast<int>(original_security_);
+    fields_[kPassword]->setLabel(password_required ? "Password*" : "Password");
+    fields_[kPassword]->setSupportingText(
+        password_required ? "* required"
+                          : "Leave blank to keep saved credentials");
     form_.requestLayout();
   }
 
@@ -241,10 +324,15 @@ class WifiConfigForm::Impl {
   std::unique_ptr<ListRow<InvokableListItemBase>> choices_[kChoiceCount];
   ListRow<SwitchListItem> hidden_;
   ListRow<SwitchListItem> automatic_;
-  Button advanced_;
-  internal::CaptionedSegmentedList security_;
-  internal::CaptionedSegmentedList switches_;
-  internal::CaptionedSegmentedList options_;
+  ListRow<AdvancedItem> advanced_;
+  StringViewLabel security_caption_;
+  Button security_button_;
+  NavigationButton security_down_;
+  internal::FlexColumn security_;
+  std::unique_ptr<MenuRow<SecurityItem>> security_rows_[8];
+  MenuGroup security_group_;
+  Menu security_menu_;
+  internal::SegmentedList options_;
   int values_[kChoiceCount] = {};
   bool expanded_ = false;
   bool keep_ = false;
@@ -435,6 +523,7 @@ roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
 
 void WifiConfigForm::requireCredentialReplacement() {
   impl_->keep_ = false;
+  impl_->fields_[kPassword]->setLabel("Password*");
   impl_->fields_[kPassword]->setSupportingText(
       "Enter credentials to replace the incomplete profile");
 }
@@ -501,8 +590,10 @@ void WifiConfigForm::setEditingEnabled(bool enabled) {
   }
   for (const std::unique_ptr<ListRow<InvokableListItemBase>>& row :
        impl_->choices_) {
-    row->setEnabled(enabled);
+    if (row != nullptr) row->setEnabled(enabled);
   }
+  impl_->security_button_.setEnabled(enabled);
+  impl_->security_down_.setEnabled(enabled);
   impl_->hidden_.setEnabled(enabled);
   impl_->automatic_.setEnabled(enabled);
 }

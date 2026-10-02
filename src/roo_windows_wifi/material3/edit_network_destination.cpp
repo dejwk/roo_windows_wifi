@@ -115,7 +115,13 @@ class WifiEditNetworkDestination::Impl {
     body_.setPadding(PaddingSize::k8dp);
     save_.setOnInteractiveChange([this]() { this->owner_.save(); });
     connect_.setOnInteractiveChange([this]() { this->owner_.connect(); });
-    form_.setOnChanged([this]() { this->owner_.updateActions(); });
+    form_.setOnChanged([this]() {
+      if (last_status_ == roo_wifi::Status::kInvalidArgument &&
+          load_status_ == roo_wifi::Status::kOk) {
+        report(roo_wifi::Status::kOk, "");
+      }
+      this->owner_.updateActions();
+    });
     form_.setOnChoose([this](WifiConfigForm::Choice setting) {
       NavigationHost* host = this->owner_.getNavigationHost();
       if (host == nullptr || choice_.getNavigationHost() != nullptr) return;
@@ -298,14 +304,9 @@ void WifiEditNetworkDestination::onStationStateChanged() {
 }
 
 void WifiEditNetworkDestination::updateActions() {
-  roo_wifi::ProfileSettings settings;
-  roo_wifi::CredentialUpdate credential;
-  NetworkPolicy policy;
-  bool valid =
-      impl_->load_status_ == roo_wifi::Status::kOk &&
-      form().build(settings, credential, policy, true) == roo_wifi::Status::kOk;
-  impl_->save_.setEnabled(valid);
-  impl_->connect_.setEnabled(valid && controller_.isEnabled() &&
+  bool editable = impl_->load_status_ == roo_wifi::Status::kOk;
+  impl_->save_.setEnabled(editable);
+  impl_->connect_.setEnabled(editable && controller_.isEnabled() &&
                              controller_.state().desired !=
                                  roo_wifi::Controller::Target::kDisabled);
   form().setEditingEnabled(impl_->load_status_ == roo_wifi::Status::kOk);

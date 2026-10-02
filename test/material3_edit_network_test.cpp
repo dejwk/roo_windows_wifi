@@ -1,6 +1,7 @@
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
 #include "roo_windows/core/environment.h"
+#include "roo_windows/material3/text_field/text_field.h"
 #include "roo_windows_wifi/material3/edit_network_destination.h"
 
 namespace roo_windows_wifi::material3 {
@@ -54,6 +55,31 @@ class EditorTest : public testing::Test {
     editor.setPassword("password");
   }
 };
+
+// Verifies errors appear only after submission and clear on the next edit,
+// even when the edited credential remains invalid.
+TEST_F(EditorTest, ValidationWaitsForSubmitAndClearsOnTyping) {
+  WifiEditNetworkDestination editor(context, controller);
+  auto& ssid = static_cast<roo_windows::material3::TextField&>(
+      editor.form().child_at(0));
+  auto& password = static_cast<roo_windows::material3::TextField&>(
+      editor.form().child_at(3));
+  EXPECT_FALSE(ssid.hasError());
+  EXPECT_FALSE(password.hasError());
+  EXPECT_EQ(editor.save(), roo_wifi::Status::kInvalidArgument);
+  EXPECT_TRUE(ssid.hasError());
+  editor.setSsid("Network");
+  EXPECT_FALSE(ssid.hasError());
+  EXPECT_FALSE(password.hasError());
+  EXPECT_TRUE(editor.feedback().empty());
+  EXPECT_EQ(editor.save(), roo_wifi::Status::kInvalidArgument);
+  EXPECT_TRUE(password.hasError());
+  editor.setPassword("x");
+  EXPECT_FALSE(password.hasError());
+  EXPECT_TRUE(editor.feedback().empty());
+  EXPECT_EQ(editor.save(), roo_wifi::Status::kInvalidArgument);
+  EXPECT_TRUE(password.hasError());
+}
 
 // Verifies offline Save updates the one configuration for an SSID.
 TEST_F(EditorTest, SavesOfflineAndUpdatesSameSsid) {

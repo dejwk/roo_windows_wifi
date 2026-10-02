@@ -42,11 +42,11 @@ TEST_F(FormTest, AdvancedOptionsFillWidthAndGroupVisibleRows) {
     int lists = 0;
     Widget& form_widget = form;
     for (int i = 0; i < form_widget.focusChildCount(); ++i) {
-      auto* group = dynamic_cast<internal::CaptionedSegmentedList*>(
-          form_widget.focusChildAt(i));
+      auto* group =
+          dynamic_cast<internal::SegmentedList*>(form_widget.focusChildAt(i));
       if (group == nullptr || group->isGone()) continue;
       ++lists;
-      List& list = group->list();
+      List& list = *group;
       EXPECT_EQ(list.width(), width);
       std::vector<ListEntry*> visible;
       Widget& list_widget = list;
@@ -69,8 +69,45 @@ TEST_F(FormTest, AdvancedOptionsFillWidthAndGroupVisibleRows) {
                   Scaled(2));
       }
     }
-    EXPECT_EQ(lists, 3);
+    EXPECT_EQ(lists, 1);
   }
+}
+
+// Verifies the collapsed list retains its header and hides both switches.
+TEST_F(FormTest, AdvancedHeaderTogglesSwitches) {
+  using namespace roo_windows;
+  using namespace roo_windows::material3;
+  auto& list = static_cast<internal::SegmentedList&>(form.child_at(4));
+  Widget& entries = list;
+  ASSERT_FALSE(form.advanced());
+  EXPECT_TRUE(entries.focusChildAt(1)->isGone());
+  EXPECT_TRUE(entries.focusChildAt(2)->isGone());
+  auto& header = static_cast<ListEntry&>(*entries.focusChildAt(0));
+  header.item()->invoke();
+  EXPECT_TRUE(form.advanced());
+  EXPECT_FALSE(entries.focusChildAt(1)->isGone());
+  EXPECT_FALSE(entries.focusChildAt(2)->isGone());
+  header.item()->invoke();
+  EXPECT_FALSE(form.advanced());
+}
+
+// Verifies required fields use filled controls and saved passwords are
+// optional.
+TEST_F(FormTest, FilledFieldsIndicateRequiredValues) {
+  using namespace roo_windows::material3;
+  auto& ssid = static_cast<TextField&>(form.child_at(0));
+  auto& password = static_cast<TextField&>(form.child_at(3));
+  EXPECT_EQ(ssid.variant(), TextFieldVariant::kFilled);
+  EXPECT_EQ(ssid.label(), "Network name*");
+  EXPECT_EQ(ssid.supportingText(), "* required");
+  EXPECT_EQ(password.variant(), TextFieldVariant::kFilled);
+  EXPECT_EQ(password.label(), "Password*");
+  EXPECT_EQ(password.supportingText(), "* required");
+  form.load(settings, true);
+  EXPECT_EQ(password.label(), "Password");
+  form.setChoice(WifiConfigForm::kSecurity,
+                 static_cast<int>(roo_wifi::AuthMode::kWep));
+  EXPECT_EQ(password.label(), "Password*");
 }
 
 // Verifies original byte lengths are rejected without silently changing SSIDs.
@@ -140,8 +177,8 @@ TEST_F(FormTest, ClearsFieldErrorAfterCorrection) {
       static_cast<roo_windows::material3::TextField&>(form.child_at(0));
   EXPECT_TRUE(ssid.hasError());
   form.setText(WifiConfigForm::kSsid, "Corrected");
-  EXPECT_EQ(build(), roo_wifi::Status::kOk);
   EXPECT_FALSE(ssid.hasError());
+  EXPECT_EQ(build(), roo_wifi::Status::kOk);
 }
 
 class Policy : public NetworkPolicyProvider {
