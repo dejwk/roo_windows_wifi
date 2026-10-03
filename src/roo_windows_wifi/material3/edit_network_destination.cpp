@@ -85,6 +85,23 @@ class ChoiceDestination : public Destination {
   LayoutScaffold scaffold_;
 };
 
+// Full-width action row that keeps the editor actions together at the trailing
+// edge, like dialog actions.
+class ActionRow : public FlexLayout {
+ public:
+  explicit ActionRow(ApplicationContext& context)
+      : FlexLayout(context, FlexDirection::kRow) {
+    setJustifyContent(JustifyContent::kFlexEnd);
+    setAlignItems(AlignItems::kCenter);
+    setColumnGap(Scaled(8));
+  }
+
+  PreferredSize getPreferredSize() const override {
+    return {PreferredSize::MatchParentWidth(),
+            PreferredSize::WrapContentHeight()};
+  }
+};
+
 }  // namespace
 
 class WifiEditNetworkDestination::Impl {
@@ -100,21 +117,23 @@ class WifiEditNetworkDestination::Impl {
         form_(context, controller.support(), policies_),
         choice_(context, form_),
         message_(context, "", text_style_body_medium()),
+        cancel_(context, "Cancel", ButtonVariant::kOutlined),
         save_(context, "Save"),
-        connect_(context, "Save and connect"),
+        actions_(context),
         body_(context, Scaled(8)),
         scroll_(context, body_),
         scaffold_(context) {
     bar_.setLeading(back_);
     body_.add(form_);
     body_.add(message_);
-    body_.add(save_);
-    body_.add(connect_);
+    actions_.add(cancel_);
+    actions_.add(save_);
+    body_.add(actions_);
     scaffold_.setTopBar(bar_);
     scaffold_.setBody(scroll_);
     body_.setPadding(PaddingSize::k8dp);
-    save_.setOnInteractiveChange([this]() { this->owner_.save(); });
-    connect_.setOnInteractiveChange([this]() { this->owner_.connect(); });
+    cancel_.setOnInteractiveChange([this]() { this->owner_.exit(); });
+    save_.setOnInteractiveChange([this]() { this->owner_.connect(); });
     form_.setOnChanged([this]() {
       if (last_status_ == roo_wifi::Status::kInvalidArgument &&
           load_status_ == roo_wifi::Status::kOk) {
@@ -149,8 +168,9 @@ class WifiEditNetworkDestination::Impl {
   WifiConfigForm form_;
   ChoiceDestination choice_;
   TextBlock message_;
+  Button cancel_;
   Button save_;
-  Button connect_;
+  ActionRow actions_;
   internal::FlexColumn body_;
   ScrollableBlitPanel scroll_;
   LayoutScaffold scaffold_;
@@ -305,10 +325,9 @@ void WifiEditNetworkDestination::onStationStateChanged() {
 
 void WifiEditNetworkDestination::updateActions() {
   bool editable = impl_->load_status_ == roo_wifi::Status::kOk;
-  impl_->save_.setEnabled(editable);
-  impl_->connect_.setEnabled(editable && controller_.isEnabled() &&
-                             controller_.state().desired !=
-                                 roo_wifi::Controller::Target::kDisabled);
+  impl_->save_.setEnabled(editable && controller_.isEnabled() &&
+                          controller_.state().desired !=
+                              roo_wifi::Controller::Target::kDisabled);
   form().setEditingEnabled(impl_->load_status_ == roo_wifi::Status::kOk);
 }
 

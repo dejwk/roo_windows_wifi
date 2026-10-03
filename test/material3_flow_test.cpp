@@ -324,6 +324,75 @@ roo_windows::material3::Button* FindButton(roo_windows::Widget& widget) {
   return nullptr;
 }
 
+roo_windows::material3::Button* FindButtonWithLabel(roo_windows::Widget& widget,
+                                                    roo::string_view label) {
+  if (auto* button = dynamic_cast<roo_windows::material3::Button*>(&widget)) {
+    if (button->isVisible() && button->label() == label) return button;
+  }
+  for (int i = 0; i < widget.focusChildCount(); ++i) {
+    if (auto* button = FindButtonWithLabel(*widget.focusChildAt(i), label)) {
+      return button;
+    }
+  }
+  return nullptr;
+}
+
+// Verifies Add network offers an outlined Cancel action and a filled Save
+// action that persists credentials before requesting connection.
+TEST(WifiFlow, AddNetworkActionsCancelOrSaveAndConnect) {
+  roo_scheduler::SchedulingService scheduler;
+  roo_wifi::TestStation station;
+  roo_wifi::OrderedInterface radio(station);
+  roo_wifi::MemoryStore store;
+  store.enabled = true;
+  roo_wifi::Controller controller(radio, store, scheduler);
+  ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo::byte pixels[320 * 240 * 2] = {};
+  CountingDisplay device(pixels);
+  roo_display::Display display(device);
+  roo_windows::Environment environment(scheduler);
+  roo_windows::Application app(&environment, display);
+  WifiSettingsFlow flow(app.context(), controller);
+  auto& navigation = app.addTaskFullScreen().navigation();
+  navigation.push(flow.main());
+  flow.editDestination().beginAdd();
+  navigation.push(flow.editDestination());
+  ASSERT_TRUE(app.refresh());
+
+  auto* cancel =
+      FindButtonWithLabel(flow.editDestination().getContents(), "Cancel");
+  auto* save =
+      FindButtonWithLabel(flow.editDestination().getContents(), "Save");
+  ASSERT_NE(cancel, nullptr);
+  ASSERT_NE(save, nullptr);
+  EXPECT_EQ(cancel->variant(),
+            roo_windows::material3::ButtonVariant::kOutlined);
+  EXPECT_EQ(save->variant(), roo_windows::material3::ButtonVariant::kFilled);
+  EXPECT_EQ(cancel->offsetTop(), save->offsetTop());
+  EXPECT_LT(cancel->offsetLeft(), save->offsetLeft());
+  EXPECT_EQ(save->parent()->width(), flow.editDestination().form().width());
+  cancel->onClicked();
+  EXPECT_TRUE(navigation.isCurrent(flow.main()));
+
+  flow.editDestination().beginAdd();
+  flow.editDestination().setSsid("Network");
+  flow.editDestination().setPassword("password");
+  navigation.push(flow.editDestination());
+  ASSERT_TRUE(app.refresh());
+  save = FindButtonWithLabel(flow.editDestination().getContents(), "Save");
+  ASSERT_NE(save, nullptr);
+  save->onClicked();
+  roo_wifi::Pump(scheduler);
+  EXPECT_EQ(station.last_config.ssid, roo_wifi::TestConfig("Network").ssid);
+  roo_wifi::Profile profile;
+  EXPECT_EQ(
+      controller.loadProfile(roo_wifi::TestConfig("Network").ssid, profile),
+      roo_wifi::Status::kOk);
+  EXPECT_TRUE(profile.has_credentials);
+  navigation.clear();
+}
+
 // Verifies a connection update hiding the pressed button cannot restart a
 // hidden animation on release or block a disconnect click while awaiting IP.
 TEST(WifiFlow, ConnectionChangeDuringPressDoesNotBlockInput) {
