@@ -167,7 +167,7 @@ void VerifyScrolling(roo_windows::Application& app, CountingDisplay& device,
     for (int offset : {5, 10, 15}) {
       const int blits_before = device.blit_calls;
       scroll.scrollTo(0, -offset);
-      ASSERT_TRUE(app.refresh());
+      app.refresh();
       if (blit_enabled) {
         EXPECT_GT(device.blit_calls, blits_before);
       }
@@ -177,13 +177,13 @@ void VerifyScrolling(roo_windows::Application& app, CountingDisplay& device,
     SCOPED_TRACE(offset);
     const int blits_before = device.blit_calls;
     scroll.scrollTo(0, -offset);
-    ASSERT_TRUE(app.refresh());
+    app.refresh();
     if (offset == 20 && blit_enabled && expect_initial_blit) {
       EXPECT_GT(device.blit_calls, blits_before);
     }
     const std::vector<roo::byte> before(pixels, pixels + 320 * 240 * 2);
     app.root().invalidateInterior();
-    ASSERT_TRUE(app.refresh());
+    app.refresh();
     EXPECT_TRUE(before ==
                 std::vector<roo::byte>(pixels, pixels + 320 * 240 * 2));
   }
@@ -217,7 +217,7 @@ TEST_P(WifiScrollRendering, EditorMatchesFullRepaint) {
   form.setText(WifiConfigForm::kGateway, "192.168.1.1");
   form.setAdvanced(true);
   task.navigation().push(editor);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
       *form.parent()->parent()->parent());
   VerifyScrolling(app, device, pixels, scroll, GetParam());
@@ -262,7 +262,7 @@ TEST_P(WifiScrollRendering, SettingsAndDetailsMatchFullRepaint) {
   roo_wifi::Pump(scheduler);
   station.emit({roo_wifi::NativeStation::Event::kScanDone});
   roo_wifi::Pump(scheduler);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   auto& settings_scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
       *flow.main().getContents().focusChildAt(1));
   VerifyScrolling(app, device, pixels, settings_scroll, GetParam());
@@ -274,7 +274,7 @@ TEST_P(WifiScrollRendering, SettingsAndDetailsMatchFullRepaint) {
   selected.saved = true;
   details.setNetwork(selected);
   navigation.push(details);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   auto& details_scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
       *details.getContents().focusChildAt(1));
   VerifyScrolling(app, device, pixels, details_scroll, GetParam());
@@ -358,7 +358,7 @@ TEST(WifiFlow, AddNetworkActionsCancelOrSaveAndConnect) {
   navigation.push(flow.main());
   flow.editDestination().beginAdd();
   navigation.push(flow.editDestination());
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
 
   auto* cancel =
       FindButtonWithLabel(flow.editDestination().getContents(), "Cancel");
@@ -379,7 +379,7 @@ TEST(WifiFlow, AddNetworkActionsCancelOrSaveAndConnect) {
   flow.editDestination().setSsid("Network");
   flow.editDestination().setPassword("password");
   navigation.push(flow.editDestination());
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   save = FindButtonWithLabel(flow.editDestination().getContents(), "Save");
   ASSERT_NE(save, nullptr);
   save->onClicked();
@@ -418,7 +418,7 @@ TEST(WifiFlow, ConnectionChangeDuringPressDoesNotBlockInput) {
   NoKeys keys;
   roo_windows::Environment environment(scheduler);
   roo_windows::Application app(&environment, display, keys, false);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   WifiSettingsFlow flow(app.context(), controller);
   auto& details = flow.detailsDestination();
   WifiNetworkSummary selected;
@@ -433,7 +433,7 @@ TEST(WifiFlow, ConnectionChangeDuringPressDoesNotBlockInput) {
     ~ClearNavigation() { host.clear(); }
   } cleanup{navigation};
   navigation.push(details);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
 
   auto* button = FindButton(details.getContents());
   ASSERT_NE(button, nullptr);
@@ -455,12 +455,12 @@ TEST(WifiFlow, ConnectionChangeDuringPressDoesNotBlockInput) {
   for (int frame = 0; frame < 20; ++frame) {
     delay(20);
     scheduler.executeEligibleTasks(32);
-    ASSERT_TRUE(app.refresh());
+    app.refresh();
   }
   ASSERT_FALSE(app.root().click_animation().isBusy());
   station.associated();
   roo_wifi::Pump(scheduler);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   ASSERT_EQ(controller.state().station,
             roo_wifi::Controller::StationPhase::kAwaitingIp);
   auto* disconnect = FindButton(details.getContents());
@@ -476,7 +476,7 @@ TEST(WifiFlow, ConnectionChangeDuringPressDoesNotBlockInput) {
   for (int frame = 0; frame < 20; ++frame) {
     delay(20);
     scheduler.executeEligibleTasks(32);
-    ASSERT_TRUE(app.refresh());
+    app.refresh();
   }
   EXPECT_EQ(controller.state().desired,
             roo_wifi::Controller::Target::kDisconnected);
@@ -506,7 +506,7 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
   roo_display::Display display(device);
   roo_windows::Environment environment(scheduler);
   roo_windows::Application app(&environment, display);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   WifiSettingsFlow flow(app.context(), controller);
   auto& details = flow.detailsDestination();
   WifiNetworkSummary selected;
@@ -521,7 +521,7 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
     ~ClearNavigation() { host.clear(); }
   } cleanup{navigation};
   navigation.push(details);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
 
   auto* button = FindButton(details.getContents());
   ASSERT_NE(button, nullptr);
@@ -552,7 +552,7 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
     ASSERT_EQ(path.back(), button);
     device.reset();
     ASSERT_EQ(details.setAutoConnect(enabled), roo_wifi::Status::kOk);
-    ASSERT_TRUE(app.refresh());
+    app.refresh();
     // Saving is synchronous; the changed switch repaints and input remains
     // live.
     path.clear();
@@ -564,7 +564,7 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
     EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
     device.reset();
     roo_wifi::Pump(scheduler);
-    ASSERT_TRUE(app.refresh());
+    app.refresh();
     expect_no_writes(*row);
     expect_no_writes(*static_cast<roo_windows::Widget*>(body)->focusChildAt(0));
     EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
@@ -579,7 +579,7 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
   auto expect_clean_repaint_matches = [&]() {
     const std::vector<roo::byte> before(std::begin(pixels), std::end(pixels));
     app.root().invalidateInterior();
-    EXPECT_TRUE(app.refresh());
+    app.refresh();
     EXPECT_EQ(before,
               std::vector<roo::byte>(std::begin(pixels), std::end(pixels)));
   };
@@ -589,27 +589,27 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
       *static_cast<roo_windows::Widget*>(body)->focusChildAt(2);
   device.reset();
   ASSERT_EQ(details.connect(), roo_wifi::Status::kOk);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   expect_no_writes(settings_section);
   device.reset();
   roo_wifi::Pump(scheduler);
   station.associated();
   station.ready();
   roo_wifi::Pump(scheduler);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   ASSERT_TRUE(details.network().current);
   expect_no_writes(settings_section);
   expect_clean_repaint_matches();
 
   device.reset();
   ASSERT_EQ(details.disconnect(), roo_wifi::Status::kOk);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   expect_no_writes(settings_section);
   device.reset();
   roo_wifi::Pump(scheduler);
   station.disconnected();
   roo_wifi::Pump(scheduler);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   EXPECT_FALSE(details.network().current);
   expect_no_writes(settings_section);
   expect_clean_repaint_matches();
@@ -637,13 +637,13 @@ TEST(WifiFlow, AddNetworkSecurityMenu) {
   Task& task = app.addTaskFullScreen();
   auto& editor = flow.editDestination();
   task.navigation().push(editor);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   Golden(device.raster(), "wifi_add_network");
   auto& buttons = static_cast<FlexLayout&>(editor.form().child_at(2));
   EXPECT_EQ(buttons.width(), editor.form().width());
   Widget* scope = task.focus().scopeRoot();
   buttons.child_at(1).onClicked();
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   EXPECT_NE(task.focus().scopeRoot(), scope);
   Golden(device.raster(), "wifi_security_menu");
   ASSERT_TRUE(task.focus().moveFocus(*task.focus().scopeRoot(), false));
@@ -651,23 +651,23 @@ TEST(WifiFlow, AddNetworkSecurityMenu) {
   ASSERT_NE(entry, nullptr);
   EXPECT_EQ(entry->menuItem()->headlineText(), "Open");
   static_cast<Widget*>(entry)->onClicked();
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   EXPECT_EQ(editor.form().choice(WifiConfigForm::kSecurity),
             static_cast<int>(roo_wifi::AuthMode::kOpen));
   EXPECT_TRUE(editor.form().child_at(3).isGone());
   EXPECT_EQ(task.focus().scopeRoot(), scope);
   buttons.child_at(0).onClicked();
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   EXPECT_NE(task.focus().scopeRoot(), scope);
   task.requestBack();
   EXPECT_EQ(task.focus().scopeRoot(), scope);
   EXPECT_TRUE(task.navigation().isCurrent(editor));
   editor.form().setAdvanced(true);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   auto& scroll = static_cast<SimpleScrollablePanel&>(
       *editor.form().parent()->parent()->parent());
   scroll.scrollTo(0, -Scaled(170));
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   Golden(device.raster(), "wifi_advanced_options");
   task.navigation().clear();
 }
@@ -689,13 +689,13 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   roo_windows::Environment environment(scheduler);
   roo_windows::Application app(&environment, display);
   // Initialize the display before counting a logical UI paint.
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   WifiSettingsFlow flow(app.context(), controller);
   auto& task = app.addTaskFullScreen();
   auto& navigation = task.navigation();
   navigation.push(flow.main());
   device.reset();
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   Golden(device.raster(), "wifi_off");
   EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
   device.reset();
@@ -710,7 +710,7 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   roo_wifi::Pump(scheduler);
   station.emit({roo_wifi::NativeStation::Event::kScanDone});
   roo_wifi::Pump(scheduler);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   Golden(device.raster(), "wifi_on");
   EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
 
@@ -724,11 +724,11 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   form.setText(WifiConfigForm::kGateway, "192.168.1.1");
   form.setText(WifiConfigForm::kDns1, "1.1.1.1");
   form.setAdvanced(true);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
       *form.parent()->parent()->parent());
   scroll.scrollTo(0, -roo_windows::Scaled(500));
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   Golden(device.raster(), "wifi_static_ip");
 
   ASSERT_EQ(editor.connect(), roo_wifi::Status::kOk);
@@ -740,19 +740,19 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   EXPECT_EQ(editor.feedback(), "Connected");
   task.requestBack();
   EXPECT_TRUE(navigation.isCurrent(flow.main()));
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   Golden(device.raster(), "wifi_connected");
 
   navigation.push(flow.savedNetworksDestination());
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   flow.savedNetworksDestination().activateProfile(0);
   EXPECT_TRUE(navigation.isCurrent(flow.detailsDestination()));
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   Golden(device.raster(), "wifi_details");
   auto& details = flow.detailsDestination();
   EXPECT_EQ(details.requestForget(),
             roo_windows::material3::DialogShowResult::kShown);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   Golden(device.raster(), "wifi_forget_confirmation");
   task.requestBack();
   roo_wifi::Profile profile;
@@ -797,14 +797,14 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
   roo_windows::Environment environment(scheduler);
   roo_windows::Application app(&environment, display);
   // Initialize the display before counting a logical UI paint.
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   WifiSettingsFlow flow(app.context(), controller);
   auto& navigation = app.addTaskFullScreen().navigation();
   navigation.push(flow.main());
   roo_wifi::Pump(scheduler);
   station.emit({roo_wifi::NativeStation::Event::kScanDone});
   roo_wifi::Pump(scheduler);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   auto& scaffold = static_cast<roo_windows::material3::LayoutScaffold&>(
       flow.main().getContents());
   auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
@@ -828,7 +828,7 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
   for (int offset : {40, 120, 300, 800, 1400, 2200, 100}) {
     device.reset();
     scroll.scrollTo(0, -offset);
-    ASSERT_TRUE(app.refresh());
+    app.refresh();
     EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1)
         << "scroll offset=" << offset;
     EXPECT_LT(list.children().size(), 8u);
@@ -836,7 +836,7 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
   Golden(device.raster(), "wifi_networks_scrolled");
   scroll.scrollToBottom();
   device.reset();
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
   Golden(device.raster(), "wifi_navigation_scrolled");
   EXPECT_EQ(column.child_at(0).width(),

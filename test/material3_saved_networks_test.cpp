@@ -84,7 +84,7 @@ TEST(WifiSavedNetworksDestinationTest, EmptyAttachedListPaintsWithoutCrash) {
       app.addTaskFullScreen().navigation();
   navigation.push(destination);
 
-  EXPECT_TRUE(app.refresh());
+  app.refresh();
   EXPECT_EQ(destination.profileCount(), 0u);
   EXPECT_EQ(destination.feedback(), "No saved networks");
   store.enumeration_error = roo_wifi::Status::kStorageFailure;

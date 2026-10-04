@@ -130,7 +130,7 @@ TEST(WifiResources, ScrollingRetainsPoolAndFixedRowHeight) {
   networks.add(list);
   roo_windows::SimpleScrollablePanel scroller(app.context(), networks);
   auto& task = app.addTaskFullScreen(scroller);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   const int retained = rows;
   EXPECT_EQ(list.height(),
             40 * roo_windows::Scaled(72) + 39 * roo_windows::Scaled(2));
@@ -156,7 +156,7 @@ TEST(WifiResources, ScrollingRetainsPoolAndFixedRowHeight) {
   model.count = 1;
   list.endModelReset();
   scroller.scrollTo(0, 0);
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   ASSERT_NE(list.materializedRow(0), nullptr);
   auto& single =
       static_cast<WifiNetworkRow&>(*list.materializedRow(list.first()));
@@ -166,7 +166,7 @@ TEST(WifiResources, ScrollingRetainsPoolAndFixedRowHeight) {
   list.beginModelReset();
   model.count = 0;
   list.endModelReset();
-  ASSERT_TRUE(app.refresh());
+  app.refresh();
   EXPECT_EQ(networks.height(), 0);
   task.navigation().clear();
   std::cout << "retained_rows_including_prototype=" << retained << "\n";

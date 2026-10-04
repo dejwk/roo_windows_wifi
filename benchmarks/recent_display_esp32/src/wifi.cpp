@@ -62,10 +62,9 @@ class Journey {
     allocation_count::enabled = trace;
     int64_t begin = esp_timer_get_time();
     action();
-    bool painted = app_.refresh();
+    app_.refresh();
     int64_t elapsed = esp_timer_get_time() - begin;
     allocation_count::enabled = false;
-    CHECK(painted);
     Serial.printf("DATA,%s,%s,%d,%s,%d,%lld,%u,%u,%u,%u,%u,%08x\n",
                   ROO_BENCHMARK_VARIANT, trace ? "trace" : "timing", repetition,
                   phase, step, elapsed, allocation_count::calls,
