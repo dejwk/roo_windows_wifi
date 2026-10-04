@@ -1,0 +1,158 @@
+--- a/probe.cpp
++++ b/probe.cpp
+@@ -22,0 +23,70 @@
++namespace heap_trace {
++// Capture one untimed C++ allocation/free trace. Timing disables recording;
++// replay uses malloc/free directly, without compiler work or child
++// constructors.
++constexpr size_t kSlots = 64;
++constexpr size_t kEvents = 512;
++struct Event {
++  size_t size;
++  uint16_t slot;
++};
++Event events[kEvents];
++void* slots[kSlots]{};
++size_t length = 0;
++size_t allocations = 0;
++size_t boundary_closures = 0;
++bool enabled = false;
++TaskHandle_t task = nullptr;
++
++void Record(void* ptr, size_t size) {
++  if (!enabled || xTaskGetCurrentTaskHandle() != task) return;
++  size_t slot = 0;
++  if (size != 0) {
++    while (slot < kSlots && slots[slot] != nullptr) ++slot;
++    ++allocations;
++  } else {
++    while (slot < kSlots && slots[slot] != ptr) ++slot;
++    if (slot == kSlots) return;  // Storage predating the capture.
++  }
++  if (slot == kSlots || length == kEvents) std::abort();
++  slots[slot] = size != 0 ? ptr : nullptr;
++  events[length++] = {size, static_cast<uint16_t>(slot)};
++}
++
++void Start() {
++  length = 0;
++  allocations = 0;
++  boundary_closures = 0;
++  std::fill_n(slots, kSlots, nullptr);
++  task = xTaskGetCurrentTaskHandle();
++  enabled = true;
++}
++
++void Stop() {
++  enabled = false;
++  // A few paint objects survive a frame. End their *replay* lifetimes here;
++  // the real objects remain owned by the UI. Report this approximation.
++  for (size_t i = 0; i < kSlots; ++i) {
++    if (slots[i] == nullptr) continue;
++    if (length == kEvents) std::abort();
++    events[length++] = {0, static_cast<uint16_t>(i)};
++    slots[i] = nullptr;
++    ++boundary_closures;
++  }
++}
++
++// Replays sizes and lifetimes in order, also offering a loop-overhead control.
++__attribute__((noinline)) void Replay(bool allocate) {
++  for (size_t i = 0; i < length; ++i) {
++    const Event& event = events[i];
++    if (event.size != 0) {
++      slots[event.slot] = allocate ? std::malloc(event.size) : nullptr;
++      if (allocate && slots[event.slot] == nullptr) std::abort();
++    } else {
++      if (allocate) std::free(slots[event.slot]);
++      slots[event.slot] = nullptr;
++    }
++  }
++}
++}  // namespace heap_trace
++
+@@ -34,0 +105 @@
++  heap_trace::Record(result, size);
+@@ -49,0 +121 @@
++  if (ptr != nullptr) heap_trace::Record(ptr, 0);
+@@ -65,0 +138,2 @@
++extern "C" void RooBenchmarkWorkspaceStats(uint32_t* counts);
++
+@@ -77 +150,0 @@
+-  /// Creates an output with the example display dimensions and capabilities.
+@@ -82 +154,0 @@
+-  /// Starts a frame, enabling pixel verification only in untimed passes.
+@@ -185 +256,0 @@
+-  /// Borrows the retained application, display sink, flow, and navigation task.
+@@ -190 +260,0 @@
+-  /// Measures one semantic action and its complete synchronous repaint.
+@@ -197,0 +268,4 @@
++    bool replay = trace && repetition == 1 && step == 12 &&
++                  (std::strcmp(phase, "menu_down") == 0 ||
++                   std::strcmp(phase, "editor_down") == 0);
++    if (replay) heap_trace::Start();
+@@ -203,0 +278,23 @@
++    if (replay) {
++      heap_trace::Stop();
++      constexpr int count = 128;
++      uint32_t samples[count];
++      uint32_t controls[count];
++      for (int i = 0; i < count; ++i) {
++        int64_t started = esp_timer_get_time();
++        heap_trace::Replay(true);
++        samples[i] = esp_timer_get_time() - started;
++        started = esp_timer_get_time();
++        heap_trace::Replay(false);
++        controls[i] = esp_timer_get_time() - started;
++      }
++      std::sort(samples, samples + count);
++      std::sort(controls, controls + count);
++      Serial.printf(
++          "ALLOCATOR,%s,calls=%u,events=%u,replay_median_us=%u,control_median_"
++          "us=%u,net_us=%u,boundary_closures=%u\n",
++          phase, heap_trace::allocations, heap_trace::length,
++          samples[count / 2], controls[count / 2],
++          samples[count / 2] - controls[count / 2],
++          heap_trace::boundary_closures);
++    }
+@@ -212 +308,0 @@
+-  /// Repaints fixed steps to a scroll boundary or a specified distance.
+@@ -228 +323,0 @@
+-  /// Enters Add network through the settings row callback.
+@@ -244 +338,0 @@
+-  /// Opens and scrolls Security, then scrolls the editor back to the top.
+@@ -302 +396 @@
+-  for (int i = 0; i < 18; ++i) {
++  for (int i = 0; i < 2; ++i) {
+@@ -318,0 +413,6 @@
++  uint32_t counts[4];
++  RooBenchmarkWorkspaceStats(counts);
++  Serial.printf(
++      "PROBE,acquires=%u,workspace_streams=%u,fresh_streams=%u,compiler_runs=%"
++      "u\n",
++      counts[0], counts[1], counts[2], counts[3]);
+--- a/probe_display/src/roo_display/composition/composition_workspace.cpp
++++ b/probe_display/src/roo_display/composition/composition_workspace.cpp
+@@ -10,0 +11,2 @@
++
++uint32_t benchmark_compiler_runs = 0;
+@@ -875,0 +878 @@
++  ++benchmark_compiler_runs;
+@@ -974,0 +978,11 @@
++namespace {
++uint32_t benchmark_workspace_acquires = 0;
++uint32_t benchmark_workspace_streams = 0;
++uint32_t benchmark_fresh_streams = 0;
++}  // namespace
++extern "C" void RooBenchmarkWorkspaceStats(uint32_t* counts) {
++  counts[0] = benchmark_workspace_acquires;
++  counts[1] = benchmark_workspace_streams;
++  counts[2] = benchmark_fresh_streams;
++  counts[3] = benchmark_compiler_runs;
++}
+@@ -975,0 +990 @@
++  ++benchmark_workspace_acquires;
+@@ -999,0 +1015 @@
++  ++benchmark_workspace_streams;
+@@ -1015,0 +1032 @@
++  ++benchmark_fresh_streams;

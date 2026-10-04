@@ -1,0 +1,79 @@
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -1,0 +2,2 @@
++void RunRegressionBenchmark();
++void BenchmarkPadding();
+@@ -8,0 +11 @@
++  if (command == 'R') RunRegressionBenchmark();
+@@ -10,0 +14 @@
++  BenchmarkPadding();
+--- a/src/synthetic.cpp
++++ b/src/synthetic.cpp
+@@ -17,0 +18,2 @@
++#include "xtensa/xt_perf_consts.h"
++#include "xtensa_perfmon_access.h"
+@@ -27,0 +30 @@
++bool regression_mask_checks = true;
+@@ -34,0 +38,3 @@
++bool regression_probe = false;
++uint32_t instructions[kRenderSamples];
++uint32_t stalls[kRenderSamples];
+@@ -268,0 +275,5 @@
++    if (regression_probe) {
++      xtensa_perfmon_reset(0);
++      xtensa_perfmon_reset(1);
++      xtensa_perfmon_start();
++    }
+@@ -274,0 +286,5 @@
++    if (regression_probe) {
++      xtensa_perfmon_stop();
++      instructions[i] = xtensa_perfmon_value(0);
++      stalls[i] = xtensa_perfmon_value(1);
++    }
+@@ -275,0 +292,6 @@
++  }
++  if (regression_probe) {
++    for (int i = 0; i < kRenderSamples; ++i) {
++      Serial.printf("PERF,%s,%s,%d,%lu,%lu,%lu\n", kRevision, scene, i,
++                    samples[i], instructions[i], stalls[i]);
++    }
+@@ -398,0 +421,19 @@
++
++void RunRegressionBenchmark() {
++  regression_probe = true;
++  CHECK_EQ(xtensa_perfmon_init(0, XTPERF_CNT_INSN, XTPERF_MASK_INSN_ALL, 0, 0),
++           ESP_OK);
++  CHECK_EQ(
++      xtensa_perfmon_init(1, XTPERF_CNT_I_STALL, XTPERF_MASK_I_STALL_ALL, 0, 0),
++      ESP_OK);
++  for (int round = 0; round < 8; ++round) {
++    regression_mask_checks = (round % 2 == 0);
++    const uint16_t masks[] = {0x1ff, 0x3f, 0x40, 0x180};
++    CHECK_EQ(xtensa_perfmon_init(1, XTPERF_CNT_I_STALL, masks[round / 2], 0, 0),
++             ESP_OK);
++    Serial.printf("GATE,%d,%d,%u\n", round, regression_mask_checks,
++                  masks[round / 2]);
++    RunScene(false, "rounded", 4, 160, 120);
++  }
++  Serial.println("END,regression");
++}
+--- /dev/null
++++ b/src/padding.cpp
+@@ -0,0 +1,4 @@
++// Placement control; called after measurements.
++__attribute__((noinline)) void BenchmarkPadding() {
++  asm volatile(".rept 256\n nop\n .endr\n");
++}
+--- a/active_display/src/roo_display/composition/rasterizable_stack.cpp
++++ b/active_display/src/roo_display/composition/rasterizable_stack.cpp
+@@ -6,0 +7 @@
++extern bool regression_mask_checks;
+@@ -105 +106 @@
+-    if (IsOpaqueMask(*r)) {
++    if (regression_mask_checks && IsOpaqueMask(*r)) {
+@@ -198 +199 @@
+-    if (IsOpaqueMask(input)) {
++    if (regression_mask_checks && IsOpaqueMask(input)) {
+@@ -264 +265 @@
+-    if (IsOpaqueMask(*r)) {
++    if (regression_mask_checks && IsOpaqueMask(*r)) {

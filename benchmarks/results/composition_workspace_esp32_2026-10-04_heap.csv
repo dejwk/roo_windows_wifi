@@ -1,0 +1,16 @@
+variant,stage,free_heap_bytes,largest_free_block_bytes,heap_integrity_ok
+baseline,before_ui,235008,110580,1
+baseline,first_journey,198508,110580,1
+baseline,warm,198508,110580,1
+baseline,after_repeats,198508,110580,1
+baseline,after_ui_destroyed,233996,110580,1
+fresh,before_ui,235008,110580,1
+fresh,first_journey,198508,110580,1
+fresh,warm,198508,110580,1
+fresh,after_repeats,198508,110580,1
+fresh,after_ui_destroyed,233996,110580,1
+reuse,before_ui,235008,110580,1
+reuse,first_journey,198508,110580,1
+reuse,warm,198508,110580,1
+reuse,after_repeats,198508,110580,1
+reuse,after_ui_destroyed,233996,110580,1

@@ -1,0 +1,96 @@
+{
+  "runtime_gate": {
+    "symbols": [
+      "400eccf8 00000305 t roo_display::(anonymous namespace)::DetermineRectColorForRoundRectImpl(roo_display::SmoothShape::RoundRect const&, roo_display::Box const&)",
+      "400dc2b8 000006e9 T roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const",
+      "400dbe40 00000477 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color)#1}::operator()(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color) const",
+      "400db158 00000024 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda()#1}::operator()() const"
+    ],
+    "sha256": {
+      "firmware.elf": "4a0ef82d3400e8c588b0283a2806b45c216544c249a932e9e13310f5f3fa4580",
+      "firmware.bin": "f786e5bd70ba817f03833a1540873f4d60a2998326b28e6dee7449f2cbf44d22"
+    },
+    "log_sha256": "77e00c453e579bc006df5fb41699b6aac4abb57c30da8cc9abbabd246bcdc8bf"
+  },
+  "hot0000": {
+    "symbols": [
+      "400eccf8 00000305 t roo_display::(anonymous namespace)::DetermineRectColorForRoundRectImpl(roo_display::SmoothShape::RoundRect const&, roo_display::Box const&)",
+      "400db08c 000006e9 T roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const",
+      "400dc52c 00000477 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color)#1}::operator()(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color) const",
+      "400db864 00000024 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda()#1}::operator()() const"
+    ],
+    "sha256": {
+      "firmware.elf": "bc9e479f878c4ede3a30dfa7faea018cf07b61b9299821d90d3d45cb3c1755be",
+      "firmware.bin": "6bf079ef56d5f18b0eba60c3d08728aee3e2833e5a752678211faaa0336c764e"
+    },
+    "log_sha256": "2b4603f7252985d8ebea84515db5b8080e207cc81e565ce67b7a066632482f47"
+  },
+  "hot0016": {
+    "symbols": [
+      "400ecd08 00000305 t roo_display::(anonymous namespace)::DetermineRectColorForRoundRectImpl(roo_display::SmoothShape::RoundRect const&, roo_display::Box const&)",
+      "400db09c 000006e9 T roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const",
+      "400dc53c 00000477 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color)#1}::operator()(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color) const",
+      "400db874 00000024 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda()#1}::operator()() const"
+    ],
+    "sha256": {
+      "firmware.elf": "dba22df94eb94f61cc0581afda3c05fe916fa065d17d8259f26377e423586312",
+      "firmware.bin": "0c6e965b95c3681f1015d2ec06e2e6bee0a88effcf7f1960da2a7f6b7968b3e2"
+    },
+    "log_sha256": "87e93363d12f1f91e23b00c8c0983a1b3d997288e65bbe559faffc5ec60e9ef7"
+  },
+  "hot0064": {
+    "symbols": [
+      "400ecd38 00000305 t roo_display::(anonymous namespace)::DetermineRectColorForRoundRectImpl(roo_display::SmoothShape::RoundRect const&, roo_display::Box const&)",
+      "400db0cc 000006e9 T roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const",
+      "400dc56c 00000477 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color)#1}::operator()(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color) const",
+      "400db8a4 00000024 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda()#1}::operator()() const"
+    ],
+    "sha256": {
+      "firmware.elf": "af041044bc15658da327b518df4e6318fc46ebe6ab9dd65ae9e703af44ac32a7",
+      "firmware.bin": "0462f4f0e86292e07cb59ed1ae8eb5650d684725f4b6d50294d40295618a0405"
+    },
+    "log_sha256": "3d1b15cbf7d721086f10298069d34460c1a064ffb53e8846ac2adeb609afeece"
+  },
+  "hot0256": {
+    "symbols": [
+      "400ecdf4 00000305 t roo_display::(anonymous namespace)::DetermineRectColorForRoundRectImpl(roo_display::SmoothShape::RoundRect const&, roo_display::Box const&)",
+      "400db188 000006e9 T roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const",
+      "400dc628 00000477 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color)#1}::operator()(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color) const",
+      "400db960 00000024 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda()#1}::operator()() const"
+    ],
+    "sha256": {
+      "firmware.elf": "bd757cc7cc119bf992ce3dd7247e154a1f8aa41d31ed30740ae3d7b991251dd3",
+      "firmware.bin": "526b779dd02d01b01a480b1fe878ee4b8842ec9cc29cdbae73cd2cb709801366"
+    },
+    "log_sha256": "2658becb77153cab7adb3c5450644a8c455eb9beb25f3bb049798add5c3f20bd"
+  },
+  "hotnorm": {
+    "symbols": [
+      "400eccf8 00000305 t roo_display::(anonymous namespace)::DetermineRectColorForRoundRectImpl(roo_display::SmoothShape::RoundRect const&, roo_display::Box const&)",
+      "400dc2b8 000006e9 T roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const",
+      "400dbe40 00000477 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color)#1}::operator()(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color) const",
+      "400db158 00000024 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda()#1}::operator()() const"
+    ],
+    "sha256": {
+      "firmware.elf": "e517af13bdbd38b8620dc244bec29d9bf5e52901cd0ef1cd2a64f78f097f99ea",
+      "firmware.bin": "b767a174249eba6c3e8bfb397dc8a437ca4c6ebf76d82015df5f5bae796d63b7"
+    },
+    "log_sha256": "363200516438e6647bb1fbdfc9a99e01c663ac894d252a694d7241e6c3b6a767"
+  },
+  "reloc00": {
+    "symbols": [
+      "400ecd10 00000305 t roo_display::(anonymous namespace)::DetermineRectColorForRoundRectImpl(roo_display::SmoothShape::RoundRect const&, roo_display::Box const&)",
+      "400db088 000006ed T roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const",
+      "400dc544 00000477 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color)#1}::operator()(roo_display::Box const&, roo_display::BlendingMode, roo_display::Color) const",
+      "400db864 00000024 t roo_display::RasterizableStack::readColorRect(short, short, short, short, roo_display::Color*) const::{lambda()#1}::operator()() const"
+    ],
+    "sha256": {
+      "firmware.elf": "34bc52ca5d5420758c93da26e39fec2b0bead9800ea27b2752559f90e0e4b4a3",
+      "firmware.bin": "99b1e710a721aea407903a988878f2bbeafb94cf2a28c3929d8c0cfb8dbb61b1"
+    },
+    "log_sha256": {
+      "synthetic": "277dfd533489c99f3bb4270aaf6c2d9689937a432badf17a320144cf6e93f11b",
+      "wifi": "04ff4d339dc60c65d8c163133568395469c86e2af60996e9cee016478f74a72a"
+    }
+  }
+}

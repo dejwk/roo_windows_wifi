@@ -1,0 +1,182 @@
+{
+  "c243c4f": {
+    "files": {
+      "bootloader.bin": {
+        "bytes": 23712,
+        "sha256": "fa4e2587e7d7c919892123272c0b8fbf9e1b12e8bb26d308039dc9b1cba83f7a"
+      },
+      "firmware.bin": {
+        "bytes": 1397072,
+        "sha256": "79402deaa3f21415ddc15ec00e66d288540376d9ebb1fefb466c1cab996ce1de"
+      },
+      "firmware.elf": {
+        "bytes": 85540856,
+        "sha256": "57211d63e53442303fb422c73170f5a208590f37e3d6dbf72a61d7962d0d17b2"
+      },
+      "partitions.bin": {
+        "bytes": 3072,
+        "sha256": "aaae2888c5a6a348004b5b436f47abb25ae32e72d9003902955a998eda723edd"
+      }
+    },
+    "logs": {
+      "synthetic": {
+        "sha256": "03b798ec350ed84a2ba059092a3a6b11b58d24a78baf77ddaf452cc7dcd2f855",
+        "end": "END,c243c4f,heap=215764,integrity=1"
+      },
+      "wifi": {
+        "sha256": "96214d308ece7724f3298b345d2f84f53d954181fd571e0994f6cacd7cee147b",
+        "end": "END,wifi_journey"
+      }
+    }
+  },
+  "dbdea8e": {
+    "files": {
+      "bootloader.bin": {
+        "bytes": 23712,
+        "sha256": "fa4e2587e7d7c919892123272c0b8fbf9e1b12e8bb26d308039dc9b1cba83f7a"
+      },
+      "firmware.bin": {
+        "bytes": 1397456,
+        "sha256": "c9b785e11a2ae628e6d981551382981afe9c4486125b6893c7fcd526e70b3ec3"
+      },
+      "firmware.elf": {
+        "bytes": 85526736,
+        "sha256": "599c0155f2662e71379cfef70bbc2ad7b2c3f2115403d64d95d00ff9ce053827"
+      },
+      "partitions.bin": {
+        "bytes": 3072,
+        "sha256": "aaae2888c5a6a348004b5b436f47abb25ae32e72d9003902955a998eda723edd"
+      }
+    },
+    "logs": {
+      "synthetic": {
+        "sha256": "88186d51909869717566bd407d7915eba45eadf3c675e7dd52b869d4a85c5476",
+        "end": "END,dbdea8e,heap=215764,integrity=1"
+      },
+      "wifi": {
+        "sha256": "ddeff8bc33cf322261c2a701fbe436fc5322ef6f883d0e6e91074c433950a32b",
+        "end": "END,wifi_journey"
+      }
+    }
+  },
+  "c61724a": {
+    "files": {
+      "bootloader.bin": {
+        "bytes": 23712,
+        "sha256": "fa4e2587e7d7c919892123272c0b8fbf9e1b12e8bb26d308039dc9b1cba83f7a"
+      },
+      "firmware.bin": {
+        "bytes": 1398208,
+        "sha256": "a18709bbe120ea34201280e305d3b730b164a27140830dfd8c109383fc1702c4"
+      },
+      "firmware.elf": {
+        "bytes": 85542344,
+        "sha256": "2858e215667d1c20f7c647778768118c8025c2d4ffca39b3a4640f430c814743"
+      },
+      "partitions.bin": {
+        "bytes": 3072,
+        "sha256": "aaae2888c5a6a348004b5b436f47abb25ae32e72d9003902955a998eda723edd"
+      }
+    },
+    "logs": {
+      "synthetic": {
+        "sha256": "81385fbb410429abe8edc940b2fe51ea220f52bbf7af24a6a6fcb51f764c267c",
+        "end": "END,c61724a,heap=215808,integrity=1"
+      },
+      "wifi": {
+        "sha256": "5db16472273a78692058d0c7ea03b9ffc4d3eb7fbfe0a7b5215bb372f4c4a353",
+        "end": "END,wifi_journey"
+      }
+    }
+  },
+  "6b348f3": {
+    "files": {
+      "bootloader.bin": {
+        "bytes": 23712,
+        "sha256": "fa4e2587e7d7c919892123272c0b8fbf9e1b12e8bb26d308039dc9b1cba83f7a"
+      },
+      "firmware.bin": {
+        "bytes": 1398000,
+        "sha256": "b37b63e07e26ab8637fc23ddd3a0040305772bf14e642e2cf704a159ee0be729"
+      },
+      "firmware.elf": {
+        "bytes": 85533280,
+        "sha256": "7ca15dc2e5cea6d35d1b2055b90628a07f896ff142b373c3ba7a5261b4bc5264"
+      },
+      "partitions.bin": {
+        "bytes": 3072,
+        "sha256": "aaae2888c5a6a348004b5b436f47abb25ae32e72d9003902955a998eda723edd"
+      }
+    },
+    "logs": {
+      "synthetic": {
+        "sha256": "d5e725e211974ebd449e67420f3fee461c02a75d573f84e0eae51c2d00e40f88",
+        "end": "END,6b348f3,heap=215764,integrity=1"
+      },
+      "wifi": {
+        "sha256": "51edfe7102899d9b466573244e0d7295121b1bc37dc6884305b4430632bed4bc",
+        "end": "END,wifi_journey"
+      }
+    }
+  },
+  "e745df9": {
+    "files": {
+      "bootloader.bin": {
+        "bytes": 23712,
+        "sha256": "fa4e2587e7d7c919892123272c0b8fbf9e1b12e8bb26d308039dc9b1cba83f7a"
+      },
+      "firmware.bin": {
+        "bytes": 1399792,
+        "sha256": "0c179968ff83bfc46b15aa1b65a9fbd9f3be4e89db76e3029a0a57e6d330bef5"
+      },
+      "firmware.elf": {
+        "bytes": 85554600,
+        "sha256": "4a5d4d89c2c9419b560586e957bb14d878bdc4fa9a7f21a8dee46ce4206d0253"
+      },
+      "partitions.bin": {
+        "bytes": 3072,
+        "sha256": "aaae2888c5a6a348004b5b436f47abb25ae32e72d9003902955a998eda723edd"
+      }
+    },
+    "logs": {
+      "synthetic": {
+        "sha256": "03f73318619a124ed88922c8f6c793e8a45588dbfeb727b9456080993dd887b0",
+        "end": "END,e745df9,heap=215764,integrity=1"
+      },
+      "wifi": {
+        "sha256": "3afe3cb4a6bf3a408d1dc115edd71a7c3925862c8a60758dd824adbd30796e18",
+        "end": "END,wifi_journey"
+      }
+    }
+  },
+  "b985f11": {
+    "files": {
+      "bootloader.bin": {
+        "bytes": 23712,
+        "sha256": "fa4e2587e7d7c919892123272c0b8fbf9e1b12e8bb26d308039dc9b1cba83f7a"
+      },
+      "firmware.bin": {
+        "bytes": 1401536,
+        "sha256": "a9b8c2e3e991c9a5bcf8ca3228266fbd196e2287d4517e89956b381dd02a82a6"
+      },
+      "firmware.elf": {
+        "bytes": 85578836,
+        "sha256": "90c28337a3f5c948c57fa22018bc89df58590a3bd84ec302affcef80ce50b917"
+      },
+      "partitions.bin": {
+        "bytes": 3072,
+        "sha256": "aaae2888c5a6a348004b5b436f47abb25ae32e72d9003902955a998eda723edd"
+      }
+    },
+    "logs": {
+      "synthetic": {
+        "sha256": "e77c656f71eb8f0774cf20e143b6402892c0ee52bc0cf29ecbb8a5e7bd4c4767",
+        "end": "END,b985f11,heap=215764,integrity=1"
+      },
+      "wifi": {
+        "sha256": "de83f3b7dfebdef056ec23c6c21ba17688bf06951714f04778cdb7f92076f605",
+        "end": "END,wifi_journey"
+      }
+    }
+  }
+}

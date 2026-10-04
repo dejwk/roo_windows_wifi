@@ -1,0 +1,6 @@
+revision,stage,free_heap,largest_block,integrity
+reloc00,before_ui,216160,110580,1
+reloc00,first_journey,179660,110580,1
+reloc00,warm,179660,110580,1
+reloc00,after_repeats,179660,110580,1
+reloc00,after_ui_destroyed,215148,110580,1

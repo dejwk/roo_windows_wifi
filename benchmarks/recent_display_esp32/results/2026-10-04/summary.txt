@@ -1,0 +1,60 @@
+SYNTHETIC clean heap, microseconds, checkpoints c243c4f,dbdea8e,c61724a,6b348f3,e745df9,b985f11
+split 4 768 prepare_destroy 667,648,466,486,493,482
+split 4 768 prepare_consume_destroy 1991,1995,1770,1863,1760,1798
+split 4 768 draw 1720,1774,1782,1774,1791,1937
+split 4 19200 prepare_destroy 666,659,476,502,512,502
+split 4 19200 prepare_consume_destroy 41697,41936,41714,41814,41894,43167
+split 4 19200 draw 56572,58152,58163,58149,58166,61817
+overlap 16 768 prepare_destroy 1109,1063,376,384,389,377
+overlap 16 768 prepare_consume_destroy 8461,8462,7735,7796,7710,7902
+overlap 16 768 draw 8324,8439,8451,8440,8471,8629
+overlap 16 19200 prepare_destroy 1109,1059,377,385,390,377
+overlap 16 19200 prepare_consume_destroy 206890,207826,207105,207164,207228,212834
+overlap 16 19200 draw 233414,236442,236456,236441,236472,240422
+opaque_top 16 768 prepare_destroy 1116,905,190,179,198,172
+opaque_top 16 768 prepare_consume_destroy 8143,1057,268,263,231,182
+opaque_top 16 768 draw 7747,205,229,205,8,8
+opaque_top 16 19200 prepare_destroy 1116,897,190,179,197,172
+opaque_top 16 19200 prepare_consume_destroy 196726,1048,267,263,231,182
+opaque_top 16 19200 draw 217166,5465,5489,5464,8,8
+uniform 4 768 prepare_destroy 432,410,184,193,208,185
+uniform 4 768 prepare_consume_destroy 1504,684,383,387,326,283
+uniform 4 768 draw 610,634,658,634,13,14
+uniform 4 19200 prepare_destroy 433,410,184,193,208,185
+uniform 4 19200 prepare_consume_destroy 27720,684,382,387,326,283
+uniform 4 19200 draw 16672,17280,17300,17276,13,14
+rounded 4 768 prepare_destroy 715,689,531,586,591,598
+rounded 4 768 prepare_consume_destroy 2159,2246,1901,2007,1968,1992
+rounded 4 768 draw 1600,1648,1987,1707,1809,2227
+rounded 4 19200 prepare_destroy 720,704,535,603,611,620
+rounded 4 19200 prepare_consume_destroy 28640,29988,28222,28314,28415,29950
+rounded 4 19200 draw 15522,16378,23062,16573,16806,23395
+opaque_mask 4 768 prepare_destroy 429,411,184,192,208,144
+opaque_mask 4 768 prepare_consume_destroy 1097,1128,791,864,803,428
+opaque_mask 4 768 draw 1598,1655,1666,1655,1672,1071
+opaque_mask 4 19200 prepare_destroy 429,411,184,192,208,144
+opaque_mask 4 19200 prepare_consume_destroy 16968,17146,16809,16877,17022,8179
+opaque_mask 4 19200 draw 44467,46016,46026,46016,46029,28728
+rounded_mask 4 768 prepare_destroy 471,424,218,254,234,262
+rounded_mask 4 768 prepare_consume_destroy 1594,1499,1218,1326,1345,1356
+rounded_mask 4 768 draw 1737,1787,1952,1813,2016,2048
+rounded_mask 4 19200 prepare_destroy 475,424,218,254,234,262
+rounded_mask 4 19200 prepare_consume_destroy 19568,19617,19341,19448,19679,17376
+rounded_mask 4 19200 draw 38241,39764,43328,39929,40885,36942
+WIFI median microseconds; repetitions 2..6
+editor_to_security 31567.0,32323.0,33291.5,32754.0,31164.5,31972.5
+open_security 116200.0,112759.0,107220.0,106251.0,112329.0,106429.0
+menu_down 82602.0,82270.5,80085.0,78023.5,77409.0,73662.5
+menu_up 82441.5,82082.0,79464.5,77703.5,77299.5,74246.5
+close_security 41402.0,42365.0,43565.0,42911.0,40703.0,41302.0
+editor_down 33615.0,33929.0,35453.0,34798.0,33264.0,34032.0
+editor_up 32625.0,32942.0,34080.0,33699.0,32228.0,32983.0
+TOTAL c243c4f us 5893961 alloc 7501 bytes 218392
+TOTAL dbdea8e us 5891627 alloc 7501 bytes 218392
+TOTAL c61724a us 5840752 alloc 7501 bytes 218392
+TOTAL 6b348f3 us 5706610 alloc 7501 bytes 218392
+TOTAL e745df9 us 5621696 alloc 7501 bytes 218392
+TOTAL b985f11 us 5493530 alloc 7501 bytes 218392
+VERIFICATION 888 keys; 40 mismatches
+Known old visibility differences: 40
+PASS: complete data, matching pixels except the documented old visibility fix, and stable UI heaps
