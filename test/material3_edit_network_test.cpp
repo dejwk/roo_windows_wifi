@@ -63,7 +63,7 @@ TEST_F(EditorTest, ValidationWaitsForSubmitAndClearsOnTyping) {
   auto& ssid = static_cast<roo_windows::material3::TextField&>(
       editor.form().child_at(0));
   auto& password = static_cast<roo_windows::material3::TextField&>(
-      editor.form().child_at(3));
+      editor.form().child_at(2));
   EXPECT_FALSE(ssid.hasError());
   EXPECT_FALSE(password.hasError());
   EXPECT_EQ(editor.save(), roo_wifi::Status::kInvalidArgument);

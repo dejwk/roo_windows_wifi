@@ -30,6 +30,20 @@ class FormTest : public testing::Test {
   roo_wifi::Status build() { return form.build(settings, credential, policy); }
 };
 
+// Returns the standalone Security group or an advanced group in the custom row.
+roo_windows::FlexLayout& DropdownGroup(WifiConfigForm& form,
+                                       WifiConfigForm::Choice choice) {
+  if (choice == WifiConfigForm::kSecurity) {
+    return static_cast<roo_windows::FlexLayout&>(form.child_at(1));
+  }
+  roo_windows::Widget& list = form.child_at(3);
+  roo_windows::Widget& row = *list.focusChildAt(3);
+  roo_windows::Widget& body = *row.focusChildAt(0);
+  auto& flow = static_cast<roo_windows::FlexLayout&>(*body.focusChildAt(0));
+  return static_cast<roo_windows::FlexLayout&>(
+      flow.child_at(static_cast<int>(choice) - 1));
+}
+
 // Verifies filtered dropdown indices map to authentication modes, programmatic
 // changes synchronize silently, and committing a form disables the trigger.
 TEST_F(FormTest, SecurityDropdownFiltersAndSynchronizes) {
@@ -40,7 +54,13 @@ TEST_F(FormTest, SecurityDropdownFiltersAndSynchronizes) {
       (1u << static_cast<unsigned>(roo_wifi::AuthMode::kWpa2Personal));
   WifiConfigForm limited(context, filtered, nullptr);
   limited.load(settings, false);
-  auto& dropdown = static_cast<DropdownButton&>(limited.child_at(2));
+  auto& dropdown = static_cast<DropdownButton&>(
+      DropdownGroup(limited, WifiConfigForm::kSecurity).child_at(1));
+  EXPECT_EQ(DropdownGroup(limited, WifiConfigForm::kSecurity)
+                .child_at(0)
+                .getMargins(),
+            roo_windows::Margins(roo_windows::MarginSize::k4dp,
+                                 roo_windows::MarginSize::kNone));
   EXPECT_EQ(dropdown.itemCount(), 2u);
   EXPECT_EQ(dropdown.selectedIndex(), 1u);
   EXPECT_EQ(dropdown.selectedText(), "WPA2 Personal");
@@ -53,7 +73,7 @@ TEST_F(FormTest, SecurityDropdownFiltersAndSynchronizes) {
   EXPECT_EQ(changes, 1);
   EXPECT_EQ(dropdown.selectedIndex(), 0u);
   EXPECT_EQ(dropdown.selectedText(), "Open");
-  EXPECT_TRUE(limited.child_at(3).isGone());
+  EXPECT_TRUE(limited.child_at(2).isGone());
   limited.setChoice(WifiConfigForm::kSecurity,
                     static_cast<int>(roo_wifi::AuthMode::kWep));
   EXPECT_EQ(changes, 1);
@@ -62,6 +82,104 @@ TEST_F(FormTest, SecurityDropdownFiltersAndSynchronizes) {
   EXPECT_FALSE(dropdown.isEnabled());
   limited.setEditingEnabled(true);
   EXPECT_TRUE(dropdown.isEnabled());
+}
+
+// Verifies the four advanced controls share one entry, Security precedes the
+// advanced header, and controls keep their natural
+// widths while the entry's flow wraps them when the available width shrinks.
+TEST_F(FormTest, DropdownsShareOneWrappingListEntry) {
+  using namespace roo_windows;
+  using namespace roo_windows::material3;
+  form.setAdvanced(true);
+  Widget& list = form.child_at(3);
+  ASSERT_EQ(list.focusChildCount(), 4);
+  auto* row = dynamic_cast<ListEntry*>(list.focusChildAt(3));
+  ASSERT_NE(row, nullptr);
+  Widget& body = *static_cast<Widget*>(row)->focusChildAt(0);
+  auto& flow = static_cast<FlexLayout&>(*body.focusChildAt(0));
+  EXPECT_EQ(static_cast<Widget&>(flow).focusChildCount(), 4);
+  EXPECT_EQ(flow.flexWrap(), FlexWrap::kWrap);
+  for (int width : {320, 640}) {
+    Dimensions size =
+        form.measure(WidthSpec::Exactly(width), HeightSpec::Unspecified(0));
+    form.layout(Rect(0, 0, size.width() - 1, size.height() - 1));
+    auto& automatic = static_cast<ListEntry&>(*list.focusChildAt(2));
+    EXPECT_EQ(row->parent(), &list);
+    EXPECT_EQ(row->visualContext().position, ListItemPosition::kLast);
+    EXPECT_EQ(automatic.visualContext().position, ListItemPosition::kMiddle);
+    EXPECT_EQ(row->offsetTop() - automatic.offsetTop() - automatic.height(),
+              Scaled(2));
+    EXPECT_EQ(automatic.getBorderStyle().bottom_left_corner_radius(),
+              Scaled(4));
+    EXPECT_EQ(row->getBorderStyle().top_left_corner_radius(), Scaled(4));
+    auto& privacy = DropdownGroup(form, WifiConfigForm::kPrivacy);
+    auto& ip = DropdownGroup(form, WifiConfigForm::kIp);
+    auto& security = DropdownGroup(form, WifiConfigForm::kSecurity);
+    EXPECT_LE(security.offsetTop() + security.height(),
+              form.child_at(2).offsetTop());
+    EXPECT_LE(form.child_at(2).offsetTop() + form.child_at(2).height(),
+              form.child_at(3).offsetTop());
+    auto& security_dropdown =
+        static_cast<DropdownButton&>(security.child_at(1));
+    EXPECT_EQ(security_dropdown.width(),
+              security_dropdown.getNaturalDimensions().width());
+    auto& dropdown = static_cast<DropdownButton&>(privacy.child_at(1));
+    EXPECT_EQ(dropdown.width(), dropdown.getNaturalDimensions().width());
+    EXPECT_LT(dropdown.width(), row->width());
+    if (width == 320) {
+      EXPECT_GT(ip.offsetTop(), privacy.offsetTop());
+    } else {
+      EXPECT_EQ(ip.offsetTop(), privacy.offsetTop());
+    }
+  }
+}
+
+// Verifies static-IP fields grow the same segment below its dropdown flow,
+// fill its content width, and hide without losing text when DHCP is restored.
+TEST_F(FormTest, StaticIpDetailsBelongToAdvancedSegment) {
+  using namespace roo_windows;
+  using namespace roo_windows::material3;
+  form.setAdvanced(true);
+  Widget& options = form.child_at(3);
+  Widget& row = *options.focusChildAt(3);
+  auto& body = static_cast<FlexLayout&>(*row.focusChildAt(0));
+  ASSERT_EQ(static_cast<Widget&>(body).focusChildCount(), 6);
+  const char* labels[] = {"IP address*", "Prefix length*", "Gateway*",
+                          "Primary DNS*", "Secondary DNS (optional)"};
+  for (int i = 0; i < 5; ++i) {
+    auto& field = static_cast<TextField&>(body.child_at(i + 1));
+    EXPECT_EQ(field.label(), labels[i]);
+    EXPECT_EQ(field.densityOverride(),
+              DensityOverride::Explicit(Density::kMinus5));
+    TextField default_field(context, labels[i]);
+    default_field.setSupportingText(field.supportingText());
+    EXPECT_LT(field.getSuggestedMinimumDimensions().height(),
+              default_field.getSuggestedMinimumDimensions().height());
+    EXPECT_TRUE(field.isGone());
+    EXPECT_EQ(field.parent(), &body);
+  }
+  Dimensions size =
+      form.measure(WidthSpec::Exactly(320), HeightSpec::Unspecified(0));
+  form.layout(Rect(0, 0, size.width() - 1, size.height() - 1));
+  int compact_height = row.height();
+  form.setText(WifiConfigForm::kAddress, "192.168.1.20");
+  form.setChoice(WifiConfigForm::kIp, 1);
+  size = form.measure(WidthSpec::Exactly(320), HeightSpec::Unspecified(0));
+  form.layout(Rect(0, 0, size.width() - 1, size.height() - 1));
+  EXPECT_GT(row.height(), compact_height);
+  for (int i = 1; i <= 5; ++i) {
+    Widget& field = body.child_at(i);
+    EXPECT_FALSE(field.isGone());
+    EXPECT_EQ(field.width(), row.width() - 2 * Scaled(12));
+    EXPECT_GE(field.offsetTop(),
+              body.child_at(0).offsetTop() + body.child_at(0).height());
+    EXPECT_LE(field.offsetTop() + field.height(), body.height());
+  }
+  form.setChoice(WifiConfigForm::kIp, 0);
+  size = form.measure(WidthSpec::Exactly(320), HeightSpec::Unspecified(0));
+  form.layout(Rect(0, 0, size.width() - 1, size.height() - 1));
+  EXPECT_EQ(row.height(), compact_height);
+  EXPECT_EQ(form.text(WifiConfigForm::kAddress), "192.168.1.20");
 }
 
 // Verifies advanced options fill the form width and regroup visible segments
@@ -112,7 +230,7 @@ TEST_F(FormTest, AdvancedOptionsFillWidthAndGroupVisibleRows) {
 TEST_F(FormTest, AdvancedHeaderTogglesSwitches) {
   using namespace roo_windows;
   using namespace roo_windows::material3;
-  auto& list = static_cast<internal::SegmentedList&>(form.child_at(4));
+  auto& list = static_cast<internal::SegmentedList&>(form.child_at(3));
   Widget& entries = list;
   ASSERT_FALSE(form.advanced());
   EXPECT_TRUE(entries.focusChildAt(1)->isGone());
@@ -131,7 +249,7 @@ TEST_F(FormTest, AdvancedHeaderTogglesSwitches) {
 TEST_F(FormTest, FilledFieldsIndicateRequiredValues) {
   using namespace roo_windows::material3;
   auto& ssid = static_cast<TextField&>(form.child_at(0));
-  auto& password = static_cast<TextField&>(form.child_at(3));
+  auto& password = static_cast<TextField&>(form.child_at(2));
   EXPECT_EQ(ssid.variant(), TextFieldVariant::kFilled);
   EXPECT_EQ(ssid.label(), "Network name*");
   EXPECT_EQ(ssid.supportingText(), "* required");
@@ -244,8 +362,12 @@ TEST_F(FormTest, AdvancedDropdownsSynchronizeAndRevealFields) {
   advanced.load(settings, false);
   const size_t counts[] = {2, 3, 2, 2};
   for (int i = 0; i < 4; ++i) {
-    auto& group = static_cast<FlexLayout&>(advanced.child_at(5 + i));
+    auto& group = static_cast<FlexLayout&>(DropdownGroup(
+        advanced,
+        static_cast<WifiConfigForm::Choice>(WifiConfigForm::kPrivacy + i)));
     EXPECT_TRUE(group.isGone());
+    EXPECT_EQ(group.child_at(0).getMargins(),
+              Margins(MarginSize::k4dp, MarginSize::kNone));
     auto& dropdown = static_cast<DropdownButton&>(group.child_at(1));
     EXPECT_EQ(dropdown.itemCount(), counts[i]);
     EXPECT_EQ(dropdown.densityOverride(),
@@ -259,27 +381,34 @@ TEST_F(FormTest, AdvancedDropdownsSynchronizeAndRevealFields) {
     auto choice =
         static_cast<WifiConfigForm::Choice>(WifiConfigForm::kPrivacy + i);
     advanced.setChoice(choice, i == 1 ? 2 : 1);
-    auto& group = static_cast<FlexLayout&>(advanced.child_at(5 + i));
+    auto& group = static_cast<FlexLayout&>(DropdownGroup(
+        advanced,
+        static_cast<WifiConfigForm::Choice>(WifiConfigForm::kPrivacy + i)));
     EXPECT_FALSE(group.isGone());
     auto& dropdown = static_cast<DropdownButton&>(group.child_at(1));
     EXPECT_EQ(dropdown.selectedText(), selected[i]);
   }
   EXPECT_EQ(changes, 4);
-  EXPECT_FALSE(advanced.child_at(9).isGone());   // IP address.
-  EXPECT_FALSE(advanced.child_at(14).isGone());  // Proxy host.
+  Widget& row = *advanced.child_at(3).focusChildAt(3);
+  auto& body = static_cast<FlexLayout&>(*row.focusChildAt(0));
+  EXPECT_FALSE(body.child_at(1).isGone());      // IP address.
+  EXPECT_FALSE(advanced.child_at(4).isGone());  // Proxy host.
   advanced.setEditingEnabled(false);
   for (int i = 0; i < 4; ++i) {
-    auto& group = static_cast<FlexLayout&>(advanced.child_at(5 + i));
+    auto& group = static_cast<FlexLayout&>(DropdownGroup(
+        advanced,
+        static_cast<WifiConfigForm::Choice>(WifiConfigForm::kPrivacy + i)));
     EXPECT_FALSE(group.child_at(1).isEnabled());
   }
   advanced.setEditingEnabled(true);
   advanced.setChoice(WifiConfigForm::kIp, 0);
   advanced.setChoice(WifiConfigForm::kProxy, 0);
-  EXPECT_TRUE(advanced.child_at(9).isGone());
-  EXPECT_TRUE(advanced.child_at(14).isGone());
+  EXPECT_TRUE(body.child_at(1).isGone());
+  EXPECT_TRUE(advanced.child_at(4).isGone());
   advanced.setAdvanced(false);
   advanced.setAdvanced(true);
-  auto& metered = static_cast<FlexLayout&>(advanced.child_at(6));
+  auto& metered = static_cast<FlexLayout&>(
+      DropdownGroup(advanced, WifiConfigForm::kMetered));
   EXPECT_EQ(static_cast<DropdownButton&>(metered.child_at(1)).selectedText(),
             "Unmetered");
 }
@@ -295,7 +424,10 @@ TEST_F(FormTest, UnavailableAdvancedDropdownsPreserveSavedValues) {
   WifiConfigForm limited(context, unavailable, nullptr);
   limited.load(settings, false);
   limited.setAdvanced(true);
-  for (int i = 5; i <= 8; ++i) EXPECT_TRUE(limited.child_at(i).isGone());
+  for (int i = 5; i <= 8; ++i)
+    EXPECT_TRUE(
+        DropdownGroup(limited, static_cast<WifiConfigForm::Choice>(i - 4))
+            .isGone());
   NetworkPolicy retained;
   retained.metered = MeteredMode::kMetered;
   retained.proxy = ProxyMode::kManual;
@@ -304,7 +436,8 @@ TEST_F(FormTest, UnavailableAdvancedDropdownsPreserveSavedValues) {
   limited.setEditingEnabled(false);
   limited.setEditingEnabled(true);
   for (int i : {6, 8}) {
-    auto& group = static_cast<FlexLayout&>(limited.child_at(i));
+    auto& group = static_cast<FlexLayout&>(
+        DropdownGroup(limited, static_cast<WifiConfigForm::Choice>(i - 4)));
     EXPECT_FALSE(group.isGone());
     auto& dropdown = static_cast<DropdownButton&>(group.child_at(1));
     EXPECT_EQ(dropdown.selectedIndex(), 1u);

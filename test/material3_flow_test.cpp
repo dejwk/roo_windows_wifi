@@ -617,6 +617,20 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
   EXPECT_TRUE(button->requestFocus());
 }
 
+// Returns the standalone Security group or an advanced group in the custom row.
+roo_windows::FlexLayout& DropdownGroup(WifiConfigForm& form,
+                                       WifiConfigForm::Choice choice) {
+  if (choice == WifiConfigForm::kSecurity) {
+    return static_cast<roo_windows::FlexLayout&>(form.child_at(1));
+  }
+  roo_windows::Widget& list = form.child_at(3);
+  roo_windows::Widget& row = *list.focusChildAt(3);
+  roo_windows::Widget& body = *row.focusChildAt(0);
+  auto& flow = static_cast<roo_windows::FlexLayout&>(*body.focusChildAt(0));
+  return static_cast<roo_windows::FlexLayout&>(
+      flow.child_at(static_cast<int>(choice) - 1));
+}
+
 // Verifies the compact Security dropdown selects Open after menu detachment,
 // updates the draft/password visibility, and cancels without leaving the
 // editor.
@@ -640,11 +654,13 @@ TEST(WifiFlow, AddNetworkSecurityMenu) {
   auto& editor = flow.editDestination();
   task.navigation().push(editor);
   app.refresh();
+  auto& scroll = static_cast<SimpleScrollablePanel&>(
+      *editor.form().parent()->parent()->parent());
   Golden(device.raster(), "wifi_add_network");
-  auto& security = static_cast<DropdownButton&>(editor.form().child_at(2));
-  EXPECT_EQ(security.width() + security.getMargins().left() +
-                security.getMargins().right(),
-            editor.form().width());
+  auto& security = static_cast<DropdownButton&>(
+      DropdownGroup(editor.form(), WifiConfigForm::kSecurity).child_at(1));
+  EXPECT_EQ(security.width(), security.getNaturalDimensions().width());
+  EXPECT_LT(security.width(), editor.form().width());
   EXPECT_EQ(security.densityOverride(),
             DensityOverride::Explicit(Density::kMinus5));
   EXPECT_EQ(security.selectedText(), "WPA2 Personal");
@@ -671,7 +687,7 @@ TEST(WifiFlow, AddNetworkSecurityMenu) {
   EXPECT_EQ(security.selectedText(), "Open");
   EXPECT_EQ(editor.form().choice(WifiConfigForm::kSecurity),
             static_cast<int>(roo_wifi::AuthMode::kOpen));
-  EXPECT_TRUE(editor.form().child_at(3).isGone());
+  EXPECT_TRUE(editor.form().child_at(2).isGone());
   EXPECT_EQ(task.focus().scopeRoot(), scope);
   security.onClicked();
   app.refresh();
@@ -681,8 +697,6 @@ TEST(WifiFlow, AddNetworkSecurityMenu) {
   EXPECT_TRUE(task.navigation().isCurrent(editor));
   editor.form().setAdvanced(true);
   app.refresh();
-  auto& scroll = static_cast<SimpleScrollablePanel&>(
-      *editor.form().parent()->parent()->parent());
   scroll.scrollTo(0, -Scaled(290));
   app.refresh();
   Golden(device.raster(), "wifi_advanced_options");
@@ -741,8 +755,13 @@ TEST(WifiFlow, AdvancedDropdownsUpdateDraftInline) {
       static_cast<SimpleScrollablePanel&>(*form.parent()->parent()->parent());
   const char* expected[] = {"Randomized MAC", "Metered", "Static", "Manual"};
   for (int i = 0; i < 4; ++i) {
-    auto& group = static_cast<FlexLayout&>(form.child_at(5 + i));
-    scroll.scrollTo(0, -group.offsetTop());
+    auto& group = static_cast<FlexLayout&>(DropdownGroup(
+        form,
+        static_cast<WifiConfigForm::Choice>(WifiConfigForm::kPrivacy + i)));
+    Widget& options = form.child_at(3);
+    Widget& row = *options.focusChildAt(3);
+    scroll.scrollTo(0, -(options.offsetTop() + row.offsetTop() +
+                         row.focusChildAt(0)->offsetTop() + group.offsetTop()));
     app.refresh();
     auto& dropdown = static_cast<DropdownButton&>(group.child_at(1));
     Widget* scope = task.focus().scopeRoot();

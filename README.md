@@ -46,6 +46,11 @@ Security choices follow `Controller::support()`. The shared form supports
 personal authentication, hidden networks, auto-connect, device/randomized MAC,
 and DHCP/static IPv4. Security, Privacy, Metered, IP settings, and Proxy use
 inline dropdowns with density -5 for both their triggers and anchored menus.
+Security is standalone above Advanced options. The four advanced dropdowns
+share one custom entry in the same segmented list as Auto-connect, with a
+wrapping flow layout. Each trigger uses the width of its longest option instead
+of filling the entry. Selecting Static reveals IP configuration fields below
+the dropdown flow within that same segment.
 Advanced selectors appear when supported; retained unavailable values remain
 visible but disabled. Enterprise and other unsupported modes remain read-only.
 Proxy and metered controls appear only when an application supplies a
