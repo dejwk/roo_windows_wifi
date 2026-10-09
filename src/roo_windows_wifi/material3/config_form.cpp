@@ -3,12 +3,10 @@
 #include <cstdio>
 #include <cstring>
 
-#include "roo_windows/material3/button/button.h"
 #include "roo_windows/material3/button/navigation.h"
 #include "roo_windows/material3/list/list.h"
-#include "roo_windows/material3/menu/menu.h"
 #include "roo_windows/material3/text_field/secure_text_field.h"
-#include "roo_windows_wifi/material3/internal/borrowed_layout.h"
+#include "roo_windows/material3/utilities/dropdown_button.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
 
 namespace roo_windows_wifi::material3 {
@@ -70,24 +68,16 @@ class ObservedField : public Base {
   std::function<void()>& changed_;
 };
 
-// Menu entries commit the selected authentication mode directly to the draft.
-class SecurityItem : public StandardMenuItem {
+/// Fills the form's width while preserving the dropdown's compact height.
+class SecurityDropdown : public DropdownButton {
  public:
-  SecurityItem(WifiConfigForm& form, int mode)
-      : StandardMenuItem(
-            {WifiSecurityText(static_cast<roo_wifi::AuthMode>(mode)),
-             {},
-             nullptr,
-             StandardMenuItemFlags::kSelectable}),
-        form_(form),
-        mode_(mode) {}
-  void onInvoked() override {
-    form_.setChoice(WifiConfigForm::kSecurity, mode_);
-  }
+  using DropdownButton::DropdownButton;
 
- private:
-  WifiConfigForm& form_;
-  int mode_;
+  /// Keeps the selector aligned with the other full-width form fields.
+  PreferredSize getPreferredSize() const override {
+    return {PreferredSize::MatchParentWidth(),
+            PreferredSize::WrapContentHeight()};
+  }
 };
 
 class AdvancedItem : public InvokableListItemBase {
@@ -188,11 +178,7 @@ class WifiConfigForm::Impl {
         automatic_(context, "Auto-connect"),
         advanced_(context, context),
         security_caption_(context, "Security", text_style_title_small()),
-        security_button_(context, "", ButtonVariant::kFilledTonal),
-        security_down_(NavigationButtonExpandMore(context)),
-        security_(context),
-        security_group_(context),
-        security_menu_(context),
+        security_(context, nullptr, 0, ButtonVariant::kFilledTonal),
         options_(context) {
     for (int i = 0; i < kFieldCount; ++i) {
       if (i == kPassword) {
@@ -216,10 +202,6 @@ class WifiConfigForm::Impl {
     }
     form_.add(*fields_[kSsid]);
     form_.add(security_caption_);
-    security_.setFlexDirection(FlexDirection::kRow);
-    security_.add(security_button_, {.flex_grow = 1});
-    security_.add(security_down_);
-    security_down_.setStyle(IconButtonStyle::kFilledTonal);
     form_.add(security_);
     form_.add(*fields_[kPassword]);
     options_.add(advanced_);
@@ -230,19 +212,21 @@ class WifiConfigForm::Impl {
     }
     form_.add(options_);
     for (int i = kAddress; i < kFieldCount; ++i) form_.add(*fields_[i]);
+    // DropdownButton borrows this filtered table for the form's lifetime.
+    size_t count = 0;
     for (int i = 1; i <= 7; ++i) {
-      if (!WifiCanProvision(static_cast<roo_wifi::AuthMode>(i), support_))
-        continue;
-      security_rows_[i] =
-          std::make_unique<MenuRow<SecurityItem>>(context, form_, i);
-      security_group_.add(*security_rows_[i]);
+      roo_wifi::AuthMode mode = static_cast<roo_wifi::AuthMode>(i);
+      if (!WifiCanProvision(mode, support_)) continue;
+      security_modes_[count] = mode;
+      security_labels_[count++] = WifiSecurityText(mode);
     }
-    MenuPolicy policy;
-    policy.selection_mode = SelectionMode::kSingle;
-    security_menu_.setPolicy(policy);
-    security_menu_.addGroup(security_group_);
-    security_button_.setOnInteractiveChange([this]() { showSecurity(); });
-    security_down_.setOnInteractiveChange([this]() { showSecurity(); });
+    security_.setItems(security_labels_, count, 0);
+    security_.setDensityOverride(DensityOverride::Explicit(Density::kMinus5));
+    security_.setOnInteractiveChange([this]() {
+      form_.setChoice(
+          kSecurity,
+          static_cast<int>(security_modes_[security_.selectedIndex()]));
+    });
     hidden_.item().setOnInvoked([this]() {
       if (changed_ != nullptr) changed_();
     });
@@ -251,11 +235,6 @@ class WifiConfigForm::Impl {
     });
     advanced_.item().setOnInvoked(
         [this]() { this->form_.setAdvanced(!expanded_); });
-  }
-
-  void showSecurity() {
-    Task* task = form_.getTask();
-    if (task != nullptr) security_menu_.show(*task, security_);
   }
 
   void sync() {
@@ -286,8 +265,12 @@ class WifiConfigForm::Impl {
                                                   : values_[kProxy] != 0);
       fields_[i]->setVisibility(visible ? V::kVisible : V::kGone);
     }
-    security_button_.setLabel(
-        WifiSecurityText(static_cast<roo_wifi::AuthMode>(values_[kSecurity])));
+    for (size_t i = 0; i < security_.itemCount(); ++i) {
+      if (static_cast<int>(security_modes_[i]) == values_[kSecurity]) {
+        security_.setSelectedIndex(i);
+        break;
+      }
+    }
     choices_[kPrivacy]->item().setSupportingText(
         values_[kPrivacy] != 0 ? "Randomized MAC" : "Device MAC");
     choices_[kIp]->item().setSupportingText(values_[kIp] != 0 ? "Static"
@@ -300,11 +283,6 @@ class WifiConfigForm::Impl {
                                                      : "Unmetered");
     for (int i = kPrivacy; i < kChoiceCount; ++i)
       choices_[i]->refreshFromItem();
-    for (int i = 1; i <= 7; ++i) {
-      if (security_rows_[i] != nullptr) {
-        security_rows_[i]->item().setSelected(i == values_[kSecurity]);
-      }
-    }
     bool password_required =
         !keep_ || values_[kSecurity] != static_cast<int>(original_security_);
     fields_[kPassword]->setLabel(password_required ? "Password*" : "Password");
@@ -326,12 +304,9 @@ class WifiConfigForm::Impl {
   ListRow<SwitchListItem> automatic_;
   ListRow<AdvancedItem> advanced_;
   StringViewLabel security_caption_;
-  Button security_button_;
-  NavigationButton security_down_;
-  internal::FlexColumn security_;
-  std::unique_ptr<MenuRow<SecurityItem>> security_rows_[8];
-  MenuGroup security_group_;
-  Menu security_menu_;
+  const char* security_labels_[7] = {};
+  roo_wifi::AuthMode security_modes_[7] = {};
+  SecurityDropdown security_;
   internal::SegmentedList options_;
   int values_[kChoiceCount] = {};
   bool expanded_ = false;
@@ -592,8 +567,7 @@ void WifiConfigForm::setEditingEnabled(bool enabled) {
        impl_->choices_) {
     if (row != nullptr) row->setEnabled(enabled);
   }
-  impl_->security_button_.setEnabled(enabled);
-  impl_->security_down_.setEnabled(enabled);
+  impl_->security_.setEnabled(enabled);
   impl_->hidden_.setEnabled(enabled);
   impl_->automatic_.setEnabled(enabled);
 }

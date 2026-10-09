@@ -15,6 +15,7 @@
 #include "roo_windows/material3/button/button.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
 #include "roo_windows/material3/menu/menu.h"
+#include "roo_windows/material3/utilities/dropdown_button.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
 #include "roo_windows_wifi/material3/settings_flow.h"
 
@@ -616,8 +617,9 @@ TEST(WifiFlow, DetailsOperationsPreserveUnchangedPixels) {
   EXPECT_TRUE(button->requestFocus());
 }
 
-// Verifies both security buttons open the menu, selecting Open updates the
-// draft and dismisses it, and Back closes it without leaving the editor.
+// Verifies the compact Security dropdown selects Open after menu detachment,
+// updates the draft/password visibility, and cancels without leaving the
+// editor.
 TEST(WifiFlow, AddNetworkSecurityMenu) {
   using namespace roo_windows;
   using namespace roo_windows::material3;
@@ -639,24 +641,39 @@ TEST(WifiFlow, AddNetworkSecurityMenu) {
   task.navigation().push(editor);
   app.refresh();
   Golden(device.raster(), "wifi_add_network");
-  auto& buttons = static_cast<FlexLayout&>(editor.form().child_at(2));
-  EXPECT_EQ(buttons.width(), editor.form().width());
+  auto& security = static_cast<DropdownButton&>(editor.form().child_at(2));
+  EXPECT_EQ(security.width() + security.getMargins().left() +
+                security.getMargins().right(),
+            editor.form().width());
+  EXPECT_EQ(security.densityOverride(),
+            DensityOverride::Explicit(Density::kMinus5));
+  EXPECT_EQ(security.selectedText(), "WPA2 Personal");
   Widget* scope = task.focus().scopeRoot();
-  buttons.child_at(1).onClicked();
+  security.onClicked();
   app.refresh();
   EXPECT_NE(task.focus().scopeRoot(), scope);
   Golden(device.raster(), "wifi_security_menu");
-  ASSERT_TRUE(task.focus().moveFocus(*task.focus().scopeRoot(), false));
+  ASSERT_TRUE(security.isMenuOpen());
+  auto* selected = dynamic_cast<MenuEntry*>(task.focus().focused());
+  ASSERT_NE(selected, nullptr);
+  EXPECT_EQ(selected->menuItem()->headlineText(), "WPA2 Personal");
+  EXPECT_EQ(selected->visualContext().density,
+            DensityOverride::Explicit(Density::kMinus5));
+  for (int i = 0; i < 3; ++i) {
+    ASSERT_TRUE(task.focus().moveFocus(*task.focus().scopeRoot(), true));
+  }
   auto* entry = dynamic_cast<MenuEntry*>(task.focus().focused());
   ASSERT_NE(entry, nullptr);
   EXPECT_EQ(entry->menuItem()->headlineText(), "Open");
   static_cast<Widget*>(entry)->onClicked();
+  roo_wifi::Pump(scheduler);
   app.refresh();
+  EXPECT_EQ(security.selectedText(), "Open");
   EXPECT_EQ(editor.form().choice(WifiConfigForm::kSecurity),
             static_cast<int>(roo_wifi::AuthMode::kOpen));
   EXPECT_TRUE(editor.form().child_at(3).isGone());
   EXPECT_EQ(task.focus().scopeRoot(), scope);
-  buttons.child_at(0).onClicked();
+  security.onClicked();
   app.refresh();
   EXPECT_NE(task.focus().scopeRoot(), scope);
   task.requestBack();

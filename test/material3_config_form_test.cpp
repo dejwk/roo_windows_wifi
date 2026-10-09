@@ -2,6 +2,7 @@
 #include "roo_windows/core/environment.h"
 #include "roo_windows/material3/list/list.h"
 #include "roo_windows/material3/text_field/text_field.h"
+#include "roo_windows/material3/utilities/dropdown_button.h"
 #include "roo_windows_wifi/material3/config_form.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
 
@@ -28,6 +29,40 @@ class FormTest : public testing::Test {
   }
   roo_wifi::Status build() { return form.build(settings, credential, policy); }
 };
+
+// Verifies filtered dropdown indices map to authentication modes, programmatic
+// changes synchronize silently, and committing a form disables the trigger.
+TEST_F(FormTest, SecurityDropdownFiltersAndSynchronizes) {
+  using namespace roo_windows::material3;
+  roo_wifi::Support filtered = support;
+  filtered.authentication_modes =
+      (1u << static_cast<unsigned>(roo_wifi::AuthMode::kOpen)) |
+      (1u << static_cast<unsigned>(roo_wifi::AuthMode::kWpa2Personal));
+  WifiConfigForm limited(context, filtered, nullptr);
+  limited.load(settings, false);
+  auto& dropdown = static_cast<DropdownButton&>(limited.child_at(2));
+  EXPECT_EQ(dropdown.itemCount(), 2u);
+  EXPECT_EQ(dropdown.selectedIndex(), 1u);
+  EXPECT_EQ(dropdown.selectedText(), "WPA2 Personal");
+  EXPECT_EQ(dropdown.densityOverride(),
+            DensityOverride::Explicit(Density::kMinus5));
+  int changes = 0;
+  limited.setOnChanged([&changes]() { ++changes; });
+  limited.setChoice(WifiConfigForm::kSecurity,
+                    static_cast<int>(roo_wifi::AuthMode::kOpen));
+  EXPECT_EQ(changes, 1);
+  EXPECT_EQ(dropdown.selectedIndex(), 0u);
+  EXPECT_EQ(dropdown.selectedText(), "Open");
+  EXPECT_TRUE(limited.child_at(3).isGone());
+  limited.setChoice(WifiConfigForm::kSecurity,
+                    static_cast<int>(roo_wifi::AuthMode::kWep));
+  EXPECT_EQ(changes, 1);
+  EXPECT_EQ(dropdown.selectedText(), "Open");
+  limited.setEditingEnabled(false);
+  EXPECT_FALSE(dropdown.isEnabled());
+  limited.setEditingEnabled(true);
+  EXPECT_TRUE(dropdown.isEnabled());
+}
 
 // Verifies advanced options fill the form width and regroup visible segments
 // when capabilities hide intermediate choices.
