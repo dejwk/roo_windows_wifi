@@ -683,9 +683,89 @@ TEST(WifiFlow, AddNetworkSecurityMenu) {
   app.refresh();
   auto& scroll = static_cast<SimpleScrollablePanel&>(
       *editor.form().parent()->parent()->parent());
-  scroll.scrollTo(0, -Scaled(170));
+  scroll.scrollTo(0, -Scaled(290));
   app.refresh();
   Golden(device.raster(), "wifi_advanced_options");
+  task.navigation().clear();
+}
+
+class DropdownPolicies : public NetworkPolicyProvider {
+ public:
+  bool supportsMetered() const override { return true; }
+  bool supportsProxy() const override { return true; }
+  roo_wifi::Status read(const roo_wifi::Ssid&, NetworkPolicy&) override {
+    return roo_wifi::Status::kNotFound;
+  }
+  roo_wifi::Status validate(const NetworkPolicy&) const override {
+    return roo_wifi::Status::kOk;
+  }
+  roo_wifi::Status apply(const roo_wifi::Ssid&, const NetworkPolicy&) override {
+    return roo_wifi::Status::kOk;
+  }
+  roo_wifi::Status remove(const roo_wifi::Ssid&) override {
+    return roo_wifi::Status::kOk;
+  }
+};
+
+// Verifies every advanced dropdown updates the draft through its anchored menu
+// without navigating away, retaining entered text and revealing dependent
+// fields.
+TEST(WifiFlow, AdvancedDropdownsUpdateDraftInline) {
+  using namespace roo_windows;
+  using namespace roo_windows::material3;
+  roo_scheduler::SchedulingService scheduler;
+  roo_wifi::TestStation station;
+  roo_wifi::OrderedInterface radio(station);
+  roo_wifi::MemoryStore store;
+  roo_wifi::Controller controller(radio, store, scheduler);
+  ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo::byte pixels[320 * 240 * 2] = {};
+  CountingDisplay device(pixels);
+  roo_display::Display display(device);
+  Environment environment(scheduler);
+  Application app(&environment, display);
+  DropdownPolicies policies;
+  WifiSettingsFlow flow(app.context(), controller, &policies);
+  Task& task = app.addTaskFullScreen();
+  auto& editor = flow.editDestination();
+  task.navigation().push(editor);
+  auto& form = editor.form();
+  form.setText(WifiConfigForm::kSsid, "Inline choices");
+  form.setText(WifiConfigForm::kPassword, "password");
+  form.setText(WifiConfigForm::kAddress, "192.168.1.20");
+  form.setText(WifiConfigForm::kProxyHost, "proxy.local");
+  form.setAdvanced(true);
+  app.refresh();
+  auto& scroll =
+      static_cast<SimpleScrollablePanel&>(*form.parent()->parent()->parent());
+  const char* expected[] = {"Randomized MAC", "Metered", "Static", "Manual"};
+  for (int i = 0; i < 4; ++i) {
+    auto& group = static_cast<FlexLayout&>(form.child_at(5 + i));
+    scroll.scrollTo(0, -group.offsetTop());
+    app.refresh();
+    auto& dropdown = static_cast<DropdownButton&>(group.child_at(1));
+    Widget* scope = task.focus().scopeRoot();
+    ASSERT_EQ(dropdown.showMenu(), MenuShowResult::kShown);
+    app.refresh();
+    ASSERT_TRUE(task.focus().moveFocus(*task.focus().scopeRoot(), false));
+    auto* entry = dynamic_cast<MenuEntry*>(task.focus().focused());
+    ASSERT_NE(entry, nullptr);
+    EXPECT_EQ(entry->menuItem()->headlineText(), expected[i]);
+    EXPECT_EQ(entry->visualContext().density,
+              DensityOverride::Explicit(Density::kMinus5));
+    static_cast<Widget*>(entry)->onClicked();
+    roo_wifi::Pump(scheduler);
+    app.refresh();
+    auto choice =
+        static_cast<WifiConfigForm::Choice>(WifiConfigForm::kPrivacy + i);
+    EXPECT_EQ(form.choice(choice), 1);
+    EXPECT_EQ(dropdown.selectedText(), expected[i]);
+    EXPECT_EQ(task.focus().scopeRoot(), scope);
+    EXPECT_TRUE(task.navigation().isCurrent(editor));
+  }
+  EXPECT_EQ(form.text(WifiConfigForm::kAddress), "192.168.1.20");
+  EXPECT_EQ(form.text(WifiConfigForm::kProxyHost), "proxy.local");
   task.navigation().clear();
 }
 

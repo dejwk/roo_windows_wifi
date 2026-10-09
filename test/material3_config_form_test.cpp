@@ -234,6 +234,84 @@ class Policy : public NetworkPolicyProvider {
   }
 };
 
+// Verifies all inline advanced selectors share compact density, synchronize
+// silently, reveal dependent fields, and respect commit-time disabling.
+TEST_F(FormTest, AdvancedDropdownsSynchronizeAndRevealFields) {
+  using namespace roo_windows;
+  using namespace roo_windows::material3;
+  Policy provider;
+  WifiConfigForm advanced(context, support, &provider);
+  advanced.load(settings, false);
+  const size_t counts[] = {2, 3, 2, 2};
+  for (int i = 0; i < 4; ++i) {
+    auto& group = static_cast<FlexLayout&>(advanced.child_at(5 + i));
+    EXPECT_TRUE(group.isGone());
+    auto& dropdown = static_cast<DropdownButton&>(group.child_at(1));
+    EXPECT_EQ(dropdown.itemCount(), counts[i]);
+    EXPECT_EQ(dropdown.densityOverride(),
+              DensityOverride::Explicit(Density::kMinus5));
+  }
+  advanced.setAdvanced(true);
+  int changes = 0;
+  advanced.setOnChanged([&changes]() { ++changes; });
+  const char* selected[] = {"Randomized MAC", "Unmetered", "Static", "Manual"};
+  for (int i = 0; i < 4; ++i) {
+    auto choice =
+        static_cast<WifiConfigForm::Choice>(WifiConfigForm::kPrivacy + i);
+    advanced.setChoice(choice, i == 1 ? 2 : 1);
+    auto& group = static_cast<FlexLayout&>(advanced.child_at(5 + i));
+    EXPECT_FALSE(group.isGone());
+    auto& dropdown = static_cast<DropdownButton&>(group.child_at(1));
+    EXPECT_EQ(dropdown.selectedText(), selected[i]);
+  }
+  EXPECT_EQ(changes, 4);
+  EXPECT_FALSE(advanced.child_at(9).isGone());   // IP address.
+  EXPECT_FALSE(advanced.child_at(14).isGone());  // Proxy host.
+  advanced.setEditingEnabled(false);
+  for (int i = 0; i < 4; ++i) {
+    auto& group = static_cast<FlexLayout&>(advanced.child_at(5 + i));
+    EXPECT_FALSE(group.child_at(1).isEnabled());
+  }
+  advanced.setEditingEnabled(true);
+  advanced.setChoice(WifiConfigForm::kIp, 0);
+  advanced.setChoice(WifiConfigForm::kProxy, 0);
+  EXPECT_TRUE(advanced.child_at(9).isGone());
+  EXPECT_TRUE(advanced.child_at(14).isGone());
+  advanced.setAdvanced(false);
+  advanced.setAdvanced(true);
+  auto& metered = static_cast<FlexLayout&>(advanced.child_at(6));
+  EXPECT_EQ(static_cast<DropdownButton&>(metered.child_at(1)).selectedText(),
+            "Unmetered");
+}
+
+// Verifies unavailable advanced settings remain hidden at their defaults but
+// retained saved values remain readable without offering unsupported edits.
+TEST_F(FormTest, UnavailableAdvancedDropdownsPreserveSavedValues) {
+  using namespace roo_windows;
+  using namespace roo_windows::material3;
+  roo_wifi::Support unavailable = support;
+  unavailable.randomized_mac = false;
+  unavailable.static_ipv4 = false;
+  WifiConfigForm limited(context, unavailable, nullptr);
+  limited.load(settings, false);
+  limited.setAdvanced(true);
+  for (int i = 5; i <= 8; ++i) EXPECT_TRUE(limited.child_at(i).isGone());
+  NetworkPolicy retained;
+  retained.metered = MeteredMode::kMetered;
+  retained.proxy = ProxyMode::kManual;
+  limited.load(settings, true, retained);
+  limited.setAdvanced(true);
+  limited.setEditingEnabled(false);
+  limited.setEditingEnabled(true);
+  for (int i : {6, 8}) {
+    auto& group = static_cast<FlexLayout&>(limited.child_at(i));
+    EXPECT_FALSE(group.isGone());
+    auto& dropdown = static_cast<DropdownButton&>(group.child_at(1));
+    EXPECT_EQ(dropdown.selectedIndex(), 1u);
+    EXPECT_FALSE(dropdown.isEnabled());
+  }
+}
+
 // Verifies manual proxy is validated independently of Wi-Fi/IP settings.
 TEST_F(FormTest, ValidatesProxyPortAndBypassDraft) {
   Policy provider;

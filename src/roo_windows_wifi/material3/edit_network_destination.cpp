@@ -9,81 +9,15 @@
 #include "roo_windows/material3/button/button.h"
 #include "roo_windows/material3/button/navigation.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
-#include "roo_windows/material3/list/list.h"
 #include "roo_windows/material3/typography.h"
 #include "roo_windows/widgets/text_block.h"
 #include "roo_windows_wifi/material3/internal/borrowed_layout.h"
-#include "roo_windows_wifi/material3/internal/segmented_list.h"
 
 namespace roo_windows_wifi::material3 {
 namespace {
 
 using namespace roo_windows;
 using namespace roo_windows::material3;
-
-// One retained radio-choice surface is shared by all form enums.
-class ChoiceDestination : public Destination {
- public:
-  ChoiceDestination(ApplicationContext& context, WifiConfigForm& form)
-      : form_(form),
-        bar_(context),
-        back_(context),
-        list_(context),
-        body_(context),
-        scroll_(context, body_),
-        scaffold_(context) {
-    bar_.setLeading(back_);
-    for (int i = 0; i < 8; ++i) {
-      rows_[i] = std::make_unique<ListRow<RadioListItem>>(context, "");
-      rows_[i]->item().setOnInvoked([this, i]() {
-        form_.setChoice(choice_, i);
-        if (getTask() != nullptr) getTask()->requestBack();
-      });
-      list_.add(*rows_[i]);
-    }
-    body_.add(list_);
-    scaffold_.setTopBar(bar_);
-    scaffold_.setBody(scroll_);
-    body_.setPadding(PaddingSize::k8dp);
-  }
-  Widget& getContents() override { return scaffold_; }
-  void configure(WifiConfigForm::Choice choice) {
-    choice_ = choice;
-    static const char* const titles[] = {"Security", "Privacy", "Metered",
-                                         "IP settings", "Proxy"};
-    bar_.setTitle(titles[choice]);
-    for (int i = 0; i < 8; ++i) {
-      bool supported = form_.supportsChoice(choice, i);
-      rows_[i]->setVisibility(supported ? Visibility::kVisible
-                                        : Visibility::kGone);
-      if (!supported) continue;
-      const char* label =
-          choice == WifiConfigForm::kSecurity
-              ? WifiSecurityText(static_cast<roo_wifi::AuthMode>(i))
-          : choice == WifiConfigForm::kPrivacy
-              ? (i ? "Randomized MAC" : "Device MAC")
-          : choice == WifiConfigForm::kIp    ? (i ? "Static" : "DHCP")
-          : choice == WifiConfigForm::kProxy ? (i ? "Manual" : "None")
-          : i == 0                           ? "Auto"
-          : i == 1                           ? "Metered"
-                                             : "Unmetered";
-      rows_[i]->item().setHeadline(label);
-      rows_[i]->item().setSelected(i == form_.choice(choice));
-      rows_[i]->refreshFromItem();
-    }
-  }
-
- private:
-  WifiConfigForm& form_;
-  WifiConfigForm::Choice choice_ = WifiConfigForm::kSecurity;
-  AppBar bar_;
-  BackButton back_;
-  std::unique_ptr<ListRow<RadioListItem>> rows_[8];
-  internal::SegmentedList list_;
-  internal::FlexColumn body_;
-  SimpleScrollablePanel scroll_;
-  LayoutScaffold scaffold_;
-};
 
 // Full-width action row that keeps the editor actions together at the trailing
 // edge, like dialog actions.
@@ -115,7 +49,6 @@ class WifiEditNetworkDestination::Impl {
         bar_(context),
         back_(context),
         form_(context, controller.support(), policies_),
-        choice_(context, form_),
         message_(context, "", text_style_body_medium()),
         cancel_(context, "Cancel", ButtonVariant::kOutlined),
         save_(context, "Save"),
@@ -141,12 +74,6 @@ class WifiEditNetworkDestination::Impl {
       }
       this->owner_.updateActions();
     });
-    form_.setOnChoose([this](WifiConfigForm::Choice setting) {
-      NavigationHost* host = this->owner_.getNavigationHost();
-      if (host == nullptr || choice_.getNavigationHost() != nullptr) return;
-      choice_.configure(setting);
-      host->push(choice_);
-    });
   }
   void report(roo_wifi::Status status, const char* text = nullptr) {
     last_status_ = status;
@@ -166,7 +93,6 @@ class WifiEditNetworkDestination::Impl {
   AppBar bar_;
   BackButton back_;
   WifiConfigForm form_;
-  ChoiceDestination choice_;
   TextBlock message_;
   Button cancel_;
   Button save_;

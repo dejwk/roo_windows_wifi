@@ -44,7 +44,10 @@ that entry; forget the old network explicitly. Confirmation is required by the F
 
 Security choices follow `Controller::support()`. The shared form supports
 personal authentication, hidden networks, auto-connect, device/randomized MAC,
-and DHCP/static IPv4. Enterprise and other unsupported modes remain read-only.
+and DHCP/static IPv4. Security, Privacy, Metered, IP settings, and Proxy use
+inline dropdowns with density -5 for both their triggers and anchored menus.
+Advanced selectors appear when supported; retained unavailable values remain
+visible but disabled. Enterprise and other unsupported modes remain read-only.
 Proxy and metered controls appear only when an application supplies a
 `NetworkPolicyProvider` as the third argument. Its synchronous methods run on
 the controller context and store/apply policy by SSID outside `roo_wifi`.

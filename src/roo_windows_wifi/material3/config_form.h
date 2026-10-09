@@ -26,7 +26,7 @@ class WifiConfigForm : public roo_windows::FlexLayout {
     kProxyBypass,
     kFieldCount
   };
-  /// Identifies choices served by the editor's one reusable choice destination.
+  /// Identifies configuration values selected by the inline dropdowns.
   enum Choice { kSecurity, kPrivacy, kMetered, kIp, kProxy, kChoiceCount };
 
   /// Creates the retained form using actual radio and provider capabilities.
@@ -83,9 +83,6 @@ class WifiConfigForm : public roo_windows::FlexLayout {
 
   /// Installs the owner's validation/action update hook.
   void setOnChanged(std::function<void()> callback);
-
-  /// Installs the owner's reusable choice-destination hook.
-  void setOnChoose(std::function<void(Choice)> callback);
 
   /// Prevents changing the draft while a commit is in flight.
   void setEditingEnabled(bool enabled);

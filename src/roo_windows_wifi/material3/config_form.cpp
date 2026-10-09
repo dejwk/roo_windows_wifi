@@ -7,6 +7,7 @@
 #include "roo_windows/material3/list/list.h"
 #include "roo_windows/material3/text_field/secure_text_field.h"
 #include "roo_windows/material3/utilities/dropdown_button.h"
+#include "roo_windows_wifi/material3/internal/borrowed_layout.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
 
 namespace roo_windows_wifi::material3 {
@@ -69,7 +70,7 @@ class ObservedField : public Base {
 };
 
 /// Fills the form's width while preserving the dropdown's compact height.
-class SecurityDropdown : public DropdownButton {
+class FormDropdown : public DropdownButton {
  public:
   using DropdownButton::DropdownButton;
 
@@ -78,6 +79,31 @@ class SecurityDropdown : public DropdownButton {
     return {PreferredSize::MatchParentWidth(),
             PreferredSize::WrapContentHeight()};
   }
+};
+
+/// Pairs a choice caption with a compact, full-width dropdown.
+class CaptionedDropdown : public internal::FlexColumn {
+ public:
+  /// Borrows the immutable choice table and labels for the widget lifetime.
+  CaptionedDropdown(ApplicationContext& context, const char* caption,
+                    const char* const* items, size_t count)
+      : FlexColumn(context),
+        caption_(context, caption, text_style_title_small()),
+        dropdown_(context, items, count, ButtonVariant::kFilledTonal) {
+    dropdown_.setDensityOverride(DensityOverride::Explicit(Density::kMinus5));
+    add(caption_);
+    add(dropdown_);
+  }
+
+  /// Detaches borrowed children before their member storage is released.
+  ~CaptionedDropdown() override { removeAll(); }
+
+  /// Returns the inline selector for synchronization and interactive updates.
+  DropdownButton& dropdown() { return dropdown_; }
+
+ private:
+  StringViewLabel caption_;
+  FormDropdown dropdown_;
 };
 
 class AdvancedItem : public InvokableListItemBase {
@@ -110,6 +136,21 @@ constexpr const char* kLabels[] = {"Network name*",
                                    "Bypass list"};
 constexpr const char* kChoices[] = {"Security", "Privacy", "Metered",
                                     "IP settings", "Proxy"};
+constexpr const char* kPrivacyItems[] = {"Device MAC", "Randomized MAC"};
+constexpr const char* kMeteredItems[] = {"Auto", "Metered", "Unmetered"};
+constexpr const char* kIpItems[] = {"DHCP", "Static"};
+constexpr const char* kProxyItems[] = {"None", "Manual"};
+
+// Choice indices match the backend/application policy enum values.
+struct ChoiceTable {
+  const char* const* items;
+  size_t count;
+};
+constexpr ChoiceTable kChoiceTables[] = {{nullptr, 0},
+                                         {kPrivacyItems, 2},
+                                         {kMeteredItems, 3},
+                                         {kIpItems, 2},
+                                         {kProxyItems, 2}};
 }  // namespace
 
 const char* WifiStatusText(roo_wifi::Status status) {
@@ -194,10 +235,14 @@ class WifiConfigForm::Impl {
         fields_[i]->setSupportingText("* required");
     }
     for (int i = kPrivacy; i < kChoiceCount; ++i) {
-      choices_[i] = std::make_unique<ListRow<InvokableListItemBase>>(
-          context, kChoices[i]);
-      choices_[i]->item().setOnInvoked([this, i]() {
-        if (choose_ != nullptr) choose_(static_cast<Choice>(i));
+      choices_[i] = std::make_unique<CaptionedDropdown>(
+          context, kChoices[i], kChoiceTables[i].items, kChoiceTables[i].count);
+      DropdownButton& dropdown = choices_[i]->dropdown();
+      dropdown.setEnabled(isChoiceSupported(static_cast<Choice>(i)));
+      dropdown.setOnInteractiveChange([this, i]() {
+        form_.setChoice(
+            static_cast<Choice>(i),
+            static_cast<int>(choices_[i]->dropdown().selectedIndex()));
       });
     }
     form_.add(*fields_[kSsid]);
@@ -207,10 +252,10 @@ class WifiConfigForm::Impl {
     options_.add(advanced_);
     options_.add(hidden_);
     options_.add(automatic_);
-    for (int i = kPrivacy; i < kChoiceCount; ++i) {
-      options_.add(*choices_[i]);
-    }
     form_.add(options_);
+    for (int i = kPrivacy; i < kChoiceCount; ++i) {
+      form_.add(*choices_[i]);
+    }
     for (int i = kAddress; i < kFieldCount; ++i) form_.add(*fields_[i]);
     // DropdownButton borrows this filtered table for the form's lifetime.
     size_t count = 0;
@@ -237,6 +282,15 @@ class WifiConfigForm::Impl {
         [this]() { this->form_.setAdvanced(!expanded_); });
   }
 
+  // Supported settings are editable; retained unsupported values stay readable.
+  bool isChoiceSupported(Choice choice) const {
+    if (choice == kPrivacy) return support_.randomized_mac;
+    if (choice == kIp) return support_.static_ipv4;
+    return policies_ != nullptr &&
+           (choice == kMetered ? policies_->supportsMetered()
+                               : policies_->supportsProxy());
+  }
+
   void sync() {
     using V = Visibility;
     fields_[kPassword]->setVisibility(
@@ -248,12 +302,7 @@ class WifiConfigForm::Impl {
             ? V::kVisible
             : V::kGone);
     for (int i = kPrivacy; i < kChoiceCount; ++i) {
-      bool supported = i == kPrivacy ? support_.randomized_mac
-                       : i == kIp
-                           ? support_.static_ipv4
-                           : policies_ != nullptr &&
-                                 (i == kMetered ? policies_->supportsMetered()
-                                                : policies_->supportsProxy());
+      bool supported = isChoiceSupported(static_cast<Choice>(i));
       choices_[i]->setVisibility(
           expanded_ && (supported || values_[i] != 0) ? V::kVisible : V::kGone);
     }
@@ -271,18 +320,9 @@ class WifiConfigForm::Impl {
         break;
       }
     }
-    choices_[kPrivacy]->item().setSupportingText(
-        values_[kPrivacy] != 0 ? "Randomized MAC" : "Device MAC");
-    choices_[kIp]->item().setSupportingText(values_[kIp] != 0 ? "Static"
-                                                              : "DHCP");
-    choices_[kProxy]->item().setSupportingText(values_[kProxy] != 0 ? "Manual"
-                                                                    : "None");
-    choices_[kMetered]->item().setSupportingText(values_[kMetered] == 0 ? "Auto"
-                                                 : values_[kMetered] == 1
-                                                     ? "Metered"
-                                                     : "Unmetered");
-    for (int i = kPrivacy; i < kChoiceCount; ++i)
-      choices_[i]->refreshFromItem();
+    for (int i = kPrivacy; i < kChoiceCount; ++i) {
+      choices_[i]->dropdown().setSelectedIndex(values_[i]);
+    }
     bool password_required =
         !keep_ || values_[kSecurity] != static_cast<int>(original_security_);
     fields_[kPassword]->setLabel(password_required ? "Password*" : "Password");
@@ -297,16 +337,15 @@ class WifiConfigForm::Impl {
   roo_wifi::Support support_;
   NetworkPolicyProvider* policies_;
   std::function<void()> changed_;
-  std::function<void(Choice)> choose_;
   std::unique_ptr<TextField> fields_[kFieldCount];
-  std::unique_ptr<ListRow<InvokableListItemBase>> choices_[kChoiceCount];
+  std::unique_ptr<CaptionedDropdown> choices_[kChoiceCount];
   ListRow<SwitchListItem> hidden_;
   ListRow<SwitchListItem> automatic_;
   ListRow<AdvancedItem> advanced_;
   StringViewLabel security_caption_;
   const char* security_labels_[7] = {};
   roo_wifi::AuthMode security_modes_[7] = {};
-  SecurityDropdown security_;
+  FormDropdown security_;
   internal::SegmentedList options_;
   int values_[kChoiceCount] = {};
   bool expanded_ = false;
@@ -556,16 +595,13 @@ bool WifiConfigForm::advanced() const { return impl_->expanded_; }
 void WifiConfigForm::setOnChanged(std::function<void()> callback) {
   impl_->changed_ = std::move(callback);
 }
-void WifiConfigForm::setOnChoose(std::function<void(Choice)> callback) {
-  impl_->choose_ = std::move(callback);
-}
 void WifiConfigForm::setEditingEnabled(bool enabled) {
   for (const std::unique_ptr<TextField>& field : impl_->fields_) {
     field->setEnabled(enabled);
   }
-  for (const std::unique_ptr<ListRow<InvokableListItemBase>>& row :
-       impl_->choices_) {
-    if (row != nullptr) row->setEnabled(enabled);
+  for (int i = kPrivacy; i < kChoiceCount; ++i) {
+    impl_->choices_[i]->dropdown().setEnabled(
+        enabled && impl_->isChoiceSupported(static_cast<Choice>(i)));
   }
   impl_->security_.setEnabled(enabled);
   impl_->hidden_.setEnabled(enabled);
