@@ -18,6 +18,10 @@
 #include "roo_windows/material3/dialog/basic_dialog.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
 #include "roo_windows/material3/list/list.h"
+#include "roo_windows/material3/theme.h"
+#include "roo_windows/material3/typography.h"
+#include "roo_windows/widgets/text_block.h"
+#include "roo_windows/widgets/text_label.h"
 #include "roo_windows_wifi/material3/internal/borrowed_layout.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
 #include "roo_windows_wifi/material3/network_row.h"
@@ -28,9 +32,45 @@ namespace {
 using namespace roo_windows;
 using namespace roo_windows::material3;
 
-class NoopRowListener : public WifiNetworkRow::Listener {
+// Centers the network identity above its actions without a list surface.
+class NetworkSummary : public FlexLayout {
  public:
-  void onWifiNetworkActivated(size_t) override {}
+  explicit NetworkSummary(ApplicationContext& context)
+      : FlexLayout(context, FlexDirection::kColumn),
+        signal_(context),
+        ssid_(context, "", text_style_title_medium(),
+              roo_display::kCenter | roo_display::kTop),
+        status_(context, "", text_style_body_medium(),
+                kGravityCenter | kGravityMiddle) {
+    ssid_.setTextAlign(TextAlign::kCenter);
+    setAlignItems(AlignItems::kCenter);
+    setGap(Scaled(4));
+    add(signal_);
+    add(ssid_);
+    add(status_);
+  }
+
+  ~NetworkSummary() override { removeAll(); }
+
+  Margins getMargins() const override { return Margins(0, 0, 0, Scaled(16)); }
+
+  // Owns the SSID so scan replacement cannot invalidate a displayed text view.
+  void bind(const WifiNetworkSummary& summary) {
+    const WifiSignalState state = WifiNetworkSignalState(summary);
+    if (signal_.rssiDbm() != summary.rssi_dbm ||
+        signal_.locked() != !summary.isOpen() ||
+        signal_.signalState() != state) {
+      signal_.set(summary.rssi_dbm, !summary.isOpen(), state);
+    }
+    if (ssid_.text() != summary.ssid) ssid_.setText(summary.ssid);
+    status_.setText(WifiNetworkStatusText(summary));
+    status_.setColor(theme().material3Theme().color.onSurfaceVariant);
+  }
+
+ private:
+  WifiSignalGlyph signal_;
+  TextBlock ssid_;
+  StringViewLabel status_;
 };
 
 // Preserves unchanged pixels when diagnostic rows resize the details column.
@@ -126,8 +166,7 @@ class WifiNetworkDetailsDestination::Impl {
         back_(context),
         edit_(context, SCALED_ROO_ICON(outlined, content_create),
               IconButtonStyle::kStandard),
-        summary_(context, listener_),
-        summary_list_(context, "Network"),
+        summary_(context),
         connect_(context, "Connect", ButtonVariant::kFilledTonal),
         disconnect_(context, "Disconnect", ButtonVariant::kFilledTonal),
         forget_(context, "Forget", ButtonVariant::kFilledTonal),
@@ -176,17 +215,13 @@ class WifiNetworkDetailsDestination::Impl {
           context, info_labels[i]);
       info_.list().add(*info_rows_[i]);
     }
-    summary_list_.list().add(summary_);
-    summary_list_.list().setSelectionPolicy(
-        {SelectionMode::kSingle, SelectionAffordance::kNone,
-         AffordancePlacement::kTrailing, false});
-    body_.add(summary_list_);
+    body_.add(summary_);
     body_.add(buttons_);
     body_.add(settings_);
     body_.add(info_);
     scaffold_.setTopBar(bar_);
     scaffold_.setBody(scroll_);
-    body_.setPadding(PaddingSize::k8dp);
+    body_.setPadding(Padding(PaddingSize::k8dp, PaddingSize::kNone));
   }
   void report(roo_wifi::Status status, const char* text = nullptr) {
     feedback_ = text != nullptr ? text : WifiStatusText(status);
@@ -198,12 +233,10 @@ class WifiNetworkDetailsDestination::Impl {
 
   roo_wifi::Ssid cleanup_;
   std::string feedback_;
-  NoopRowListener listener_;
   AppBar bar_;
   BackButton back_;
   IconButton edit_;
-  WifiNetworkRow summary_;
-  internal::CaptionedSegmentedList summary_list_;
+  NetworkSummary summary_;
   Button connect_;
   Button disconnect_;
   Button forget_;
@@ -474,12 +507,12 @@ void WifiNetworkDetailsDestination::refreshSelection() {
                       (id.size == 0 || current->profile_ssid == id);
   selected_.connecting = selected_.current && current->connecting;
   selected_.disconnecting = selected_.current && current->disconnecting;
-  impl_->summary_.bind(0, selected_);
-  if (selected_.current) {
-    impl_->summary_list_.list().select(impl_->summary_);
-  } else {
-    impl_->summary_list_.list().clearSelection();
+  selected_.link_phase =
+      selected_.current ? current->link_phase : roo_wifi::LinkPhase::kIdle;
+  if (selected_.current && current->rssi_dbm > -128) {
+    selected_.rssi_dbm = current->rssi_dbm;
   }
+  impl_->summary_.bind(selected_);
 }
 
 void WifiNetworkDetailsDestination::onWifiModelChanged() {

@@ -17,6 +17,12 @@ enum class WifiSignalState : uint8_t {
   kConnectedWithoutInternet,
 };
 
+/// Derives the signal glyph state shared by network lists and details.
+WifiSignalState WifiNetworkSignalState(const WifiNetworkSummary& summary);
+
+/// Returns static status text for connection progress and known availability.
+const char* WifiNetworkStatusText(const WifiNetworkSummary& summary);
+
 /// Material 3 Wi-Fi signal glyph backed by the framework's scaled icon set.
 class WifiSignalGlyph : public roo_windows::Widget {
  public:

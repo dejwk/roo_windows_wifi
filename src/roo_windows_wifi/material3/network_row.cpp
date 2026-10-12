@@ -115,24 +115,32 @@ void WifiNetworkRow::bind(size_t index, const WifiNetworkSummary& summary) {
   }
 }
 
-WifiSignalState WifiNetworkRow::signalState() const {
-  if (summary_.connecting) return WifiSignalState::kConnecting;
-  if (summary_.current) return WifiSignalState::kConnected;
+WifiSignalState WifiNetworkSignalState(const WifiNetworkSummary& summary) {
+  if (summary.connecting) return WifiSignalState::kConnecting;
+  if (summary.current) return WifiSignalState::kConnected;
   return WifiSignalState::kAvailable;
 }
 
-const char* WifiNetworkRow::supportingText() const {
-  if (summary_.disconnecting) return "Disconnecting\xE2\x80\xA6";
-  if (summary_.connecting) {
-    if (summary_.link_phase == roo_wifi::LinkPhase::kAssociated) {
+const char* WifiNetworkStatusText(const WifiNetworkSummary& summary) {
+  if (summary.disconnecting) return "Disconnecting\xE2\x80\xA6";
+  if (summary.connecting) {
+    if (summary.link_phase == roo_wifi::LinkPhase::kAssociated) {
       return "Acquiring IP address\xE2\x80\xA6";
     }
     return "Connecting\xE2\x80\xA6";
   }
-  if (summary_.current) return "Connected";
-  if (summary_.range_known && !summary_.in_range) return "Out of range";
-  if (summary_.saved) return "Saved";
-  return summary_.isOpen() ? "Open network" : "Secured network";
+  if (summary.current) return "Connected";
+  if (summary.range_known && !summary.in_range) return "Out of range";
+  if (summary.saved) return "Saved";
+  return summary.isOpen() ? "Open network" : "Secured network";
+}
+
+WifiSignalState WifiNetworkRow::signalState() const {
+  return WifiNetworkSignalState(summary_);
+}
+
+const char* WifiNetworkRow::supportingText() const {
+  return WifiNetworkStatusText(summary_);
 }
 
 }  // namespace material3

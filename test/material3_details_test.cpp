@@ -1,7 +1,12 @@
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
+#include "roo_display/core/offscreen.h"
+#include "roo_windows/core/application.h"
 #include "roo_windows/core/environment.h"
+#include "roo_windows/widgets/text_block.h"
+#include "roo_windows/widgets/text_label.h"
 #include "roo_windows_wifi/material3/network_details_destination.h"
+#include "roo_windows_wifi/material3/network_row.h"
 #include "roo_windows_wifi/material3/saved_networks_destination.h"
 
 namespace roo_windows_wifi::material3 {
@@ -10,6 +15,107 @@ class Actions : public WifiNetworkDetailsDestination::Actions {
  public:
   void editSelectedNetwork(const WifiNetworkSummary&) override {}
 };
+
+template <typename T>
+T* FindWidget(roo_windows::Widget& root) {
+  if (T* widget = dynamic_cast<T*>(&root)) return widget;
+  for (int i = 0; i < root.focusChildCount(); ++i) {
+    if (T* widget = FindWidget<T>(*root.focusChildAt(i))) return widget;
+  }
+  return nullptr;
+}
+
+// Verifies long SSIDs wrap and rebind cleanly, while a connection without scan
+// results updates the centered header through association and disconnection.
+TEST(WifiNetworkDetailsDestinationTest, SummaryTracksIdentityAndLiveLink) {
+  roo_scheduler::SchedulingService scheduler;
+  roo_wifi::TestStation station;
+  roo_wifi::OrderedInterface radio(station);
+  roo_wifi::MemoryStore store;
+  store.enabled = true;
+  roo_wifi::Controller controller(radio, store, scheduler);
+  ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo_wifi::ProfileSettings settings;
+  settings.connection =
+      roo_wifi::TestConfig("WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW");
+  roo_wifi::CredentialUpdate clear;
+  clear.intent = roo_wifi::CredentialIntent::kClear;
+  ASSERT_EQ(controller.saveProfile(settings, clear), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo_windows::Environment environment(scheduler);
+  roo::byte pixels[320 * 240 * 2] = {};
+  roo_display::OffscreenDevice<roo_display::Argb4444> device(
+      320, 240, pixels, roo_display::Argb4444());
+  roo_display::Display display(device);
+  roo_windows::Application app(&environment, display);
+  WifiPresentationModel model(controller);
+  Actions actions;
+  WifiNetworkDetailsDestination details(app.context(), model, actions);
+  WifiNetworkSummary selected;
+  selected.ssid = "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW";
+  selected.security = roo_wifi::AuthMode::kOpen;
+  selected.profile_ssid = settings.connection.ssid;
+  selected.saved = true;
+  details.setNetwork(selected);
+  auto& navigation = app.addTaskFullScreen().navigation();
+  struct ClearNavigation {
+    decltype(navigation) host;
+    ~ClearNavigation() { host.clear(); }
+  } cleanup{navigation};
+  navigation.push(details);
+  app.refresh();
+  auto* glyph = FindWidget<WifiSignalGlyph>(details.getContents());
+  auto* ssid = FindWidget<roo_windows::TextBlock>(details.getContents());
+  ASSERT_NE(glyph, nullptr);
+  ASSERT_NE(ssid, nullptr);
+  auto* status = FindWidget<roo_windows::StringViewLabel>(*glyph->parent());
+  ASSERT_NE(status, nullptr);
+  EXPECT_EQ(ssid->text(), selected.ssid);
+  EXPECT_GT(ssid->height(), ssid->textStyle().lineHeight());
+  EXPECT_LE(ssid->width(), glyph->parent()->width());
+  EXPECT_NEAR(2 * glyph->offsetLeft() + glyph->width(),
+              glyph->parent()->width(), 1);
+  EXPECT_EQ(status->text(), "Saved");
+
+  ASSERT_EQ(details.connect(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  EXPECT_EQ(status->text(), "Connecting\xE2\x80\xA6");
+  roo_wifi::NativeStation::Event associated{};
+  associated.kind = roo_wifi::NativeStation::Event::kAssociated;
+  associated.link.ssid = settings.connection.ssid;
+  associated.link.security = settings.connection.security;
+  associated.link.rssi_dbm = -70;
+  station.emit(associated);
+  roo_wifi::Pump(scheduler);
+  app.refresh();
+  EXPECT_EQ(status->text(), "Acquiring IP address\xE2\x80\xA6");
+  EXPECT_EQ(glyph->signalState(), WifiSignalState::kConnecting);
+  EXPECT_EQ(glyph->rssiDbm(), -70);
+  station.ready();
+  roo_wifi::Pump(scheduler);
+  EXPECT_EQ(status->text(), "Connected");
+  EXPECT_EQ(glyph->signalState(), WifiSignalState::kConnected);
+  ASSERT_EQ(details.disconnect(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  EXPECT_EQ(status->text(), "Disconnecting\xE2\x80\xA6");
+  station.disconnected();
+  roo_wifi::Pump(scheduler);
+  EXPECT_EQ(status->text(), "Saved");
+
+  selected.ssid = "Guest";
+  selected.saved = false;
+  selected.profile_ssid = {};
+  details.setNetwork(selected);
+  app.refresh();
+  EXPECT_EQ(ssid->text(), "Guest");
+  EXPECT_EQ(ssid->height(), ssid->textStyle().lineHeight());
+  EXPECT_EQ(status->text(), "Open network");
+  const std::vector<roo::byte> before(pixels, pixels + sizeof(pixels));
+  app.root().invalidateInterior();
+  app.refresh();
+  EXPECT_EQ(before, std::vector<roo::byte>(pixels, pixels + sizeof(pixels)));
+}
 
 // A saved transition-mode profile survives router changes while connected
 // details track the actual link and its original saved profile.
