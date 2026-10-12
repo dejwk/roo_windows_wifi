@@ -4,11 +4,16 @@
 #include <cstdio>
 #include <cstring>
 
+#include "roo_icons/outlined/action.h"
+#include "roo_icons/outlined/content.h"
+#include "roo_icons/outlined/navigation.h"
+#include "roo_icons/outlined/notification.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/task.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/button.h"
+#include "roo_windows/material3/button/icon_button.h"
 #include "roo_windows/material3/button/navigation.h"
 #include "roo_windows/material3/dialog/basic_dialog.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
@@ -119,12 +124,13 @@ class WifiNetworkDetailsDestination::Impl {
         policies_(policies),
         bar_(context),
         back_(context),
+        edit_(context, SCALED_ROO_ICON(outlined, content_create),
+              IconButtonStyle::kStandard),
         summary_(context, listener_),
         summary_list_(context, "Network"),
-        connect_(context, "Connect", ButtonVariant::kText),
-        disconnect_(context, "Disconnect", ButtonVariant::kText),
-        edit_(context, "Edit", ButtonVariant::kText),
-        forget_(context, "Forget", ButtonVariant::kText),
+        connect_(context, "Connect", ButtonVariant::kFilledTonal),
+        disconnect_(context, "Disconnect", ButtonVariant::kFilledTonal),
+        forget_(context, "Forget", ButtonVariant::kFilledTonal),
         buttons_(context),
         automatic_(context, "Auto-connect"),
         settings_(context, "Settings"),
@@ -135,15 +141,19 @@ class WifiNetworkDetailsDestination::Impl {
         scaffold_(context) {
     bar_.setTitle("Network details");
     bar_.setLeading(back_);
+    bar_.setTrailing(0, edit_);
+    connect_.setIcon(&SCALED_ROO_ICON(outlined, notification_wifi));
+    disconnect_.setIcon(&SCALED_ROO_ICON(outlined, navigation_close));
+    forget_.setIcon(&SCALED_ROO_ICON(outlined, action_delete));
     connect_.setOnInteractiveChange([this]() { this->owner_.connect(); });
     disconnect_.setOnInteractiveChange([this]() { this->owner_.disconnect(); });
     edit_.setOnInteractiveChange([this]() {
       this->owner_.actions_.editSelectedNetwork(this->owner_.selected_);
     });
     forget_.setOnInteractiveChange([this]() { this->owner_.requestForget(); });
+    buttons_.setGravity(kGravityCenter);
     buttons_.add(connect_);
     buttons_.add(disconnect_);
-    buttons_.add(edit_);
     buttons_.add(forget_);
     automatic_.item().setOnInvoked(
         [this]() { this->owner_.setAutoConnect(automatic_.item().isOn()); });
@@ -191,9 +201,12 @@ class WifiNetworkDetailsDestination::Impl {
   NoopRowListener listener_;
   AppBar bar_;
   BackButton back_;
+  IconButton edit_;
   WifiNetworkRow summary_;
   internal::CaptionedSegmentedList summary_list_;
-  Button connect_, disconnect_, edit_, forget_;
+  Button connect_;
+  Button disconnect_;
+  Button forget_;
   internal::BorrowedRow buttons_;
   ListRow<SwitchListItem> automatic_;
   std::unique_ptr<ListRow<InvokableListItemBase>> setting_rows_[4];
