@@ -22,6 +22,7 @@
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/icon_button.h"
+#include "roo_windows/material3/button/navigation.h"
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
 #include "roo_windows/material3/list/dynamic_list.h"
 #include "roo_windows/material3/list/list.h"
@@ -214,7 +215,8 @@ class WifiSettingsDestination::Impl {
   Impl(roo_windows::ApplicationContext& context, WifiPresentationModel& model,
        WifiNetworkRow::Listener& listener, Actions& actions,
        WifiSettingsDestination& destination)
-      : app_bar_(context),
+      : back_(context),
+        app_bar_(context),
         refresh_(context, SCALED_ROO_ICON(outlined, navigation_refresh),
                  roo_windows::material3::IconButtonStyle::kStandard),
         body_(context, model, listener, destination, actions),
@@ -232,6 +234,7 @@ class WifiSettingsDestination::Impl {
 
  private:
   std::string feedback_;
+  roo_windows::material3::BackButton back_;
   roo_windows::material3::AppBar app_bar_;
   roo_windows::material3::IconButton refresh_;
   SettingsBody body_;
@@ -260,6 +263,14 @@ WifiSettingsDestination::~WifiSettingsDestination() {
 
 roo_windows::Widget& WifiSettingsDestination::getContents() {
   return impl_->scaffold_;
+}
+
+void WifiSettingsDestination::setBackButtonVisible(bool visible) {
+  if (visible) {
+    impl_->app_bar_.setLeading(impl_->back_);
+  } else {
+    impl_->app_bar_.setLeading({});
+  }
 }
 
 void WifiSettingsDestination::onResume() {

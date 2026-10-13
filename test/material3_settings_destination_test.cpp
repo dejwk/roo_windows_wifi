@@ -5,6 +5,7 @@
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
 #include "roo_windows/core/environment.h"
+#include "roo_windows/material3/button/navigation.h"
 #include "roo_windows_wifi/material3/settings_destination.h"
 
 namespace roo_windows_wifi {
@@ -85,6 +86,33 @@ struct Fixture {
   RecordingActions actions;
   WifiSettingsDestination destination;
 };
+
+roo_windows::material3::BackButton* FindBackButton(roo_windows::Widget& widget) {
+  auto* button = dynamic_cast<roo_windows::material3::BackButton*>(&widget);
+  if (button != nullptr) return button;
+  for (int i = 0; i < widget.focusChildCount(); ++i) {
+    button = FindBackButton(*widget.focusChildAt(i));
+    if (button != nullptr) return button;
+  }
+  return nullptr;
+}
+
+// Verifies embedded Wi-Fi settings opt into the standard deferred Back action,
+// while standalone roots retain their default app bar without a Back action.
+TEST(Material3SettingsDestination, OptionalRootBackButton) {
+  Fixture fixture;
+  auto& destination = fixture.destination;
+  EXPECT_EQ(nullptr, FindBackButton(destination.getContents()));
+  destination.setBackButtonVisible(true);
+  auto* back = FindBackButton(destination.getContents());
+  ASSERT_NE(nullptr, back);
+  EXPECT_EQ(roo_windows::ClickActivationPolicy::kAfterForcedFinalFrame,
+            back->getClickActivationPolicy());
+  destination.setBackButtonVisible(false);
+  EXPECT_EQ(nullptr, FindBackButton(destination.getContents()));
+  destination.setBackButtonVisible(true);
+  EXPECT_EQ(back, FindBackButton(destination.getContents()));
+}
 
 // Finds the connected row through the destination's composed widget tree.
 WifiNetworkRow* FindCurrentRow(roo_windows::Widget& widget) {

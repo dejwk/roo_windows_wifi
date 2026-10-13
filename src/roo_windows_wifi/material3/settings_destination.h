@@ -49,6 +49,10 @@ class WifiSettingsDestination : public roo_windows::Destination,
   /// Returns the list to the top, refreshes state, and discovers when needed.
   void onResume() override;
 
+  /// Shows a standard Back action when this root is embedded in app navigation.
+  /// Hidden by default for applications that use Wi-Fi as their root screen.
+  void setBackButtonVisible(bool visible);
+
   /// Requests an immediate scan when Wi-Fi is enabled.
   roo_wifi::Status refreshScan();
 
