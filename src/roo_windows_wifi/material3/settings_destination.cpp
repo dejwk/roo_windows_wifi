@@ -26,6 +26,7 @@
 #include "roo_windows/material3/list/dynamic_list.h"
 #include "roo_windows/material3/list/list.h"
 #include "roo_windows/widgets/icon.h"
+#include "roo_windows_wifi/material3/config_form.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
 #include "roo_windows_wifi/material3/network_policy.h"
 
@@ -159,7 +160,7 @@ class SettingsBody : public roo_windows::FlexLayout {
             roo_windows::PreferredSize::WrapContentHeight()};
   }
 
-  void sync(bool enabled) {
+  void sync(bool enabled, roo::string_view error = {}) {
     using roo_windows::Visibility;
     const size_t saved_count = model_.savedProfiles().size();
     saved_supporting_ = std::to_string(saved_count) +
@@ -167,6 +168,7 @@ class SettingsBody : public roo_windows::FlexLayout {
     saved_.item().setSupportingText(saved_supporting_);
     saved_.refreshFromItem();
     enabled_.item().setOn(enabled);
+    enabled_.item().setSupportingText(error);
     enabled_.refreshFromItem();
     current_.setVisibility(enabled && model_.current() ? Visibility::kVisible
                                                        : Visibility::kGone);
@@ -350,7 +352,17 @@ void WifiSettingsDestination::activateNetwork(size_t model_index) {
 }
 
 void WifiSettingsDestination::syncBody() {
-  impl_->body_.sync(wifiEnabled());
+  const roo_wifi::Controller::State state = model_.controller().state();
+  const roo_wifi::Status status =
+      state.status != roo_wifi::Status::kOk ? state.status
+      : state.scan_status == roo_wifi::Status::kCancelled
+          ? roo_wifi::Status::kOk
+          : state.scan_status;
+  const char* retry = WifiRetryText(state);
+  impl_->body_.sync(wifiEnabled(), retry != nullptr ? retry
+                                   : status == roo_wifi::Status::kOk
+                                       ? roo::string_view()
+                                       : WifiStatusText(status));
   roo_wifi::LinkPhase phase = model_.controller().linkState().phase;
   bool busy = model_.controller().isScanning() ||
               phase == roo_wifi::LinkPhase::kConnecting ||
@@ -364,8 +376,9 @@ void WifiSettingsDestination::syncBody() {
 }
 
 void WifiSettingsDestination::onWifiScanStateChanged(bool scanning) {
-  if (scanning) impl_->feedback_ = "Scanning…";
-  syncBody();
+  // Failed scans preserve the model's previous results, so they need to update
+  // feedback even when no subsequent model-change notification is delivered.
+  onWifiModelChanged();
 }
 
 void WifiSettingsDestination::onWifiModelChanged() {
@@ -375,7 +388,10 @@ void WifiSettingsDestination::onWifiModelChanged() {
     roo_wifi::Status status = model_.controller().startScan();
     if (status != roo_wifi::Status::kBusy) impl_->scan_after_enable_ = false;
   }
-  if (model_.controller().isScanning()) {
+  const char* retry = WifiRetryText(state);
+  if (retry != nullptr) {
+    impl_->feedback_ = retry;
+  } else if (model_.controller().isScanning()) {
     impl_->feedback_ = "Scanning…";
   } else if (state.status != roo_wifi::Status::kOk) {
     impl_->feedback_ = WifiStatusText(state.status);

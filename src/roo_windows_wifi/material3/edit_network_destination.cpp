@@ -258,7 +258,10 @@ void WifiEditNetworkDestination::onStationStateChanged() {
   roo_wifi::Controller::State state = controller_.state();
   if (impl_->connection_revision_ != 0 &&
       state.revision == impl_->connection_revision_) {
-    if (state.status != roo_wifi::Status::kOk) {
+    const char* retry = WifiRetryText(state);
+    if (retry != nullptr) {
+      impl_->report(state.retry.last_status, retry);
+    } else if (state.status != roo_wifi::Status::kOk) {
       impl_->report(state.status);
     } else if (state.station ==
                roo_wifi::Controller::StationPhase::kConnected) {

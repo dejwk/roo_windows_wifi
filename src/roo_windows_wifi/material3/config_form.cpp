@@ -213,6 +213,31 @@ constexpr const char* kProxyItems[] = {"None", "Manual"};
 
 }  // namespace
 
+const char* WifiRetryText(const roo_wifi::Controller::State& state) {
+  using Phase = roo_wifi::Controller::StationPhase;
+  if (!state.retry.pending &&
+      !((state.station == Phase::kConnecting ||
+         state.station == Phase::kAwaitingIp) &&
+        state.retry.last_status != roo_wifi::Status::kOk)) {
+    return nullptr;
+  }
+  using Failure = roo_wifi::ConnectionFailure;
+  switch (state.retry.failure) {
+    case Failure::kNetworkNotFound:
+      return "Retrying… Network not found";
+    case Failure::kAuthentication:
+      return "Retrying… Authentication failed";
+    case Failure::kIncompatibleSecurity:
+      return "Retrying… No compatible access point";
+    case Failure::kAddressTimeout:
+      return "Retrying… No IP address received";
+    case Failure::kConnectionTimeout:
+      return "Retrying… Connection timed out";
+    default:
+      return "Retrying… Could not connect";
+  }
+}
+
 const char* WifiStatusText(roo_wifi::Status status) {
   switch (status) {
     case roo_wifi::Status::kOk:

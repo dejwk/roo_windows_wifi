@@ -1,4 +1,6 @@
+#include <chrono>
 #include <cstring>
+#include <thread>
 
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
@@ -93,6 +95,74 @@ WifiNetworkRow* FindCurrentRow(roo_windows::Widget& widget) {
     if (row != nullptr) return row;
   }
   return nullptr;
+}
+
+// Finds the radio switch's presented item through optional scroll wrappers.
+roo_windows::material3::SwitchListItem* FindRadioSwitch(
+    roo_windows::Widget& widget) {
+  auto* row = dynamic_cast<
+      roo_windows::material3::ListRow<roo_windows::material3::SwitchListItem>*>(
+      &widget);
+  if (row != nullptr) return &row->item();
+  for (int i = 0; i < widget.focusChildCount(); ++i) {
+    auto* item = FindRadioSwitch(*widget.focusChildAt(i));
+    if (item != nullptr) return item;
+  }
+  return nullptr;
+}
+
+// Verifies a failed saved-network attempt presents its error while automatic
+// reconnect is waiting, rather than silently returning to the network list.
+TEST(WifiSettingsDestinationTest, ConnectionFailureIsVisible) {
+  Fixture fixture;
+  fixture.begin();
+  fixture.station.aps.push_back(Record("Cafe", roo_wifi::AuthMode::kOpen, -45));
+  PublishScan(fixture.controller, fixture.station, fixture.scheduler);
+  fixture.destination.activateNetwork(0);
+  roo_wifi::Pump(fixture.scheduler);
+  fixture.station.disconnected();
+  roo_wifi::Pump(fixture.scheduler);
+  ASSERT_EQ(fixture.controller.state().status,
+            roo_wifi::Status::kConnectionFailed);
+  auto* item = FindRadioSwitch(fixture.destination.getContents());
+  ASSERT_NE(item, nullptr);
+  EXPECT_EQ(item->supportingText(), "Retrying… Could not connect");
+  EXPECT_EQ(fixture.destination.feedback(), "Retrying… Could not connect");
+  const auto retry = fixture.controller.state().retry;
+  // These UI tests run on the host main thread, outside a FreeRTOS task.
+  std::this_thread::sleep_for(std::chrono::milliseconds(
+      (retry.next_attempt - roo_time::Uptime::Now()).inMillis() + 5));
+  roo_wifi::Pump(fixture.scheduler);
+  EXPECT_EQ(fixture.station.connects, 2);
+  EXPECT_EQ(item->supportingText(), "Retrying… Could not connect");
+  fixture.station.associated();
+  fixture.station.ready();
+  roo_wifi::Pump(fixture.scheduler);
+  EXPECT_TRUE(item->supportingText().empty());
+  EXPECT_EQ(fixture.destination.feedback(), "Connected");
+}
+
+// Verifies a failed scan updates both feedback and the presented error even
+// though the previous successful result generation is preserved.
+TEST(WifiSettingsDestinationTest, ScanFailureIsVisibleWithoutNewResults) {
+  Fixture fixture;
+  fixture.begin();
+  fixture.station.aps.push_back(Record("Cafe", roo_wifi::AuthMode::kOpen, -45));
+  PublishScan(fixture.controller, fixture.station, fixture.scheduler);
+  ASSERT_EQ(fixture.destination.refreshScan(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(fixture.scheduler);
+  roo_wifi::NativeStation::Event event{
+      roo_wifi::NativeStation::Event::kScanDone};
+  event.status = roo_wifi::Status::kConnectionFailed;
+  fixture.station.emit(event);
+  roo_wifi::Pump(fixture.scheduler);
+  EXPECT_EQ(fixture.destination.availableNetworkCount(), 1u);
+  auto* item = FindRadioSwitch(fixture.destination.getContents());
+  ASSERT_NE(item, nullptr);
+  EXPECT_EQ(item->supportingText(), "Could not connect. Try again");
+  EXPECT_EQ(fixture.destination.feedback(), "Could not connect. Try again");
+  PublishScan(fixture.controller, fixture.station, fixture.scheduler);
+  EXPECT_TRUE(item->supportingText().empty());
 }
 
 // Verifies an already-connected network opens details without participating in
@@ -296,6 +366,9 @@ TEST(WifiSettingsDestinationTest, ConnectInterruptsDiscovery) {
   roo_wifi::Pump(fixture.scheduler);
   // This scan was still queued, so replacing it needs no native scan event.
   EXPECT_EQ(fixture.station.connects, 1);
+  auto* item = FindRadioSwitch(fixture.destination.getContents());
+  ASSERT_NE(item, nullptr);
+  EXPECT_TRUE(item->supportingText().empty());
 }
 
 }  // namespace

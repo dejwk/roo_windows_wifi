@@ -1,3 +1,6 @@
+#include <chrono>
+#include <thread>
+
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
 #include "roo_windows/core/environment.h"
@@ -273,6 +276,43 @@ TEST_F(EditorTest, OpenNetworkOmitsPasswordAndSecuredNetworkRequiresIt) {
   EXPECT_EQ(editor.save(), roo_wifi::Status::kInvalidArgument);
   editor.setPassword("password");
   ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
+}
+
+// Verifies the Connect screen retains a useful error while auto-retrying,
+// without incorrectly diagnosing a transient authentication error as a bad
+// password.
+TEST_F(EditorTest, AuthenticationRetryFeedbackSurvivesNextAttempt) {
+  controller.setEnabled(true);
+  roo_wifi::Pump(scheduler);
+  WifiEditNetworkDestination editor(context, controller);
+  WifiNetworkSummary network;
+  network.ssid = "Secure";
+  network.security = roo_wifi::AuthMode::kWpa2Personal;
+  editor.beginNetwork(network);
+  editor.setPassword("password");
+  ASSERT_EQ(editor.connect(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo_wifi::NativeStation::Event event{
+      roo_wifi::NativeStation::Event::kDisconnected};
+  event.link.ssid = station.last_config.ssid;
+  event.link.failure = roo_wifi::ConnectionFailure::kAuthentication;
+  event.status = roo_wifi::Status::kConnectionFailed;
+  event.native_code = 202;
+  station.emit(event);
+  roo_wifi::Pump(scheduler);
+  EXPECT_EQ(editor.feedback(), "Retrying… Authentication failed");
+  // These UI tests run on the host main thread, outside a FreeRTOS task.
+  std::this_thread::sleep_for(std::chrono::milliseconds(
+      (controller.state().retry.next_attempt - roo_time::Uptime::Now())
+          .inMillis() +
+      5));
+  roo_wifi::Pump(scheduler);
+  EXPECT_EQ(station.connects, 2);
+  EXPECT_EQ(editor.feedback(), "Retrying… Authentication failed");
+  station.associated();
+  station.ready();
+  roo_wifi::Pump(scheduler);
+  EXPECT_EQ(editor.feedback(), "Connected");
 }
 
 }  // namespace

@@ -8,6 +8,11 @@
 
 namespace roo_windows_wifi::material3 {
 
+/// Describes an automatic retry and its last failure using persistent text.
+/// Returns nullptr when no retry is pending or in progress. Does not infer an
+/// incorrect password from an ambiguous authentication failure.
+const char* WifiRetryText(const roo_wifi::Controller::State& state);
+
 /// One editable configuration, with text owned by its Material 3 fields.
 /// Conversion to backend and application policy values happens only on demand.
 class WifiConfigForm : public roo_windows::FlexLayout {
