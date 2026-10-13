@@ -16,6 +16,7 @@
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
 #include "roo_windows/material3/menu/menu.h"
 #include "roo_windows/material3/utilities/dropdown_button.h"
+#include "roo_windows/widgets/text_block.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
 #include "roo_windows_wifi/material3/settings_flow.h"
 
@@ -394,6 +395,68 @@ TEST(WifiFlow, AddNetworkActionsCancelOrSaveAndConnect) {
   navigation.clear();
 }
 
+// Verifies Connect has no status row, preserves failed drafts, and returns to
+// the network list as soon as a successful connection request is admitted.
+TEST(WifiFlow, ConnectNetworkClosesAfterSuccessfulSubmission) {
+  roo_scheduler::SchedulingService scheduler;
+  roo_wifi::TestStation station;
+  roo_wifi::OrderedInterface radio(station);
+  roo_wifi::MemoryStore store;
+  store.enabled = true;
+  roo_wifi::Controller controller(radio, store, scheduler);
+  ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo::byte pixels[320 * 240 * 2] = {};
+  CountingDisplay device(pixels);
+  roo_display::Display display(device);
+  roo_windows::Environment environment(scheduler);
+  roo_windows::Application app(&environment, display);
+  WifiSettingsFlow flow(app.context(), controller);
+  auto& navigation = app.addTaskFullScreen().navigation();
+  navigation.push(flow.main());
+  WifiNetworkSummary network;
+  network.ssid = "Workshop";
+  network.security = roo_wifi::AuthMode::kWpa2Personal;
+  auto& editor = flow.editDestination();
+  editor.beginNetwork(network);
+  navigation.push(editor);
+  app.refresh();
+  auto* connect = FindButtonWithLabel(editor.getContents(), "Connect");
+  ASSERT_NE(connect, nullptr);
+  EXPECT_EQ(FindButtonWithLabel(editor.getContents(), "Save"), nullptr);
+  auto& message = static_cast<roo_windows::TextBlock&>(
+      *static_cast<roo_windows::Widget&>(*editor.form().parent())
+           .focusChildAt(1));
+  EXPECT_TRUE(message.isGone());
+
+  connect->onClicked();
+  EXPECT_EQ(editor.status(), roo_wifi::Status::kInvalidArgument);
+  EXPECT_TRUE(navigation.isCurrent(editor));
+  EXPECT_FALSE(message.isGone());
+  editor.setPassword("password");
+  EXPECT_TRUE(message.isGone());
+  store.fail_at = store.writes + 1;
+  connect->onClicked();
+  EXPECT_EQ(editor.status(), roo_wifi::Status::kStorageFailure);
+  EXPECT_TRUE(navigation.isCurrent(editor));
+  EXPECT_EQ(editor.password(), "password");
+  EXPECT_FALSE(message.isGone());
+
+  store.fail_at = -1;
+  connect->onClicked();
+  EXPECT_EQ(editor.status(), roo_wifi::Status::kOk);
+  EXPECT_TRUE(navigation.isCurrent(flow.main()));
+  EXPECT_EQ(navigation.depth(), 1u);
+  EXPECT_TRUE(editor.password().empty());
+  roo_wifi::Pump(scheduler);
+  EXPECT_EQ(station.last_config.ssid, roo_wifi::TestConfig("Workshop").ssid);
+  roo_wifi::Profile profile;
+  ASSERT_EQ(controller.loadProfile(station.last_config.ssid, profile),
+            roo_wifi::Status::kOk);
+  EXPECT_TRUE(profile.has_credentials);
+  navigation.clear();
+}
+
 // Verifies a connection update hiding the pressed button cannot restart a
 // hidden animation on release or block a disconnect click while awaiting IP.
 TEST(WifiFlow, ConnectionChangeDuringPressDoesNotBlockInput) {
@@ -717,9 +780,68 @@ class DropdownPolicies : public NetworkPolicyProvider {
     return roo_wifi::Status::kOk;
   }
   roo_wifi::Status remove(const roo_wifi::Ssid&) override {
-    return roo_wifi::Status::kOk;
+    return remove_status;
   }
+
+  roo_wifi::Status remove_status = roo_wifi::Status::kOk;
 };
+
+// Verifies Forget preserves the details page on storage and cleanup failures,
+// then returns to the saved-network list when policy cleanup succeeds on retry.
+TEST(WifiFlow, ForgetClosesDetailsOnlyAfterSuccessfulRemovalAndCleanup) {
+  roo_scheduler::SchedulingService scheduler;
+  roo_wifi::TestStation station;
+  roo_wifi::OrderedInterface radio(station);
+  roo_wifi::MemoryStore store;
+  roo_wifi::Controller controller(radio, store, scheduler);
+  ASSERT_EQ(controller.begin(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo_wifi::ProfileSettings settings;
+  settings.connection = roo_wifi::TestConfig("Saved");
+  roo_wifi::CredentialUpdate clear;
+  clear.intent = roo_wifi::CredentialIntent::kClear;
+  ASSERT_EQ(controller.saveProfile(settings, clear), roo_wifi::Status::kOk);
+  roo_wifi::Pump(scheduler);
+  roo::byte pixels[320 * 240 * 2] = {};
+  CountingDisplay device(pixels);
+  roo_display::Display display(device);
+  roo_windows::Environment environment(scheduler);
+  roo_windows::Application app(&environment, display);
+  DropdownPolicies policies;
+  WifiSettingsFlow flow(app.context(), controller, &policies);
+  auto& navigation = app.addTaskFullScreen().navigation();
+  navigation.push(flow.main());
+  navigation.push(flow.savedNetworksDestination());
+  flow.savedNetworksDestination().activateProfile(0);
+  auto& details = flow.detailsDestination();
+  ASSERT_TRUE(navigation.isCurrent(details));
+  app.refresh();
+
+  store.fail_at = store.writes + 1;
+  EXPECT_EQ(details.forget(), roo_wifi::Status::kStorageFailure);
+  EXPECT_TRUE(navigation.isCurrent(details));
+  roo_wifi::Profile profile;
+  EXPECT_EQ(controller.loadProfile(settings.connection.ssid, profile),
+            roo_wifi::Status::kOk);
+
+  store.fail_at = -1;
+  policies.remove_status = roo_wifi::Status::kStorageFailure;
+  EXPECT_EQ(details.forget(), roo_wifi::Status::kStorageFailure);
+  EXPECT_TRUE(navigation.isCurrent(details));
+  EXPECT_EQ(controller.loadProfile(settings.connection.ssid, profile),
+            roo_wifi::Status::kNotFound);
+  EXPECT_NE(details.feedback().find("policy cleanup failed"),
+            std::string::npos);
+
+  policies.remove_status = roo_wifi::Status::kNotFound;
+  ASSERT_EQ(details.forget(), roo_wifi::Status::kOk);
+  EXPECT_TRUE(navigation.isCurrent(flow.savedNetworksDestination()));
+  EXPECT_EQ(navigation.depth(), 2u);
+  roo_wifi::Pump(scheduler);
+  app.refresh();
+  EXPECT_EQ(flow.savedNetworksDestination().profileCount(), 0u);
+  navigation.clear();
+}
 
 // Verifies every advanced dropdown updates the draft through its anchored menu
 // without navigating away, retaining entered text and revealing dependent
@@ -833,6 +955,8 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   flow.settingsDestination().activateNetwork(0);
   EXPECT_TRUE(navigation.isCurrent(flow.editDestination()));
   auto& editor = flow.editDestination();
+  app.refresh();
+  Golden(device.raster(), "wifi_connect_network");
   editor.setPassword("password");
   auto& form = editor.form();
   form.setChoice(WifiConfigForm::kIp, 1);
@@ -848,13 +972,13 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   Golden(device.raster(), "wifi_static_ip");
 
   ASSERT_EQ(editor.connect(), roo_wifi::Status::kOk);
+  EXPECT_TRUE(navigation.isCurrent(flow.main()));
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(editor.profileSsid(), roo_wifi::TestConfig("Workshop").ssid);
   station.associated();
   station.ready();
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(editor.feedback(), "Connected");
-  task.requestBack();
   EXPECT_TRUE(navigation.isCurrent(flow.main()));
   app.refresh();
   Golden(device.raster(), "wifi_connected");
@@ -866,6 +990,13 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   app.refresh();
   Golden(device.raster(), "wifi_details");
   auto& details = flow.detailsDestination();
+  editor.beginNetwork(details.network());
+  navigation.push(editor);
+  app.refresh();
+  EXPECT_EQ(scroll.getScrollPosition().y, 0);
+  Golden(device.raster(), "wifi_edit_network");
+  task.requestBack();
+  app.refresh();
   EXPECT_EQ(details.requestForget(),
             roo_windows::material3::DialogShowResult::kShown);
   app.refresh();
@@ -875,7 +1006,15 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   EXPECT_EQ(
       controller.loadProfile(roo_wifi::TestConfig("Workshop").ssid, profile),
       roo_wifi::Status::kOk);
-  ASSERT_EQ(details.forget(), roo_wifi::Status::kOk);
+  ASSERT_TRUE(navigation.isCurrent(details));
+  ASSERT_EQ(details.requestForget(),
+            roo_windows::material3::DialogShowResult::kShown);
+  app.refresh();
+  auto* confirm = FindButtonWithLabel(*task.focus().scopeRoot(), "Forget");
+  ASSERT_NE(confirm, nullptr);
+  confirm->onClicked();
+  app.refresh();
+  EXPECT_TRUE(navigation.isCurrent(flow.savedNetworksDestination()));
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(
       controller.loadProfile(roo_wifi::TestConfig("Workshop").ssid, profile),
@@ -889,7 +1028,8 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   EXPECT_EQ(flow.savedNetworksDestination().profileCount(), 0u);
   navigation.clear();
 }
-// Exercises actual root composition, recycling and final-pixel writes together.
+// Verifies bounded row recycling, final-pixel writes, and list scroll reset
+// after returning from Connect, Details, Saved networks, and Forget.
 TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
   roo_scheduler::SchedulingService scheduler;
   roo_wifi::TestStation station;
@@ -962,6 +1102,64 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
   ASSERT_EQ(actions.focusChildCount(), 1);
   actions.focusChildAt(0)->onClicked();
   EXPECT_TRUE(navigation.isCurrent(flow.savedNetworksDestination()));
+  navigation.getTask()->requestBack();
+  app.refresh();
+  EXPECT_TRUE(navigation.isCurrent(flow.main()));
+  EXPECT_EQ(scroll.getScrollPosition().y, 0);
+
+  scroll.scrollTo(0, -800);
+  app.refresh();
+  ASSERT_LT(scroll.getScrollPosition().y, 0);
+  flow.settingsDestination().activateNetwork(0);
+  ASSERT_TRUE(navigation.isCurrent(flow.editDestination()));
+  navigation.getTask()->requestBack();
+  app.refresh();
+  EXPECT_TRUE(navigation.isCurrent(flow.main()));
+  EXPECT_EQ(scroll.getScrollPosition().y, 0);
+
+  scroll.scrollTo(0, -800);
+  app.refresh();
+  ASSERT_LT(scroll.getScrollPosition().y, 0);
+  auto& details = flow.detailsDestination();
+  details.setNetwork(flow.model().networks()[0]);
+  navigation.push(details);
+  navigation.getTask()->requestBack();
+  app.refresh();
+  EXPECT_TRUE(navigation.isCurrent(flow.main()));
+  EXPECT_EQ(scroll.getScrollPosition().y, 0);
+
+  roo_wifi::CredentialUpdate clear;
+  clear.intent = roo_wifi::CredentialIntent::kClear;
+  for (int i = 0; i < 20; ++i) {
+    roo_wifi::ProfileSettings settings;
+    settings.connection =
+        roo_wifi::TestConfig(("Saved " + std::to_string(i)).c_str());
+    ASSERT_EQ(controller.saveProfile(settings, clear), roo_wifi::Status::kOk);
+  }
+  roo_wifi::Pump(scheduler);
+  auto& saved = flow.savedNetworksDestination();
+  navigation.push(saved);
+  app.refresh();
+  auto& saved_scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
+      *saved.getContents().focusChildAt(1));
+  saved_scroll.scrollTo(0, -500);
+  app.refresh();
+  ASSERT_LT(saved_scroll.getScrollPosition().y, 0);
+  saved.activateProfile(0);
+  ASSERT_TRUE(navigation.isCurrent(details));
+  navigation.getTask()->requestBack();
+  app.refresh();
+  EXPECT_TRUE(navigation.isCurrent(saved));
+  EXPECT_EQ(saved_scroll.getScrollPosition().y, 0);
+
+  saved_scroll.scrollTo(0, -500);
+  app.refresh();
+  ASSERT_LT(saved_scroll.getScrollPosition().y, 0);
+  saved.activateProfile(0);
+  ASSERT_EQ(details.forget(), roo_wifi::Status::kOk);
+  app.refresh();
+  EXPECT_TRUE(navigation.isCurrent(saved));
+  EXPECT_EQ(saved_scroll.getScrollPosition().y, 0);
   navigation.clear();
 }
 }  // namespace

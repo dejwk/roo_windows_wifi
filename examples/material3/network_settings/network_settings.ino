@@ -26,6 +26,8 @@ using namespace roo_windows;
 // Learning goal: present a complete Material 3 Wi-Fi settings flow backed by
 // the production ESP32 controller. The emulator supplies two local access
 // points, so enabling Wi-Fi immediately demonstrates discovery and selection.
+// Select Roo Secure, enter roo-password, and press Connect to return to the
+// network list while the controller establishes the connection.
 
 namespace {
 

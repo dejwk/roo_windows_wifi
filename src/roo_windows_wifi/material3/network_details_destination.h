@@ -64,7 +64,8 @@ class WifiNetworkDetailsDestination : public roo_windows::Destination,
   roo_wifi::Status setAutoConnect(bool enabled);
 
   /// Requests disconnection when current, then removes the profile
-  /// synchronously.
+  /// synchronously. Closes the details destination after successful removal
+  /// and policy cleanup; failures keep it open for retry.
   roo_wifi::Status forget();
 
  private:

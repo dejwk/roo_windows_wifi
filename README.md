@@ -38,18 +38,24 @@ Save works with the radio off. Save and connect commits Wi-Fi settings, then any
 application policy, then connects by its SSID. Failed saves retain the
 draft. A policy failure after Wi-Fi save is reported as partial success; retry
 uses the same SSID. Editing saved profiles keeps credentials when the password
-is blank; selecting Open explicitly clears them. Back discards unsubmitted
-edits. Changing the SSID creates another entry and requires credentials for
-that entry; forget the old network explicitly. Confirmation is required by the Forget button.
+is blank. Edit network and Connect to network show the SSID as an app-bar
+subtitle and retain the network's security mode. For secured networks, Password
+is the first editable field; open networks have no password field. Add network
+allows manual SSID entry and security selection. Connect to network uses a
+Connect action and returns to the network list when the request is accepted;
+failed submissions retain the draft and show the error. Back discards
+unsubmitted edits. Confirmation is required by the Forget button; successful
+removal returns to the previous network list. Failed removal or policy cleanup
+keeps the details page open for retry.
 
 Security choices follow `Controller::support()`. The shared form supports
 personal authentication, hidden networks, auto-connect, device/randomized MAC,
 and DHCP/static IPv4. Security, Privacy, Metered, IP settings, and Proxy use
 inline dropdowns with density -5 for both their triggers and anchored menus.
-Security is standalone above Advanced options. The four advanced dropdowns
-share one custom entry in the same segmented list as Auto-connect, with a
-wrapping flow layout. Each trigger uses the width of its longest option instead
-of filling the entry. Selecting Static reveals IP configuration fields below
+In Add network, Security is standalone above Advanced options. The four
+advanced dropdowns share one custom entry in the same segmented list as
+Auto-connect, with a wrapping flow layout. Each trigger uses the width of its
+longest option instead of filling the entry. Selecting Static reveals IP configuration fields below
 the dropdown flow within that same segment.
 Advanced selectors appear when supported; retained unavailable values remain
 visible but disabled. Enterprise and other unsupported modes remain read-only.

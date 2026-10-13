@@ -1,11 +1,24 @@
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
 #include "roo_windows/core/environment.h"
+#include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/text_field/text_field.h"
 #include "roo_windows_wifi/material3/edit_network_destination.h"
 
 namespace roo_windows_wifi::material3 {
 namespace {
+
+// Finds the first visible, enabled text input in presentation order.
+roo_windows::material3::TextField* FirstEditableField(
+    roo_windows::Widget& root) {
+  if (!root.isVisible()) return nullptr;
+  auto* field = dynamic_cast<roo_windows::material3::TextField*>(&root);
+  if (field != nullptr && field->isEnabled()) return field;
+  for (int i = 0; i < root.focusChildCount(); ++i) {
+    if (auto* child = FirstEditableField(*root.focusChildAt(i))) return child;
+  }
+  return nullptr;
+}
 
 // Verifies a secured-network draft retains its prefilled identity and submits
 // entered credentials to the controller.
@@ -166,9 +179,9 @@ TEST_F(EditorTest, RetriesPolicyWithoutDuplicateProfile) {
   EXPECT_EQ(policy.key, roo_wifi::TestConfig("Saved").ssid);
 }
 
-// Verifies multiple networks save without an allocator, and a rename cannot
-// silently reuse the old SSID's credential with Keep.
-TEST_F(EditorTest, MultipleSsidsAndRenameRequireExplicitCredentials) {
+// Verifies editing a saved network keeps its identity and credentials, places
+// Password first, and only Add network can create another configuration.
+TEST_F(EditorTest, SavedIdentityIsFixedAndAddNetworkRestoresManualEntry) {
   WifiEditNetworkDestination editor(context, controller);
   fill(editor);
   ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
@@ -178,9 +191,21 @@ TEST_F(EditorTest, MultipleSsidsAndRenameRequireExplicitCredentials) {
   selected.saved = true;
   selected.security = roo_wifi::AuthMode::kWpa2Personal;
   editor.beginNetwork(selected);
+  EXPECT_TRUE(editor.form().child_at(0).isGone());
+  EXPECT_TRUE(editor.form().child_at(1).isGone());
+  auto& bar = static_cast<roo_windows::material3::AppBar&>(
+      *editor.getContents().focusChildAt(0));
+  EXPECT_EQ(bar.subtitle(), "Saved");
+  selected.ssid = "Changed source";
+  EXPECT_EQ(bar.subtitle(), "Saved");
+  EXPECT_EQ(FirstEditableField(editor.form()), &editor.form().child_at(2));
   editor.setSsid("Another");
-  EXPECT_EQ(editor.save(), roo_wifi::Status::kInvalidArgument);
-  editor.setPassword("different");
+  editor.form().setText(WifiConfigForm::kSsid, "Injected");
+  editor.form().setChoice(WifiConfigForm::kSecurity,
+                          static_cast<int>(roo_wifi::AuthMode::kOpen));
+  EXPECT_EQ(editor.ssid(), "Saved");
+  EXPECT_EQ(editor.form().choice(WifiConfigForm::kSecurity),
+            static_cast<int>(roo_wifi::AuthMode::kWpa2Personal));
   ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
   roo_wifi::Credentials original;
   ASSERT_EQ(store.loadCredentials(selected.profile_ssid, original),
@@ -188,13 +213,32 @@ TEST_F(EditorTest, MultipleSsidsAndRenameRequireExplicitCredentials) {
   EXPECT_EQ(
       std::string(reinterpret_cast<const char*>(original.bytes), original.size),
       "password");
-  roo_wifi::Credentials renamed;
-  ASSERT_EQ(
-      store.loadCredentials(roo_wifi::TestConfig("Another").ssid, renamed),
-      roo_wifi::Status::kOk);
+  editor.setPassword("different");
+  ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
+  ASSERT_EQ(store.loadCredentials(selected.profile_ssid, original),
+            roo_wifi::Status::kOk);
   EXPECT_EQ(
-      std::string(reinterpret_cast<const char*>(renamed.bytes), renamed.size),
+      std::string(reinterpret_cast<const char*>(original.bytes), original.size),
       "different");
+  roo_wifi::Profile absent;
+  EXPECT_EQ(
+      controller.loadProfile(roo_wifi::TestConfig("Another").ssid, absent),
+      roo_wifi::Status::kNotFound);
+
+  editor.beginAdd();
+  EXPECT_FALSE(editor.form().child_at(0).isGone());
+  EXPECT_FALSE(editor.form().child_at(1).isGone());
+  EXPECT_TRUE(bar.subtitle().empty());
+  EXPECT_EQ(FirstEditableField(editor.form()), &editor.form().child_at(0));
+  editor.setSsid("Another");
+  editor.form().setChoice(WifiConfigForm::kSecurity,
+                          static_cast<int>(roo_wifi::AuthMode::kOpen));
+  EXPECT_TRUE(editor.form().child_at(2).isGone());
+  ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
+  ASSERT_EQ(
+      controller.loadProfile(roo_wifi::TestConfig("Another").ssid, absent),
+      roo_wifi::Status::kOk);
+  EXPECT_EQ(absent.settings.connection.security, roo_wifi::AuthMode::kOpen);
   size_t count = 0;
   EXPECT_EQ(controller.forEachProfile([&](const roo_wifi::Ssid&) {
     ++count;
@@ -202,6 +246,33 @@ TEST_F(EditorTest, MultipleSsidsAndRenameRequireExplicitCredentials) {
   }),
             roo_wifi::Status::kOk);
   EXPECT_EQ(count, 2u);
+}
+
+// Verifies a known open network omits all identity and password inputs, while
+// rebinding to a secured network restores Password as the first editable field.
+TEST_F(EditorTest, OpenNetworkOmitsPasswordAndSecuredNetworkRequiresIt) {
+  WifiEditNetworkDestination editor(context, controller);
+  WifiNetworkSummary selected;
+  selected.ssid = "Guest";
+  selected.security = roo_wifi::AuthMode::kOpen;
+  editor.beginNetwork(selected);
+  auto& bar = static_cast<roo_windows::material3::AppBar&>(
+      *editor.getContents().focusChildAt(0));
+  EXPECT_EQ(bar.subtitle(), "Guest");
+  EXPECT_TRUE(editor.form().child_at(0).isGone());
+  EXPECT_TRUE(editor.form().child_at(1).isGone());
+  EXPECT_TRUE(editor.form().child_at(2).isGone());
+  EXPECT_EQ(FirstEditableField(editor.form()), nullptr);
+  ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
+  selected.ssid = "Secured";
+  selected.security = roo_wifi::AuthMode::kWpa2Personal;
+  editor.beginNetwork(selected);
+  EXPECT_EQ(editor.ssid(), "Secured");
+  EXPECT_EQ(bar.subtitle(), "Secured");
+  EXPECT_EQ(FirstEditableField(editor.form()), &editor.form().child_at(2));
+  EXPECT_EQ(editor.save(), roo_wifi::Status::kInvalidArgument);
+  editor.setPassword("password");
+  ASSERT_EQ(editor.save(), roo_wifi::Status::kOk);
 }
 
 }  // namespace

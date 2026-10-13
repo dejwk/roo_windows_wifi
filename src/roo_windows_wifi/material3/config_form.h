@@ -46,6 +46,11 @@ class WifiConfigForm : public roo_windows::FlexLayout {
   void load(const roo_wifi::ProfileSettings& settings, bool keep_credentials,
             const NetworkPolicy& policy = {});
 
+  /// Fixes a known network's identity while allowing credential/settings edits.
+  /// When @p editable is false, hides the SSID field and security dropdown.
+  /// load() can still replace the bound identity.
+  void setIdentityEditable(bool editable);
+
   /// Converts and validates the current fields; reveals errors when requested.
   roo_wifi::Status build(roo_wifi::ProfileSettings& settings,
                          roo_wifi::CredentialUpdate& credential,
@@ -58,12 +63,14 @@ class WifiConfigForm : public roo_windows::FlexLayout {
   const std::string& text(Field field) const;
 
   /// Changes field text and revalidates action availability.
+  /// Ignores SSID changes while the network identity is fixed.
   void setText(Field field, std::string text);
 
   /// Returns the current enum value of a choice.
   int choice(Choice choice) const;
 
   /// Updates a choice, preserving hidden fields in the local draft.
+  /// Ignores security changes while the network identity is fixed.
   void setChoice(Choice choice, int value);
 
   /// Returns whether a choice value is supported by this form.

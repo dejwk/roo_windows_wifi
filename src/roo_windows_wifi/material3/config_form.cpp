@@ -7,6 +7,7 @@
 #include "roo_windows/material3/button/navigation.h"
 #include "roo_windows/material3/list/list.h"
 #include "roo_windows/material3/text_field/secure_text_field.h"
+#include "roo_windows/material3/typography.h"
 #include "roo_windows/material3/utilities/dropdown_button.h"
 #include "roo_windows_wifi/material3/internal/borrowed_layout.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
@@ -368,6 +369,8 @@ class WifiConfigForm::Impl {
 
   void sync() {
     using V = Visibility;
+    fields_[kSsid]->setVisibility(identity_editable_ ? V::kVisible : V::kGone);
+    security_.setVisibility(identity_editable_ ? V::kVisible : V::kGone);
     fields_[kPassword]->setVisibility(
         values_[kSecurity] == static_cast<int>(roo_wifi::AuthMode::kOpen)
             ? V::kGone
@@ -444,6 +447,7 @@ class WifiConfigForm::Impl {
   DropdownsEntry dropdowns_entry_;
   internal::SegmentedList options_;
   int values_[kChoiceCount] = {};
+  bool identity_editable_ = true;
   bool expanded_ = false;
   bool keep_ = false;
   roo_wifi::AuthMode original_security_ = roo_wifi::AuthMode::kUnknown;
@@ -504,6 +508,13 @@ void WifiConfigForm::load(const roo_wifi::ProfileSettings& settings, bool keep,
   impl_->sync();
   impl_->changed_ = std::move(callback);
   if (impl_->changed_ != nullptr) impl_->changed_();
+}
+
+void WifiConfigForm::setIdentityEditable(bool editable) {
+  if (impl_->identity_editable_ == editable) return;
+  impl_->identity_editable_ = editable;
+  impl_->sync();
+  setEditingEnabled(impl_->fields_[kPassword]->isEnabled());
 }
 
 roo_wifi::Status WifiConfigForm::build(roo_wifi::ProfileSettings& settings,
@@ -642,12 +653,14 @@ const std::string& WifiConfigForm::text(Field field) const {
   return impl_->fields_[field]->text();
 }
 void WifiConfigForm::setText(Field field, std::string text) {
+  if (field == kSsid && !impl_->identity_editable_) return;
   impl_->fields_[field]->setText(std::move(text));
 }
 int WifiConfigForm::choice(Choice choice) const {
   return impl_->values_[choice];
 }
 void WifiConfigForm::setChoice(Choice choice, int value) {
+  if (choice == kSecurity && !impl_->identity_editable_) return;
   if (!supportsChoice(choice, value)) return;
   impl_->values_[choice] = value;
   impl_->sync();
@@ -692,8 +705,9 @@ void WifiConfigForm::setOnChanged(std::function<void()> callback) {
   impl_->changed_ = std::move(callback);
 }
 void WifiConfigForm::setEditingEnabled(bool enabled) {
-  for (const std::unique_ptr<TextField>& field : impl_->fields_) {
-    field->setEnabled(enabled);
+  for (int i = 0; i < kFieldCount; ++i) {
+    impl_->fields_[i]->setEnabled(enabled &&
+                                  (i != kSsid || impl_->identity_editable_));
   }
   impl_->privacy_.dropdown().setEnabled(enabled &&
                                         impl_->support_.randomized_mac);
@@ -703,7 +717,7 @@ void WifiConfigForm::setEditingEnabled(bool enabled) {
   impl_->ip_.dropdown().setEnabled(enabled && impl_->support_.static_ipv4);
   impl_->proxy_.dropdown().setEnabled(enabled && impl_->policies_ != nullptr &&
                                       impl_->policies_->supportsProxy());
-  impl_->security_.dropdown().setEnabled(enabled);
+  impl_->security_.dropdown().setEnabled(enabled && impl_->identity_editable_);
   impl_->hidden_.setEnabled(enabled);
   impl_->automatic_.setEnabled(enabled);
 }

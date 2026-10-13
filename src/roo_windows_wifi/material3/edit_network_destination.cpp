@@ -89,7 +89,10 @@ class WifiEditNetworkDestination::Impl {
   roo_wifi::Status last_status_ = roo_wifi::Status::kOk;
   roo_wifi::Status load_status_ = roo_wifi::Status::kOk;
   bool discarded_ = false;
+  bool connect_destination_ = false;
   std::string feedback_;
+  // AppBar borrows this storage, which outlives both its view and the form.
+  std::string ssid_subtitle_;
   AppBar bar_;
   BackButton back_;
   WifiConfigForm form_;
@@ -118,6 +121,9 @@ WifiEditNetworkDestination::~WifiEditNetworkDestination() {
 Widget& WifiEditNetworkDestination::getContents() { return impl_->scaffold_; }
 
 void WifiEditNetworkDestination::beginAdd() {
+  impl_->connect_destination_ = false;
+  impl_->bar_.setSubtitle({});
+  impl_->ssid_subtitle_.clear();
   impl_->profile_ = {};
   impl_->discarded_ = false;
   impl_->load_status_ = roo_wifi::Status::kOk;
@@ -132,15 +138,19 @@ void WifiEditNetworkDestination::beginAdd() {
       }
     }
   }
+  impl_->form_.setIdentityEditable(true);
   impl_->form_.load(settings, false);
   impl_->bar_.setTitle("Add network");
   impl_->report(roo_wifi::Status::kOk, "");
+  impl_->scroll_.scrollToTop();
   updateActions();
 }
 
 void WifiEditNetworkDestination::beginNetwork(
     const WifiNetworkSummary& network) {
   beginAdd();
+  impl_->connect_destination_ = network.profile_ssid.size == 0;
+  impl_->form_.setIdentityEditable(false);
   if (network.ssid.size() > 32) {
     impl_->load_status_ = roo_wifi::Status::kInvalidArgument;
     impl_->report(impl_->load_status_);
@@ -148,6 +158,11 @@ void WifiEditNetworkDestination::beginNetwork(
     return;
   }
   roo_wifi::Profile profile;
+  profile.settings.connection.security = network.security;
+  profile.settings.connection.ssid.size = network.ssid.size();
+  std::memcpy(profile.settings.connection.ssid.bytes, network.ssid.data(),
+              network.ssid.size());
+  impl_->form_.load(profile.settings, false);
   NetworkPolicy policy;
   impl_->profile_ = network.profile_ssid;
   if (impl_->profile_.size != 0) {
@@ -159,13 +174,6 @@ void WifiEditNetworkDestination::beginNetwork(
         impl_->load_status_ = roo_wifi::Status::kOk;
       }
     }
-  } else {
-    profile.settings.connection.security = network.security;
-    profile.settings.connection.ssid.size = network.ssid.size();
-    if (network.ssid.size() <= 32) {
-      std::memcpy(profile.settings.connection.ssid.bytes, network.ssid.data(),
-                  network.ssid.size());
-    }
   }
   if (impl_->load_status_ == roo_wifi::Status::kOk) {
     impl_->form_.load(profile.settings, profile.has_credentials, policy);
@@ -174,11 +182,20 @@ void WifiEditNetworkDestination::beginNetwork(
   }
   impl_->bar_.setTitle(impl_->profile_.size != 0 ? "Edit network"
                                                  : "Connect to network");
+  impl_->ssid_subtitle_ = impl_->form_.text(WifiConfigForm::kSsid);
+  impl_->bar_.setSubtitle(impl_->ssid_subtitle_);
   updateActions();
 }
 
 roo_wifi::Status WifiEditNetworkDestination::save() { return submit(false); }
-roo_wifi::Status WifiEditNetworkDestination::connect() { return submit(true); }
+roo_wifi::Status WifiEditNetworkDestination::connect() {
+  roo_wifi::Status result = submit(true);
+  if (result == roo_wifi::Status::kOk && impl_->connect_destination_) {
+    NavigationHost* navigation = getNavigationHost();
+    if (navigation != nullptr && navigation->isCurrent(*this)) exit();
+  }
+  return result;
+}
 
 roo_wifi::Status WifiEditNetworkDestination::submit(bool connect) {
   using roo_wifi::Status;
@@ -218,7 +235,9 @@ roo_wifi::Status WifiEditNetworkDestination::submit(bool connect) {
   if (policy_status != Status::kOk) {
     impl_->report(
         policy_status,
-        "Wi-Fi saved; application policy failed. Retry Save to finish");
+        impl_->connect_destination_
+            ? "Wi-Fi saved; application policy failed. Retry Connect to finish"
+            : "Wi-Fi saved; application policy failed. Retry Save to finish");
     updateActions();
     return policy_status;
   }
@@ -250,6 +269,11 @@ void WifiEditNetworkDestination::onStationStateChanged() {
 }
 
 void WifiEditNetworkDestination::updateActions() {
+  impl_->save_.setLabel(impl_->connect_destination_ ? "Connect" : "Save");
+  bool show_message = !impl_->connect_destination_ ||
+                      impl_->last_status_ != roo_wifi::Status::kOk;
+  impl_->message_.setVisibility(show_message ? Visibility::kVisible
+                                             : Visibility::kGone);
   bool editable = impl_->load_status_ == roo_wifi::Status::kOk;
   impl_->save_.setEnabled(editable && controller_.isEnabled() &&
                           controller_.state().desired !=

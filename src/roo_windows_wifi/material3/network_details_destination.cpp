@@ -10,6 +10,7 @@
 #include "roo_icons/outlined/notification.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
+#include "roo_windows/core/navigation_host.h"
 #include "roo_windows/core/task.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/button.h"
@@ -344,6 +345,15 @@ DialogShowResult WifiNetworkDetailsDestination::requestForget() {
 }
 
 roo_wifi::Status WifiNetworkDetailsDestination::forget() {
+  auto complete = [this](roo_wifi::Status status) {
+    report(status);
+    NavigationHost* navigation = getNavigationHost();
+    if (status == roo_wifi::Status::kOk && navigation != nullptr &&
+        navigation->isCurrent(*this)) {
+      exit();
+    }
+    return status;
+  };
   if (impl_->cleanup_.size != 0 && impl_->policies_ != nullptr) {
     roo_wifi::Status status = impl_->policies_->remove(impl_->cleanup_);
     if (status == roo_wifi::Status::kOk ||
@@ -351,7 +361,7 @@ roo_wifi::Status WifiNetworkDetailsDestination::forget() {
       impl_->cleanup_ = {};
       status = roo_wifi::Status::kOk;
     }
-    return report(status);
+    return complete(status);
   }
   if (selected_.profile_ssid.size == 0) {
     return report(roo_wifi::Status::kNotFound);
@@ -374,7 +384,7 @@ roo_wifi::Status WifiNetworkDetailsDestination::forget() {
       return cleanup;
     }
   }
-  return report(status);
+  return complete(status);
 }
 
 void WifiNetworkDetailsDestination::syncControls() {

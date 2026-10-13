@@ -26,10 +26,12 @@ class WifiEditNetworkDestination : public roo_windows::Destination,
   /// Starts a new manual-entry draft.
   void beginAdd();
 
-  /// Loads a scanned identity or saved profile without loading its secret.
+  /// Loads a fixed scanned identity or saved profile without its secret.
+  /// Shows the SSID as an app-bar subtitle; security cannot be changed.
   void beginNetwork(const WifiNetworkSummary& network);
 
   /// Saves the draft and connects only after Wi-Fi and policy saves succeed.
+  /// Closes Connect to network after admission; errors retain the draft.
   roo_wifi::Status connect();
 
   /// Saves the draft without requiring the radio to be enabled.
@@ -44,7 +46,7 @@ class WifiEditNetworkDestination : public roo_windows::Destination,
   /// Returns the last admission, validation, or completion status.
   roo_wifi::Status status() const;
 
-  /// Returns visible feedback including partial policy-save failures.
+  /// Returns submission feedback including partial policy-save failures.
   const std::string& feedback() const;
 
   /// Returns the current network-name draft.
@@ -53,7 +55,8 @@ class WifiEditNetworkDestination : public roo_windows::Destination,
   /// Returns the current credential draft.
   const std::string& password() const;
 
-  /// Replaces the network-name draft.
+  /// Replaces the network-name draft during manual Add network entry.
+  /// Ignores changes after beginNetwork() fixes the selected identity.
   void setSsid(std::string ssid);
 
   /// Replaces the credential draft.

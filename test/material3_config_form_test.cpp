@@ -263,6 +263,46 @@ TEST_F(FormTest, FilledFieldsIndicateRequiredValues) {
   EXPECT_EQ(password.label(), "Password*");
 }
 
+// Verifies fixed identity survives commit-time disabling and draft setters,
+// while load() can bind another identity and manual mode restores both inputs.
+TEST_F(FormTest, FixedIdentitySurvivesDisablingAndRebinding) {
+  using namespace roo_windows;
+  using namespace roo_windows::material3;
+  ASSERT_EQ(build(), roo_wifi::Status::kOk);
+  form.load(settings, true);
+  form.setEditingEnabled(false);
+  form.setIdentityEditable(false);
+  form.setEditingEnabled(true);
+  auto& name = static_cast<TextField&>(form.child_at(0));
+  auto& security = DropdownGroup(form, WifiConfigForm::kSecurity);
+  EXPECT_TRUE(name.isGone());
+  EXPECT_FALSE(name.isEnabled());
+  EXPECT_TRUE(security.isGone());
+  EXPECT_FALSE(security.child_at(1).isEnabled());
+  form.setText(WifiConfigForm::kSsid, "Other");
+  form.setChoice(WifiConfigForm::kSecurity,
+                 static_cast<int>(roo_wifi::AuthMode::kOpen));
+  form.setAutoConnect(false);
+  ASSERT_EQ(build(), roo_wifi::Status::kOk);
+  EXPECT_EQ(settings.connection.ssid.size, 7u);
+  EXPECT_EQ(settings.connection.security, roo_wifi::AuthMode::kWpa2Personal);
+  EXPECT_EQ(credential.intent, roo_wifi::CredentialIntent::kKeep);
+  EXPECT_FALSE(settings.auto_connect);
+
+  settings.connection.security = roo_wifi::AuthMode::kOpen;
+  form.load(settings, false);
+  EXPECT_TRUE(form.child_at(2).isGone());
+  ASSERT_EQ(build(), roo_wifi::Status::kOk);
+  EXPECT_EQ(credential.intent, roo_wifi::CredentialIntent::kClear);
+  form.setIdentityEditable(true);
+  EXPECT_FALSE(name.isGone());
+  EXPECT_TRUE(name.isEnabled());
+  EXPECT_FALSE(security.isGone());
+  EXPECT_TRUE(security.child_at(1).isEnabled());
+  form.setText(WifiConfigForm::kSsid, "Other");
+  EXPECT_EQ(form.text(WifiConfigForm::kSsid), "Other");
+}
+
 // Verifies original byte lengths are rejected without silently changing SSIDs.
 TEST_F(FormTest, RejectsOverlongAndEmptySsid) {
   form.setText(WifiConfigForm::kSsid, std::string(33, 'a'));
