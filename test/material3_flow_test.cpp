@@ -170,7 +170,7 @@ void VerifyScrolling(roo_windows::Application& app, CountingDisplay& device,
       const int blits_before = device.blit_calls;
       scroll.scrollTo(0, -offset);
       app.refresh();
-      if (blit_enabled) {
+      if (blit_enabled && ROO_WINDOWS_ENABLE_BLIT_CACHE) {
         EXPECT_GT(device.blit_calls, blits_before);
       }
     }
@@ -180,7 +180,8 @@ void VerifyScrolling(roo_windows::Application& app, CountingDisplay& device,
     const int blits_before = device.blit_calls;
     scroll.scrollTo(0, -offset);
     app.refresh();
-    if (offset == 20 && blit_enabled && expect_initial_blit) {
+    if (offset == 20 && blit_enabled && ROO_WINDOWS_ENABLE_BLIT_CACHE &&
+        expect_initial_blit) {
       EXPECT_GT(device.blit_calls, blits_before);
     }
     const std::vector<roo::byte> before(pixels, pixels + 320 * 240 * 2);
@@ -189,7 +190,7 @@ void VerifyScrolling(roo_windows::Application& app, CountingDisplay& device,
     EXPECT_TRUE(before ==
                 std::vector<roo::byte>(pixels, pixels + 320 * 240 * 2));
   }
-  if (!blit_enabled) {
+  if (!blit_enabled || !ROO_WINDOWS_ENABLE_BLIT_CACHE) {
     EXPECT_EQ(device.blit_calls, 0);
   }
 }
@@ -221,7 +222,7 @@ TEST_P(WifiScrollRendering, EditorMatchesFullRepaint) {
   task.navigation().push(editor);
   app.refresh();
   auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
-      *form.parent()->parent()->parent());
+      *editor.getContents().focusChildAt(1));
   VerifyScrolling(app, device, pixels, scroll, GetParam());
   form.setText(WifiConfigForm::kAddress, "10.0.0.42");
   VerifyScrolling(app, device, pixels, scroll, GetParam(), false);
@@ -718,7 +719,7 @@ TEST(WifiFlow, AddNetworkSecurityMenu) {
   task.navigation().push(editor);
   app.refresh();
   auto& scroll = static_cast<SimpleScrollablePanel&>(
-      *editor.form().parent()->parent()->parent());
+      *editor.getContents().focusChildAt(1));
   Golden(device.raster(), "wifi_add_network");
   auto& security = static_cast<DropdownButton&>(
       DropdownGroup(editor.form(), WifiConfigForm::kSecurity).child_at(1));
@@ -873,8 +874,8 @@ TEST(WifiFlow, AdvancedDropdownsUpdateDraftInline) {
   form.setText(WifiConfigForm::kProxyHost, "proxy.local");
   form.setAdvanced(true);
   app.refresh();
-  auto& scroll =
-      static_cast<SimpleScrollablePanel&>(*form.parent()->parent()->parent());
+  auto& scroll = static_cast<SimpleScrollablePanel&>(
+      *editor.getContents().focusChildAt(1));
   const char* expected[] = {"Randomized MAC", "Metered", "Static", "Manual"};
   for (int i = 0; i < 4; ++i) {
     auto& group = static_cast<FlexLayout&>(DropdownGroup(
@@ -966,7 +967,7 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   form.setAdvanced(true);
   app.refresh();
   auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
-      *form.parent()->parent()->parent());
+      *editor.getContents().focusChildAt(1));
   scroll.scrollTo(0, -roo_windows::Scaled(500));
   app.refresh();
   Golden(device.raster(), "wifi_static_ip");
@@ -1069,9 +1070,12 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
       flow.main().getContents());
   auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
       *static_cast<roo_windows::Widget&>(scaffold).focusChildAt(1));
-  auto& cache =
-      static_cast<roo_windows::BlitCacheContainer&>(*scroll.contents());
-  auto& column = static_cast<roo_windows::FlexLayout&>(*cache.child());
+#if ROO_WINDOWS_ENABLE_BLIT_CACHE
+  auto& column = static_cast<roo_windows::FlexLayout&>(
+      *scroll.contents()->focusChildAt(0));
+#else
+  auto& column = static_cast<roo_windows::FlexLayout&>(*scroll.contents());
+#endif
   auto& networks =
       static_cast<internal::CaptionedSegmentedList&>(column.child_at(1));
   auto& list = static_cast<roo_windows::ListLayout&>(

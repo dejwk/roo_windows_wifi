@@ -101,7 +101,7 @@ class WifiEditNetworkDestination::Impl {
   Button save_;
   ActionRow actions_;
   internal::FlexColumn body_;
-  ScrollableBlitPanel scroll_;
+  ScrollablePanel scroll_;
   LayoutScaffold scaffold_;
 };
 

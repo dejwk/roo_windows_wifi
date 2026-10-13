@@ -249,7 +249,7 @@ class WifiNetworkDetailsDestination::Impl {
   std::unique_ptr<ListRow<SupportingTextListItem>> info_rows_[8];
   internal::CaptionedSegmentedList info_;
   DetailsColumn body_;
-  ScrollableBlitPanel scroll_;
+  ScrollablePanel scroll_;
   ForgetDialog dialog_;
   LayoutScaffold scaffold_;
 };

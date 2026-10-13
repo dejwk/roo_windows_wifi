@@ -107,7 +107,7 @@ class WifiSavedNetworksDestination::Impl {
   roo_windows::material3::DynamicList<WifiNetworkRow> list_;
   internal::CaptionedSegmentedList networks_;
   internal::FlexColumn body_;
-  roo_windows::SimpleScrollablePanel scroller_;
+  roo_windows::ScrollablePanel scroller_;
   roo_windows::TextBlock status_;
   roo_windows::material3::Button retry_;
   internal::FlexColumn footer_;

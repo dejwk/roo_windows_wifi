@@ -233,7 +233,7 @@ class WifiSettingsDestination::Impl {
   roo_windows::material3::AppBar app_bar_;
   roo_windows::material3::IconButton refresh_;
   SettingsBody body_;
-  roo_windows::ScrollableBlitPanel scroller_;
+  roo_windows::ScrollablePanel scroller_;
   WifiSettingsDestination& destination_;
   bool scan_after_enable_ = false;
   roo_time::Duration scan_max_age_ = roo_time::Seconds(30);

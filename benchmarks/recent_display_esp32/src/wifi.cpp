@@ -92,12 +92,16 @@ class Journey {
   /// Enters Add network through the settings row callback.
   void start() {
     frame("settings", 0, [&]() { task_.navigation().push(flow_.main()); });
-    auto& scroller = static_cast<ScrollableBlitPanel&>(
+    auto& scroller = static_cast<ScrollablePanel&>(
         Child(flow_.settingsDestination().getContents(), 1));
     scroller.setVerticalScrollBarPresence(
         VerticalScrollBar::Presence::kAlwaysShown);
     scroll(scroller, "settings_down", true);
-    Widget& body = Child(*scroller.contents(), 0);  // BlitCacheContainer.
+#if ROO_WINDOWS_ENABLE_BLIT_CACHE
+    Widget& body = Child(*scroller.contents(), 0);
+#else
+    Widget& body = *scroller.contents();
+#endif
     Widget& networks = Child(body, 1);
     Widget& list = Child(networks, 1);
     Widget& add = Child(list, 1);
@@ -107,8 +111,8 @@ class Journey {
 
   /// Opens and scrolls Security, then scrolls the editor back to the top.
   void run() {
-    auto& editor_scroll = static_cast<SimpleScrollablePanel&>(
-        *flow_.editDestination().form().parent()->parent()->parent());
+    auto& editor_scroll = static_cast<ScrollablePanel&>(
+        Child(flow_.editDestination().getContents(), 1));
     editor_scroll.setVerticalScrollBarPresence(
         VerticalScrollBar::Presence::kAlwaysShown);
     scroll(editor_scroll, "editor_to_security", true, 64);
