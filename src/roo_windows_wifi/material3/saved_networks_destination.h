@@ -33,7 +33,8 @@ class WifiSavedNetworksDestination : public roo_windows::Destination,
   /// Returns the retained scaffold for navigation presentation.
   roo_windows::Widget& getContents() override;
 
-  /// Refreshes controller-enumerated profiles when navigation resumes.
+  /// Returns the list to the top and refreshes profiles when navigation
+  /// resumes.
   void onResume() override;
 
   /// Returns the number of successfully loaded saved profiles.

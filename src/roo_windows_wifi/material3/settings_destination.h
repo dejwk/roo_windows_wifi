@@ -46,7 +46,7 @@ class WifiSettingsDestination : public roo_windows::Destination,
   /// Returns the retained scaffold for navigation presentation.
   roo_windows::Widget& getContents() override;
 
-  /// Refreshes presentation state and starts discovery when needed.
+  /// Returns the list to the top, refreshes state, and discovers when needed.
   void onResume() override;
 
   /// Requests an immediate scan when Wi-Fi is enabled.

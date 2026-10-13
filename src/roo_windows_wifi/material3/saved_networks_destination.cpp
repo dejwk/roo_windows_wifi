@@ -132,6 +132,7 @@ roo_windows::Widget& WifiSavedNetworksDestination::getContents() {
 }
 
 void WifiSavedNetworksDestination::onResume() {
+  impl_->scroller_.scrollToTop();
   model_.refresh();
   impl_->sync();
 }

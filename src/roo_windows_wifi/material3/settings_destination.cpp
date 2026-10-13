@@ -261,6 +261,7 @@ roo_windows::Widget& WifiSettingsDestination::getContents() {
 }
 
 void WifiSettingsDestination::onResume() {
+  impl_->scroller_.scrollToTop();
   model_.refresh();
   syncBody();
   if (model_.controller().isEnabled() &&

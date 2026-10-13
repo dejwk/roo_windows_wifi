@@ -46,7 +46,8 @@ Connect action and returns to the network list when the request is accepted;
 failed submissions retain the draft and show the error. Back discards
 unsubmitted edits. Confirmation is required by the Forget button; successful
 removal returns to the previous network list. Failed removal or policy cleanup
-keeps the details page open for retry.
+keeps the details page open for retry. The Wi-Fi and Saved networks lists return
+to the top whenever navigation resumes them.
 
 Security choices follow `Controller::support()`. The shared form supports
 personal authentication, hidden networks, auto-connect, device/randomized MAC,

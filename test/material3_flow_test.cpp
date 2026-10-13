@@ -1056,6 +1056,10 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
   app.refresh();
   WifiSettingsFlow flow(app.context(), controller);
   auto& navigation = app.addTaskFullScreen().navigation();
+  struct ClearNavigation {
+    decltype(navigation) host;
+    ~ClearNavigation() { host.clear(); }
+  } cleanup{navigation};
   navigation.push(flow.main());
   roo_wifi::Pump(scheduler);
   station.emit({roo_wifi::NativeStation::Event::kScanDone});
@@ -1140,26 +1144,27 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
   auto& saved = flow.savedNetworksDestination();
   navigation.push(saved);
   app.refresh();
-  auto& saved_scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
-      *saved.getContents().focusChildAt(1));
-  saved_scroll.scrollTo(0, -500);
+  auto* saved_scroll = dynamic_cast<roo_windows::SimpleScrollablePanel*>(
+      saved.getContents().focusChildAt(2));
+  ASSERT_NE(saved_scroll, nullptr);
+  saved_scroll->scrollTo(0, -500);
   app.refresh();
-  ASSERT_LT(saved_scroll.getScrollPosition().y, 0);
+  ASSERT_LT(saved_scroll->getScrollPosition().y, 0);
   saved.activateProfile(0);
   ASSERT_TRUE(navigation.isCurrent(details));
   navigation.getTask()->requestBack();
   app.refresh();
   EXPECT_TRUE(navigation.isCurrent(saved));
-  EXPECT_EQ(saved_scroll.getScrollPosition().y, 0);
+  EXPECT_EQ(saved_scroll->getScrollPosition().y, 0);
 
-  saved_scroll.scrollTo(0, -500);
+  saved_scroll->scrollTo(0, -500);
   app.refresh();
-  ASSERT_LT(saved_scroll.getScrollPosition().y, 0);
+  ASSERT_LT(saved_scroll->getScrollPosition().y, 0);
   saved.activateProfile(0);
   ASSERT_EQ(details.forget(), roo_wifi::Status::kOk);
   app.refresh();
   EXPECT_TRUE(navigation.isCurrent(saved));
-  EXPECT_EQ(saved_scroll.getScrollPosition().y, 0);
+  EXPECT_EQ(saved_scroll->getScrollPosition().y, 0);
   navigation.clear();
 }
 }  // namespace
