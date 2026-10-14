@@ -13,6 +13,7 @@
 #include "roo_windows/material2/divider.h"
 #include "roo_windows/material2/progress_bar.h"
 #include "roo_windows/material2/switch.h"
+#include "roo_windows/material2/typography.h"
 #include "roo_windows/widgets/blank.h"
 #include "roo_windows/widgets/icon.h"
 #include "roo_windows/widgets/text_label.h"

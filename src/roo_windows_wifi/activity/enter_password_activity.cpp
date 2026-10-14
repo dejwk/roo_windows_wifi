@@ -1,11 +1,13 @@
 #include "roo_windows_wifi/activity/enter_password_activity.h"
 
+#include "roo_windows/material2/typography.h"
+
 namespace roo_windows_wifi {
 
 EditedPassword::EditedPassword(roo_windows::ApplicationContext& env,
                                std::function<void()> confirm_fn)
     : roo_windows::material2::TextField(
-          env, roo_windows::font_subtitle1(), "",
+          env, roo_windows::material2::font_subtitle1(), "",
           roo_display::kLeft | roo_display::kMiddle, UNDERLINE),
       confirm_fn_(confirm_fn) {}
 
