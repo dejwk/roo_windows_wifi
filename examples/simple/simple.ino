@@ -9,8 +9,8 @@
 #include "roo_display/driver/touch_xpt2046.h"
 #include "roo_wifi/esp32.h"
 #include "roo_windows.h"
-#include "roo_windows/composites/menu/basic_navigation_item.h"
-#include "roo_windows/composites/menu/menu.h"
+#include "roo_windows/material2/menu/basic_navigation_item.h"
+#include "roo_windows/material2/menu/menu.h"
 #include "roo_windows_wifi.h"
 
 #ifdef ROO_TESTING
@@ -98,17 +98,17 @@ roo_windows::NavigationHost& navigation = task.navigation();
 roo_wifi::Esp32WiFi wifi(scheduler);
 roo_windows_wifi::WifiSettingsFlow wifi_setup(app.context(), wifi);
 
-class SettingsMenu : public menu::Menu {
+class SettingsMenu : public material2::menu::Menu {
  public:
   SettingsMenu(ApplicationContext& context)
-      : menu::Menu(context, "Settings"),
+      : material2::menu::Menu(context, "Settings"),
         wifi_item_(context, SCALED_ROO_ICON(filled, notification_wifi), "WiFi",
                    navigation, wifi_setup.main()) {
     add(wifi_item_);
   }
 
  private:
-  menu::BasicNavigationItem wifi_item_;
+  material2::menu::BasicNavigationItem wifi_item_;
 };
 
 SettingsMenu settings_menu(app.context());

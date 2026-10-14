@@ -5,20 +5,20 @@
 #include "roo_icons.h"
 #include "roo_icons/outlined/navigation.h"
 #include "roo_windows.h"
-#include "roo_windows/composites/menu/title.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/core/destination.h"
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/core/padding_mixin.h"
+#include "roo_windows/material2/menu/title.h"
+#include "roo_windows/material2/text_field.h"
 #include "roo_windows/widgets/icon.h"
-#include "roo_windows/widgets/text_field.h"
 #include "roo_windows_wifi/model.h"
 
 namespace roo_windows_wifi {
 
 class EnterPasswordActivity;
 
-class EditedPassword : public roo_windows::TextField {
+class EditedPassword : public roo_windows::material2::TextField {
  public:
   EditedPassword(roo_windows::ApplicationContext& env,
                  std::function<void()> confirm_fn);
@@ -75,9 +75,9 @@ class PasswordBar : public roo_windows::FlexLayout {
 
   void visibilityChanged() { text_.setStarred(visibility_.isOff()); }
 
-  roo_windows::VisibilityToggle visibility_;
+  roo_windows::material2::VisibilityToggle visibility_;
   SpacedEditedPassword text_;
-  roo_windows::SimpleButton enter_;
+  roo_windows::material2::SimpleButton enter_;
 };
 
 // All of the widgets of the 'enter password' activity.
@@ -104,7 +104,7 @@ class EnterPasswordActivityContents : public roo_windows::FlexLayout {
   void stopEditing() { pwbar_.stopEditing(); }
 
  private:
-  roo_windows::menu::Title title_;
+  roo_windows::material2::menu::Title title_;
   PasswordBar pwbar_;
 };
 

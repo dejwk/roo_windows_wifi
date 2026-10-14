@@ -8,3 +8,6 @@ bazel_dep(name = "roo_wifi", version = "3.0.0")
 bazel_dep(name = "roo_windows", version = "1.8.1")
 
 bazel_dep(name = "roo_scheduler", version = "2.3.0", dev_dependency = True)
+
+local_path_override(module_name="roo_windows", path="/home/dawidk/Documents/Arduino/roo/roo_windows")
+local_path_override(module_name="roo_wifi", path="/home/dawidk/Documents/Arduino/roo/roo_wifi")

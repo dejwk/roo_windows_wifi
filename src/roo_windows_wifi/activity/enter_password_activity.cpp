@@ -4,12 +4,13 @@ namespace roo_windows_wifi {
 
 EditedPassword::EditedPassword(roo_windows::ApplicationContext& env,
                                std::function<void()> confirm_fn)
-    : TextField(env, roo_windows::font_subtitle1(), "",
-                roo_display::kLeft | roo_display::kMiddle, UNDERLINE),
+    : roo_windows::material2::TextField(
+          env, roo_windows::font_subtitle1(), "",
+          roo_display::kLeft | roo_display::kMiddle, UNDERLINE),
       confirm_fn_(confirm_fn) {}
 
 void EditedPassword::onEditFinished(bool confirmed) {
-  TextField::onEditFinished(confirmed);
+  roo_windows::material2::TextField::onEditFinished(confirmed);
   if (confirmed) {
     // Triggered by a direct click on the 'Enter' button.
     confirm_fn_();

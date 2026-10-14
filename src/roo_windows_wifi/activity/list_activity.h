@@ -3,7 +3,6 @@
 #include <Arduino.h>
 
 #include "roo_scheduler.h"
-#include "roo_windows/composites/menu/title.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/list_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
@@ -11,11 +10,12 @@
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/core/task.h"
 #include "roo_windows/indicators/wifi.h"
+#include "roo_windows/material2/divider.h"
+#include "roo_windows/material2/menu/title.h"
+#include "roo_windows/material2/progress_bar.h"
+#include "roo_windows/material2/switch.h"
 #include "roo_windows/widgets/blank.h"
-#include "roo_windows/widgets/divider.h"
 #include "roo_windows/widgets/icon.h"
-#include "roo_windows/widgets/progress_bar.h"
-#include "roo_windows/widgets/switch.h"
 #include "roo_windows/widgets/text_label.h"
 #include "roo_windows_wifi/model.h"
 
@@ -101,7 +101,7 @@ class Enable : public roo_windows::FlexLayout {
 
   roo_windows::Blank gap_;
   roo_windows::TextLabel label_;
-  roo_windows::Switch switch_;
+  roo_windows::material2::Switch switch_;
 
   bool enabled_ = false;
 
@@ -162,11 +162,11 @@ class ListActivityContents : public roo_windows::FlexLayout {
 
  private:
   Model& wifi_model_;
-  roo_windows::menu::Title title_;
+  roo_windows::material2::menu::Title title_;
   Enable enable_;
-  roo_windows::ProgressBar progress_;
+  roo_windows::material2::ProgressBar progress_;
   CurrentNetwork current_;
-  roo_windows::HorizontalDivider divider_;
+  roo_windows::material2::HorizontalDivider divider_;
   WifiListModel list_model_;
   WifiList list_;
 };

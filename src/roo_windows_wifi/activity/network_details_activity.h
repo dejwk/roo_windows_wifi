@@ -3,7 +3,6 @@
 #include "roo_icons/filled/action.h"
 #include "roo_icons/filled/content.h"
 #include "roo_icons/filled/notification.h"
-#include "roo_windows/composites/menu/title.h"
 #include "roo_windows/config.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/stacked_layout.h"
@@ -12,10 +11,11 @@
 #include "roo_windows/core/padding_mixin.h"
 #include "roo_windows/core/task.h"
 #include "roo_windows/indicators/wifi.h"
-#include "roo_windows/widgets/divider.h"
+#include "roo_windows/material2/divider.h"
+#include "roo_windows/material2/icon_with_caption.h"
+#include "roo_windows/material2/menu/title.h"
+#include "roo_windows/material2/text_field.h"
 #include "roo_windows/widgets/icon.h"
-#include "roo_windows/widgets/icon_with_caption.h"
-#include "roo_windows/widgets/text_field.h"
 #include "roo_windows_wifi/activity/resources.h"
 
 namespace roo_windows_wifi {
@@ -136,7 +136,7 @@ class NetworkDetailsActivityContents : public roo_windows::FlexLayout {
   using PaddedWifiIndicator =
       roo_windows::PaddingMixin<roo_windows::WifiIndicatorLarge>;
   using PaddedIconWithCaption =
-      roo_windows::PaddingMixin<roo_windows::IconWithCaption>;
+      roo_windows::PaddingMixin<roo_windows::material2::IconWithCaption>;
 
   void connect() { wifi_model_.connect(); }
 
@@ -149,12 +149,12 @@ class NetworkDetailsActivityContents : public roo_windows::FlexLayout {
   }
 
   Model& wifi_model_;
-  roo_windows::menu::Title title_;
+  roo_windows::material2::menu::Title title_;
   roo_windows::Icon edit_;
   PaddedWifiIndicator indicator_;
   roo_windows::TextLabel ssid_;
   roo_windows::TextLabel status_;
-  roo_windows::HorizontalDivider d1_;
+  roo_windows::material2::HorizontalDivider d1_;
   roo_windows::FlexLayout actions_;
   PaddedIconWithCaption button_forget_;
   PaddedIconWithCaption button_connect_;
