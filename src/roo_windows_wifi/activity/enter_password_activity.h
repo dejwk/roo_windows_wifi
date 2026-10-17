@@ -9,6 +9,7 @@
 #include "roo_windows/core/destination.h"
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/core/padding_mixin.h"
+#include "roo_windows/material2/button.h"
 #include "roo_windows/material2/menu/title.h"
 #include "roo_windows/material2/text_field.h"
 #include "roo_windows/widgets/icon.h"

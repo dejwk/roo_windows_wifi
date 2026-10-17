@@ -33,6 +33,12 @@ cc_test(
 )
 
 cc_test(
+    name = "public_header_test",
+    srcs = ["test/public_header_test.cpp"],
+    deps = [":roo_windows_wifi", "@googletest//:gtest_main"],
+)
+
+cc_test(
     name = "material3_presentation_model_test",
     srcs = ["test/material3_presentation_model_test.cpp"],
     deps = [
