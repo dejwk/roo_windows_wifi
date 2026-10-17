@@ -16,6 +16,7 @@
 #include "roo_icons/outlined/48/action.h"
 #include "roo_icons/outlined/48/content.h"
 #include "roo_icons/outlined/48/navigation.h"
+#include "roo_windows/containers/aligned_layout.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/margins_mixin.h"
@@ -26,6 +27,7 @@
 #include "roo_windows/material3/layout_scaffold/layout_scaffold.h"
 #include "roo_windows/material3/list/dynamic_list.h"
 #include "roo_windows/material3/list/list.h"
+#include "roo_windows/material3/progress_indicator/progress_indicator.h"
 #include "roo_windows/widgets/icon.h"
 #include "roo_windows_wifi/material3/config_form.h"
 #include "roo_windows_wifi/material3/internal/segmented_list.h"
@@ -206,6 +208,40 @@ class SettingsBody : public roo_windows::FlexLayout {
   internal::SegmentedList saved_networks_;
 };
 
+/// Fills the scaffold body even when the settings content is shorter.
+class SettingsScroller final : public roo_windows::ScrollablePanel {
+  using Base = roo_windows::ScrollablePanel;
+
+ public:
+  SettingsScroller(roo_windows::ApplicationContext& context,
+                   roo_windows::Widget& contents)
+      : Base(context, contents) {}
+
+  roo_windows::PreferredSize getPreferredSize() const override {
+    return {roo_windows::PreferredSize::MatchParentWidth(),
+            roo_windows::PreferredSize::MatchParentHeight()};
+  }
+};
+
+/// Keeps the scan strip visual while allowing touches through to the list.
+class ScanProgressIndicator final
+    : public roo_windows::material3::LinearProgressIndicator {
+ public:
+  explicit ScanProgressIndicator(roo_windows::ApplicationContext& context)
+      : LinearProgressIndicator(context) {
+    // Disabled children are skipped during sibling hit testing. Keep the
+    // standard progress colors because the strip is visual, not unavailable.
+    setEnabled(false);
+  }
+
+  bool useAutomaticDisabledStyle() const override { return false; }
+
+  roo_windows::PreferredSize getPreferredSize() const override {
+    return {roo_windows::PreferredSize::MatchParentWidth(),
+            roo_windows::PreferredSize::WrapContentHeight()};
+  }
+};
+
 }  // namespace
 
 class WifiSettingsDestination::Impl {
@@ -221,6 +257,8 @@ class WifiSettingsDestination::Impl {
                  roo_windows::material3::IconButtonStyle::kStandard),
         body_(context, model, listener, destination, actions),
         scroller_(context, body_),
+        scan_progress_(context),
+        scan_body_(context),
         destination_(destination),
         scaffold_(context) {
     // Reserve storage for bounded operation feedback.
@@ -228,8 +266,15 @@ class WifiSettingsDestination::Impl {
     app_bar_.setTitle("Wi-Fi");
     refresh_.setOnInteractiveChange([this]() { destination_.refreshScan(); });
     app_bar_.setTrailing(0, refresh_);
+    scan_progress_.setIndeterminate();
+    scan_progress_.setVisibility(model.controller().isScanning()
+                                     ? roo_windows::Visibility::kVisible
+                                     : roo_windows::Visibility::kInvisible);
+    scan_body_.add(scroller_, roo_display::kLeft | roo_display::kTop);
+    // The last child paints in front of the scroller without changing its size.
+    scan_body_.add(scan_progress_, roo_display::kLeft | roo_display::kTop);
     scaffold_.setTopBar(app_bar_);
-    scaffold_.setBody(scroller_);
+    scaffold_.setBody(scan_body_);
   }
 
  private:
@@ -238,7 +283,9 @@ class WifiSettingsDestination::Impl {
   roo_windows::material3::AppBar app_bar_;
   roo_windows::material3::IconButton refresh_;
   SettingsBody body_;
-  roo_windows::ScrollablePanel scroller_;
+  SettingsScroller scroller_;
+  ScanProgressIndicator scan_progress_;
+  roo_windows::AlignedLayout scan_body_;
   WifiSettingsDestination& destination_;
   bool scan_after_enable_ = false;
   roo_time::Duration scan_max_age_ = roo_time::Seconds(30);
@@ -379,6 +426,9 @@ void WifiSettingsDestination::syncBody() {
               phase == roo_wifi::LinkPhase::kConnecting ||
               phase == roo_wifi::LinkPhase::kAssociated;
   impl_->body_.setBusy(busy);
+  impl_->scan_progress_.setVisibility(
+      model_.controller().isScanning() ? roo_windows::Visibility::kVisible
+                                       : roo_windows::Visibility::kInvisible);
 
   impl_->refresh_.setEnabled(
       wifiEnabled() && !busy &&

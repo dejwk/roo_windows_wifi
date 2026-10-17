@@ -1,11 +1,16 @@
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <thread>
+#include <vector>
 
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
+#include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/environment.h"
+#include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/navigation.h"
+#include "roo_windows/material3/progress_indicator/progress_indicator.h"
 #include "roo_windows_wifi/material3/settings_destination.h"
 
 namespace roo_windows_wifi {
@@ -87,7 +92,19 @@ struct Fixture {
   WifiSettingsDestination destination;
 };
 
-roo_windows::material3::BackButton* FindBackButton(roo_windows::Widget& widget) {
+template <typename T>
+T* FindWidget(roo_windows::Widget& widget) {
+  T* match = dynamic_cast<T*>(&widget);
+  if (match != nullptr) return match;
+  for (int i = 0; i < widget.focusChildCount(); ++i) {
+    match = FindWidget<T>(*widget.focusChildAt(i));
+    if (match != nullptr) return match;
+  }
+  return nullptr;
+}
+
+roo_windows::material3::BackButton* FindBackButton(
+    roo_windows::Widget& widget) {
   auto* button = dynamic_cast<roo_windows::material3::BackButton*>(&widget);
   if (button != nullptr) return button;
   for (int i = 0; i < widget.focusChildCount(); ++i) {
@@ -178,12 +195,17 @@ TEST(WifiSettingsDestinationTest, ScanFailureIsVisibleWithoutNewResults) {
   fixture.station.aps.push_back(Record("Cafe", roo_wifi::AuthMode::kOpen, -45));
   PublishScan(fixture.controller, fixture.station, fixture.scheduler);
   ASSERT_EQ(fixture.destination.refreshScan(), roo_wifi::Status::kOk);
+  auto* progress = FindWidget<roo_windows::material3::LinearProgressIndicator>(
+      fixture.destination.getContents());
+  ASSERT_NE(progress, nullptr);
+  EXPECT_TRUE(progress->isVisible());
   roo_wifi::Pump(fixture.scheduler);
   roo_wifi::NativeStation::Event event{
       roo_wifi::NativeStation::Event::kScanDone};
   event.status = roo_wifi::Status::kConnectionFailed;
   fixture.station.emit(event);
   roo_wifi::Pump(fixture.scheduler);
+  EXPECT_FALSE(progress->isVisible());
   EXPECT_EQ(fixture.destination.availableNetworkCount(), 1u);
   auto* item = FindRadioSwitch(fixture.destination.getContents());
   ASSERT_NE(item, nullptr);
@@ -191,6 +213,67 @@ TEST(WifiSettingsDestinationTest, ScanFailureIsVisibleWithoutNewResults) {
   EXPECT_EQ(fixture.destination.feedback(), "Could not connect. Try again");
   PublishScan(fixture.controller, fixture.station, fixture.scheduler);
   EXPECT_TRUE(item->supportingText().empty());
+}
+
+// Verifies the scan strip spans the body directly below the app bar, stays
+// above the unchanged scroll viewport, and allows touches to reach that
+// viewport.
+TEST(WifiSettingsDestinationTest, ScanProgressOverlaysScrollableContent) {
+  Fixture fixture;
+  fixture.begin();
+  PublishScan(fixture.controller, fixture.station, fixture.scheduler);
+  roo_windows::Widget& root = fixture.destination.getContents();
+  auto* progress =
+      FindWidget<roo_windows::material3::LinearProgressIndicator>(root);
+  auto* scroller = FindWidget<roo_windows::ScrollablePanel>(root);
+  auto* app_bar = FindWidget<roo_windows::material3::AppBar>(root);
+  ASSERT_NE(progress, nullptr);
+  ASSERT_NE(scroller, nullptr);
+  ASSERT_NE(app_bar, nullptr);
+  EXPECT_FALSE(progress->isVisible());
+  EXPECT_EQ(progress->mode(),
+            roo_windows::material3::ProgressIndicatorMode::kIndeterminate);
+
+  // A tall viewport leaves content shorter than the body, exercising the
+  // scroller's fill-size hint as well as the strip's independent alignment.
+  root.measure(roo_windows::WidthSpec::Exactly(320),
+               roo_windows::HeightSpec::Exactly(800));
+  root.layout(roo_windows::Rect(0, 0, 319, 799));
+  const roo_windows::Rect viewport = scroller->parent_bounds();
+  EXPECT_EQ(viewport, scroller->parent()->bounds());
+  EXPECT_EQ(progress->parent()->parent_bounds().yMin(),
+            app_bar->parent_bounds().yMax() + 1);
+  EXPECT_EQ(progress->parent_bounds().yMin(), 0);
+  EXPECT_EQ(progress->parent_bounds().width(), viewport.width());
+  EXPECT_EQ(progress->parent_bounds().height(),
+            progress->getSuggestedMinimumDimensions().height());
+
+  ASSERT_EQ(fixture.destination.refreshScan(), roo_wifi::Status::kOk);
+  EXPECT_TRUE(progress->isVisible());
+  EXPECT_EQ(scroller->parent_bounds(), viewport);
+  std::vector<roo_windows::Widget*> path;
+  EXPECT_TRUE(progress->parent()->fillTouchTargetPath(1, 1, path));
+  EXPECT_NE(std::find(path.begin(), path.end(), scroller), path.end());
+
+  fixture.station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(fixture.scheduler);
+  EXPECT_FALSE(progress->isVisible());
+  EXPECT_EQ(scroller->parent_bounds(), viewport);
+}
+
+// Verifies a destination created during an active scan shows progress before
+// the next model notification arrives.
+TEST(WifiSettingsDestinationTest, ScanProgressUsesInitialControllerState) {
+  Fixture fixture;
+  fixture.begin();
+  ASSERT_TRUE(fixture.controller.isScanning());
+
+  WifiSettingsDestination destination(fixture.context, fixture.model,
+                                      fixture.actions);
+  auto* progress = FindWidget<roo_windows::material3::LinearProgressIndicator>(
+      destination.getContents());
+  ASSERT_NE(progress, nullptr);
+  EXPECT_TRUE(progress->isVisible());
 }
 
 // Verifies an already-connected network opens details without participating in

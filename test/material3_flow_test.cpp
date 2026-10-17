@@ -160,6 +160,18 @@ class CountingDisplay
 
 class WifiScrollRendering : public testing::TestWithParam<bool> {};
 
+/// Finds a scroll viewport through the settings body's overlay container.
+roo_windows::SimpleScrollablePanel* FindScrollablePanel(
+    roo_windows::Widget& widget) {
+  auto* panel = dynamic_cast<roo_windows::SimpleScrollablePanel*>(&widget);
+  if (panel != nullptr) return panel;
+  for (int i = 0; i < widget.focusChildCount(); ++i) {
+    panel = FindScrollablePanel(*widget.focusChildAt(i));
+    if (panel != nullptr) return panel;
+  }
+  return nullptr;
+}
+
 // Compares incremental scrolling with a fresh full render at the same position.
 void VerifyScrolling(roo_windows::Application& app, CountingDisplay& device,
                      roo::byte* pixels,
@@ -266,9 +278,9 @@ TEST_P(WifiScrollRendering, SettingsAndDetailsMatchFullRepaint) {
   station.emit({roo_wifi::NativeStation::Event::kScanDone});
   roo_wifi::Pump(scheduler);
   app.refresh();
-  auto& settings_scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
-      *flow.main().getContents().focusChildAt(1));
-  VerifyScrolling(app, device, pixels, settings_scroll, GetParam());
+  auto* settings_scroll = FindScrollablePanel(flow.main().getContents());
+  ASSERT_NE(settings_scroll, nullptr);
+  VerifyScrolling(app, device, pixels, *settings_scroll, GetParam());
   auto& details = flow.detailsDestination();
   WifiNetworkSummary selected;
   selected.ssid = "Saved";
@@ -1068,8 +1080,9 @@ TEST(WifiFlow, RootScrollsSettingsAndNavigationWithBoundedRows) {
   app.refresh();
   auto& scaffold = static_cast<roo_windows::material3::LayoutScaffold&>(
       flow.main().getContents());
-  auto& scroll = static_cast<roo_windows::SimpleScrollablePanel&>(
-      *static_cast<roo_windows::Widget&>(scaffold).focusChildAt(1));
+  auto* scroll_ptr = FindScrollablePanel(scaffold);
+  ASSERT_NE(scroll_ptr, nullptr);
+  auto& scroll = *scroll_ptr;
 #if ROO_WINDOWS_ENABLE_BLIT_CACHE
   auto& column = static_cast<roo_windows::FlexLayout&>(
       *scroll.contents()->focusChildAt(0));
