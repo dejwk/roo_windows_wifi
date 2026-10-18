@@ -46,14 +46,19 @@ class WifiSettingsDestination : public roo_windows::Destination,
   /// Returns the retained scaffold for navigation presentation.
   roo_windows::Widget& getContents() override;
 
-  /// Returns the list to the top, refreshes state, and discovers when needed.
+  /// Refreshes the list, scans immediately when possible, and starts periodic
+  /// discovery while this destination remains visible.
   void onResume() override;
+
+  /// Stops periodic discovery while the network list is covered.
+  void onPause() override;
 
   /// Shows a standard Back action when this root is embedded in app navigation.
   /// Hidden by default for applications that use Wi-Fi as their root screen.
   void setBackButtonVisible(bool visible);
 
-  /// Requests an immediate scan when Wi-Fi is enabled.
+  /// Requests an immediate scan when Wi-Fi is enabled. After an accepted
+  /// request completes, periodic scanning resumes from a new interval.
   roo_wifi::Status refreshScan();
 
   /// Requests the opposite of the controller's desired radio state.
@@ -78,7 +83,8 @@ class WifiSettingsDestination : public roo_windows::Destination,
   /// Returns current scan, connection, or rejection feedback.
   const std::string& feedback() const;
 
-  /// Selects the successful-scan cache lifetime (30 seconds by default).
+  /// Selects the scan freshness threshold for Wi-Fi enablement (30 seconds by
+  /// default). Entering this destination always scans when possible.
   void setScanMaxAge(roo_time::Duration age);
 
   /// Activates a row by presentation-model index; intended for input adapters
@@ -92,6 +98,12 @@ class WifiSettingsDestination : public roo_windows::Destination,
   void onWifiScanStateChanged(bool scanning) override;
   void onWifiEnabledChanged(bool enabled) override;
   void onWifiNetworkActivated(size_t index) override;
+
+  /// Requests a scheduled scan without replacing feedback on admission failure.
+  void autoScan();
+
+  /// Starts a scan and presents its accepted state immediately.
+  roo_wifi::Status beginScan();
 
   /// Synchronizes every visible section with the effective radio state.
   void syncBody();

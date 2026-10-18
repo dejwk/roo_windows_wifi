@@ -16,6 +16,7 @@
 #include "roo_icons/outlined/48/action.h"
 #include "roo_icons/outlined/48/content.h"
 #include "roo_icons/outlined/48/navigation.h"
+#include "roo_scheduler.h"
 #include "roo_windows/containers/aligned_layout.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
@@ -36,6 +37,9 @@
 namespace roo_windows_wifi {
 namespace material3 {
 namespace {
+
+// Match Android Settings' interval between Wi-Fi picker scan requests.
+constexpr roo_time::Duration kAutoScanInterval = roo_time::Seconds(10);
 
 // NavigationListItem borrows its pictogram. Construct these on first use so
 // globally constructed Arduino flows do not depend on translation-unit order.
@@ -260,6 +264,8 @@ class WifiSettingsDestination::Impl {
         scan_progress_(context),
         scan_body_(context),
         destination_(destination),
+        auto_scan_(context.scheduler(), kAutoScanInterval,
+                   [this]() { destination_.autoScan(); }),
         scaffold_(context) {
     // Reserve storage for bounded operation feedback.
     feedback_.reserve(128);
@@ -287,7 +293,10 @@ class WifiSettingsDestination::Impl {
   ScanProgressIndicator scan_progress_;
   roo_windows::AlignedLayout scan_body_;
   WifiSettingsDestination& destination_;
-  bool scan_after_enable_ = false;
+  roo_scheduler::RepetitiveTask auto_scan_;
+  bool visible_ = false;
+  bool manual_scan_pending_ = false;
+  bool scan_pending_ = false;
   roo_time::Duration scan_max_age_ = roo_time::Seconds(30);
   // Declared last so it detaches its borrowed slots before their destruction.
   roo_windows::material3::LayoutScaffold scaffold_;
@@ -305,6 +314,7 @@ WifiSettingsDestination::WifiSettingsDestination(
 }
 
 WifiSettingsDestination::~WifiSettingsDestination() {
+  impl_->auto_scan_.shutdown();
   model_.removeListener(*this);
 }
 
@@ -321,21 +331,52 @@ void WifiSettingsDestination::setBackButtonVisible(bool visible) {
 }
 
 void WifiSettingsDestination::onResume() {
+  impl_->visible_ = true;
   impl_->scroller_.scrollToTop();
   model_.refresh();
   syncBody();
-  if (model_.controller().isEnabled() &&
-      model_.scanStale(impl_->scan_max_age_) &&
-      !model_.controller().isScanning()) {
-    refreshScan();
+  if (!model_.controller().isScanning()) impl_->manual_scan_pending_ = false;
+  impl_->scan_pending_ = wifiEnabled();
+  autoScan();
+  if (!impl_->manual_scan_pending_) impl_->auto_scan_.start();
+}
+
+void WifiSettingsDestination::onPause() {
+  impl_->visible_ = false;
+  impl_->scan_pending_ = false;
+  impl_->auto_scan_.stop();
+}
+
+void WifiSettingsDestination::autoScan() {
+  if (model_.controller().isScanning()) {
+    impl_->scan_pending_ = false;
+    return;
   }
+  if (!model_.controller().isEnabled()) return;
+  // Startup may still be enabling or restoring a connection. Retry on the
+  // next controller notification instead of waiting for the periodic tick.
+  roo_wifi::Status status = beginScan();
+  if (status != roo_wifi::Status::kBusy) impl_->scan_pending_ = false;
+}
+
+roo_wifi::Status WifiSettingsDestination::beginScan() {
+  roo_wifi::Status status = model_.controller().startScan();
+  if (status == roo_wifi::Status::kOk) {
+    impl_->feedback_ = "Scanning…";
+    syncBody();
+  }
+  return status;
 }
 
 roo_wifi::Status WifiSettingsDestination::refreshScan() {
-  roo_wifi::Status status = model_.controller().startScan();
-  impl_->feedback_ =
-      status == roo_wifi::Status::kOk ? "Scanning…" : WifiStatusText(status);
-  syncBody();
+  roo_wifi::Status status = beginScan();
+  if (status == roo_wifi::Status::kOk) {
+    impl_->auto_scan_.stop();
+    impl_->manual_scan_pending_ = true;
+  } else {
+    impl_->feedback_ = WifiStatusText(status);
+    syncBody();
+  }
   return status;
 }
 roo_wifi::Status WifiSettingsDestination::toggleWifi() {
@@ -422,8 +463,7 @@ void WifiSettingsDestination::syncBody() {
                                        ? roo::string_view()
                                        : WifiStatusText(status));
   roo_wifi::LinkPhase phase = model_.controller().linkState().phase;
-  bool busy = model_.controller().isScanning() ||
-              phase == roo_wifi::LinkPhase::kConnecting ||
+  bool busy = phase == roo_wifi::LinkPhase::kConnecting ||
               phase == roo_wifi::LinkPhase::kAssociated;
   impl_->body_.setBusy(busy);
   impl_->scan_progress_.setVisibility(
@@ -431,7 +471,7 @@ void WifiSettingsDestination::syncBody() {
                                        : roo_windows::Visibility::kInvisible);
 
   impl_->refresh_.setEnabled(
-      wifiEnabled() && !busy &&
+      wifiEnabled() && !busy && !model_.controller().isScanning() &&
       (!model_.current() ||
        model_.controller().support().scan_while_connected));
 }
@@ -440,15 +480,17 @@ void WifiSettingsDestination::onWifiScanStateChanged(bool scanning) {
   // Failed scans preserve the model's previous results, so they need to update
   // feedback even when no subsequent model-change notification is delivered.
   onWifiModelChanged();
+  if (!scanning && impl_->manual_scan_pending_ &&
+      !model_.controller().isScanning()) {
+    impl_->manual_scan_pending_ = false;
+    if (impl_->visible_) impl_->auto_scan_.start();
+  }
 }
 
 void WifiSettingsDestination::onWifiModelChanged() {
+  if (impl_->scan_pending_) autoScan();
   roo_wifi::Controller::State state = model_.controller().state();
   using C = roo_wifi::Controller;
-  if (impl_->scan_after_enable_ && state.station == C::StationPhase::kIdle) {
-    roo_wifi::Status status = model_.controller().startScan();
-    if (status != roo_wifi::Status::kBusy) impl_->scan_after_enable_ = false;
-  }
   const char* retry = WifiRetryText(state);
   if (retry != nullptr) {
     impl_->feedback_ = retry;
@@ -475,7 +517,7 @@ void WifiSettingsDestination::onWifiModelChanged() {
 }
 
 void WifiSettingsDestination::onWifiEnabledChanged(bool enabled) {
-  impl_->scan_after_enable_ = enabled && model_.scanStale(impl_->scan_max_age_);
+  impl_->scan_pending_ = enabled && model_.scanStale(impl_->scan_max_age_);
   syncBody();
 }
 

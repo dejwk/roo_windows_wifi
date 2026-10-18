@@ -10,6 +10,7 @@
 #include "roo_windows/core/environment.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/navigation.h"
+#include "roo_windows/material3/list/dynamic_list.h"
 #include "roo_windows/material3/progress_indicator/progress_indicator.h"
 #include "roo_windows_wifi/material3/settings_destination.h"
 
@@ -321,16 +322,149 @@ TEST(WifiSettingsDestinationTest, PresentsEnabledAndDisabledSections) {
   EXPECT_FALSE(fixture.destination.hasCurrentNetwork());
 }
 
-// Verifies entering an enabled destination discovers networks with an empty
-// cache.
-TEST(WifiSettingsDestinationTest, ResumeScansWhenCacheIsEmpty) {
+// Verifies startup retries discovery as soon as a restored connection settles,
+// without waiting for the periodic timer or requiring an idle station.
+TEST(WifiSettingsDestinationTest, StartupScansAfterRestoringConnection) {
+  Fixture fixture;
+  roo_wifi::ProfileSettings settings;
+  settings.connection = roo_wifi::TestConfig("Saved");
+  settings.auto_connect = true;
+  roo_wifi::CredentialUpdate credentials;
+  credentials.intent = roo_wifi::CredentialIntent::kClear;
+  ASSERT_EQ(fixture.store.saveProfile(settings, credentials),
+            roo_wifi::Status::kOk);
+  ASSERT_EQ(fixture.store.writeLastProfile(settings.connection.ssid),
+            roo_wifi::Status::kOk);
+  ASSERT_EQ(fixture.controller.begin(), roo_wifi::Status::kOk);
+  fixture.destination.onResume();
+  roo_wifi::Pump(fixture.scheduler);
+  ASSERT_EQ(fixture.station.connects, 1);
+  fixture.station.associated();
+  fixture.station.ready();
+  roo_wifi::Pump(fixture.scheduler);
+
+  EXPECT_EQ(fixture.station.scans, 1);
+  EXPECT_TRUE(fixture.destination.scanning());
+  auto* progress = FindWidget<roo_windows::material3::LinearProgressIndicator>(
+      fixture.destination.getContents());
+  ASSERT_NE(progress, nullptr);
+  EXPECT_TRUE(progress->isVisible());
+}
+
+// Verifies scanning preserves usable cached rows until new results arrive.
+TEST(WifiSettingsDestinationTest, CachedNetworksRemainInteractiveDuringScan) {
   Fixture fixture;
   fixture.begin();
+  fixture.station.aps.push_back(
+      Record("Secure", roo_wifi::AuthMode::kWpa2Personal, -45));
+  PublishScan(fixture.controller, fixture.station, fixture.scheduler);
+  auto& root = fixture.destination.getContents();
+  ASSERT_EQ(fixture.destination.refreshScan(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(fixture.scheduler);
+  fixture.station.aps.clear();
+
+  EXPECT_EQ(fixture.destination.availableNetworkCount(), 1u);
+  auto* available =
+      FindWidget<roo_windows::material3::DynamicList<WifiNetworkRow>>(root);
+  ASSERT_NE(available, nullptr);
+  ASSERT_EQ(fixture.model.networks().size(), 1u);
+  EXPECT_EQ(fixture.model.networks()[0].ssid, "Secure");
+  for (roo_windows::Widget* widget = available; widget != nullptr;
+       widget = widget->parent()) {
+    EXPECT_TRUE(widget->isEnabled());
+  }
+  fixture.destination.activateNetwork(0);
+  EXPECT_EQ(fixture.actions.edit_, "Secure");
+
+  fixture.station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(fixture.scheduler);
+  EXPECT_EQ(fixture.destination.availableNetworkCount(), 0u);
+}
+
+// Verifies opening the list does not duplicate an already active scan.
+TEST(WifiSettingsDestinationTest, ResumeKeepsActiveScan) {
+  Fixture fixture;
+  fixture.begin();
+  const int initial_scans = fixture.station.scans;
 
   fixture.destination.onResume();
+  roo_wifi::Pump(fixture.scheduler);
 
   EXPECT_TRUE(fixture.controller.isScanning());
   EXPECT_TRUE(fixture.destination.scanning());
+  EXPECT_EQ(fixture.station.scans, initial_scans);
+}
+
+// Verifies the visible list scans again after Android's 10-second interval
+// and stops requesting scans as soon as navigation covers it.
+TEST(WifiSettingsDestinationTest, AutoScansOnlyWhileVisible) {
+  Fixture fixture;
+  fixture.begin();
+  PublishScan(fixture.controller, fixture.station, fixture.scheduler);
+  const int initial_scans = fixture.station.scans;
+
+  fixture.destination.onResume();
+  EXPECT_TRUE(fixture.controller.isScanning());
+  roo_wifi::Pump(fixture.scheduler);
+  EXPECT_EQ(fixture.station.scans, initial_scans + 1);
+  fixture.station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(fixture.scheduler);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(10020));
+  roo_wifi::Pump(fixture.scheduler);
+  EXPECT_EQ(fixture.station.scans, initial_scans + 2);
+  EXPECT_TRUE(fixture.controller.isScanning());
+
+  fixture.station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(fixture.scheduler);
+  ASSERT_EQ(fixture.destination.refreshScan(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(fixture.scheduler);
+  EXPECT_EQ(fixture.station.scans, initial_scans + 3);
+  fixture.destination.onPause();
+  fixture.station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(fixture.scheduler);
+  std::this_thread::sleep_for(std::chrono::milliseconds(10020));
+  roo_wifi::Pump(fixture.scheduler);
+  EXPECT_EQ(fixture.station.scans, initial_scans + 3);
+  EXPECT_FALSE(fixture.controller.isScanning());
+}
+
+// Verifies manual Refresh cancels the pending periodic request and schedules
+// the next one ten seconds after that manual scan completes.
+TEST(WifiSettingsDestinationTest, ManualScanResetsIntervalAfterCompletion) {
+  Fixture fixture;
+  fixture.begin();
+  PublishScan(fixture.controller, fixture.station, fixture.scheduler);
+  fixture.destination.onResume();
+  roo_wifi::Pump(fixture.scheduler);
+  fixture.station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(fixture.scheduler);
+  const int initial_scans = fixture.station.scans;
+
+  ASSERT_EQ(fixture.destination.refreshScan(), roo_wifi::Status::kOk);
+  roo_wifi::Pump(fixture.scheduler);
+  EXPECT_EQ(fixture.station.scans, initial_scans + 1);
+  std::this_thread::sleep_for(std::chrono::milliseconds(5050));
+  fixture.station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(fixture.scheduler);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(5050));
+  roo_wifi::Pump(fixture.scheduler);
+  EXPECT_EQ(fixture.station.scans, initial_scans + 1);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(5050));
+  roo_wifi::Pump(fixture.scheduler);
+  EXPECT_EQ(fixture.station.scans, initial_scans + 2);
+}
+
+// Verifies a rejected manual scan still reports the admission error.
+TEST(WifiSettingsDestinationTest, ManualScanReportsAdmissionFailure) {
+  Fixture fixture(false);
+  fixture.begin();
+
+  EXPECT_EQ(fixture.destination.refreshScan(), roo_wifi::Status::kDisabled);
+  EXPECT_EQ(fixture.destination.feedback(), "Turn Wi-Fi on to connect");
+  EXPECT_FALSE(fixture.destination.scanning());
 }
 
 // Verifies programmatic toggling requests the opposite physical radio state.
@@ -436,15 +570,12 @@ TEST(WifiSettingsDestinationTest, RoutesSavedNetworksBySsid) {
   EXPECT_EQ(std::memcmp(fixture.station.last_config.ssid.bytes, "Saved", 5), 0);
 }
 
-// Verifies nonempty cached scans refresh after the configured lifetime expires.
-TEST(WifiSettingsDestinationTest, RefreshesStaleNonemptyScanAndShowsBusyState) {
+// Verifies entering the list starts a scan even when cached results are fresh.
+TEST(WifiSettingsDestinationTest, ResumeScansWithFreshCache) {
   Fixture fixture;
   fixture.begin();
   fixture.station.aps.push_back(Record("Cafe", roo_wifi::AuthMode::kOpen, -45));
   PublishScan(fixture.controller, fixture.station, fixture.scheduler);
-  fixture.destination.onResume();
-  EXPECT_FALSE(fixture.controller.isScanning());
-  fixture.destination.setScanMaxAge(roo_time::Seconds(0));
   fixture.destination.onResume();
   EXPECT_TRUE(fixture.controller.isScanning());
   EXPECT_NE(fixture.destination.feedback().find("Scanning"), std::string::npos);
