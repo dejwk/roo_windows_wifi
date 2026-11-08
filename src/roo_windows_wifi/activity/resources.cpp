@@ -4,7 +4,7 @@
 
 namespace roo_windows_wifi {
 
-#if (ROO_WINDOWS_LANG == ROO_WINDOWS_LANG_pl)
+#if (ROO_WINDOWS_LANG == ROO_LANG_pl)
 
 const char* kStrConnect = "Połącz";
 const char* kStrDisconnect = "Rozłącz";

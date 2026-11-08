@@ -122,3 +122,18 @@ cc_test(
     linkstatic = True,
     deps = [":roo_windows_wifi", "@googletest//:gtest_main", "@roo_wifi//test:test_support"],
 )
+
+cc_library(
+    name = "activity_resources_pl",
+    srcs = ["src/roo_windows_wifi/activity/resources.cpp"],
+    hdrs = ["src/roo_windows_wifi/activity/resources.h"],
+    includes = ["src"],
+    local_defines = ["ROO_LANG=ROO_LANG_pl"],
+    deps = [":model", "@roo_wifi", "@roo_windows"],
+)
+
+cc_test(
+    name = "activity_resources_pl_test",
+    srcs = ["test/activity_resources_pl_test.cpp"],
+    deps = [":activity_resources_pl", "@googletest//:gtest_main"],
+)
