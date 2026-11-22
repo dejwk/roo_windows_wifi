@@ -29,7 +29,7 @@
         "examples/**/*.ino"
     ],
     "dependencies": {
-        "dejwk/roo_wifi": ">=3.0.0",
+        "dejwk/roo_wifi": ">=3.1.0",
         "dejwk/roo_windows": ">=1.8.1"
     }
 }
