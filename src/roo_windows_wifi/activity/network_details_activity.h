@@ -1,8 +1,10 @@
 #pragma once
 
+#include "roo_icons.h"
 #include "roo_icons/filled/action.h"
 #include "roo_icons/filled/content.h"
 #include "roo_icons/filled/notification.h"
+#include "roo_windows.h"
 #include "roo_windows/config.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/stacked_layout.h"

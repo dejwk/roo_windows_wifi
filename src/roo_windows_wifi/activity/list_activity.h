@@ -3,6 +3,7 @@
 #include <Arduino.h>
 
 #include "roo_scheduler.h"
+#include "roo_windows.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/list_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"

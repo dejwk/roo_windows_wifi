@@ -1,4 +1,5 @@
 #include "gtest/gtest.h"
+#include "roo_windows.h"
 #include "roo_windows/core/environment.h"
 #include "roo_windows_wifi.h"
 

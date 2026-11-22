@@ -6,6 +6,7 @@
 
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
+#include "roo_windows.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/environment.h"
 #include "roo_windows/material3/app_bar/app_bar.h"

@@ -4,10 +4,12 @@
 #include <cstdio>
 #include <cstring>
 
+#include "roo_icons.h"
 #include "roo_icons/outlined/action.h"
 #include "roo_icons/outlined/content.h"
 #include "roo_icons/outlined/navigation.h"
 #include "roo_icons/outlined/notification.h"
+#include "roo_windows.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/navigation_host.h"

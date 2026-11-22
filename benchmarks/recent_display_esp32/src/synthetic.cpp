@@ -19,8 +19,10 @@
 #include "display_sink.h"
 
 #ifndef ROO_BENCHMARK_BASELINE
+#include "roo_display.h"
 #include "roo_display/composition/composition_workspace.h"
 #endif
+#include "roo_display.h"
 #include "roo_display/composition/rasterizable_stack.h"
 #include "roo_display/core/offscreen.h"
 #include "roo_display/filter/foreground.h"

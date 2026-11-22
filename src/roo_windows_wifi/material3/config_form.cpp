@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "roo_windows.h"
 #include "roo_windows/core/margins_mixin.h"
 #include "roo_windows/material3/button/navigation.h"
 #include "roo_windows/material3/list/list.h"

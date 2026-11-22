@@ -2,6 +2,7 @@
 
 #include <cstring>
 
+#include "roo_windows.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/core/navigation_host.h"
 #include "roo_windows/core/task.h"

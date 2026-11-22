@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 
+#include "roo_windows.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows_wifi/material3/network_policy.h"
 

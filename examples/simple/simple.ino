@@ -7,6 +7,7 @@
 #include "roo_display.h"
 #include "roo_display/driver/ili9341.h"
 #include "roo_display/driver/touch_xpt2046.h"
+#include "roo_wifi.h"
 #include "roo_wifi/esp32.h"
 #include "roo_windows.h"
 #include "roo_windows/material2/menu/basic_navigation_item.h"

@@ -1,5 +1,6 @@
 #include "roo_windows_wifi/activity/resources.h"
 
+#include "roo_windows.h"
 #include "roo_windows/config.h"
 
 namespace roo_windows_wifi {

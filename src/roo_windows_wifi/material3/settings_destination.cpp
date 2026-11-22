@@ -4,6 +4,7 @@
 #include <cstring>
 #include <limits>
 
+#include "roo_icons.h"
 #include "roo_icons/outlined/18/action.h"
 #include "roo_icons/outlined/18/content.h"
 #include "roo_icons/outlined/18/navigation.h"
@@ -17,6 +18,7 @@
 #include "roo_icons/outlined/48/content.h"
 #include "roo_icons/outlined/48/navigation.h"
 #include "roo_scheduler.h"
+#include "roo_windows.h"
 #include "roo_windows/containers/aligned_layout.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/scrollable_panel.h"

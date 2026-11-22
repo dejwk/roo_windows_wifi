@@ -2,11 +2,14 @@
 
 #include <cstring>
 
+#include "roo_display.h"
 #include "roo_display/ui/alignment.h"
+#include "roo_icons.h"
 #include "roo_icons/filled/18/device.h"
 #include "roo_icons/filled/24/device.h"
 #include "roo_icons/filled/36/device.h"
 #include "roo_icons/filled/48/device.h"
+#include "roo_windows.h"
 #include "roo_windows/core/theme.h"
 #include "roo_windows/material3/theme.h"
 

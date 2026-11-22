@@ -1,8 +1,10 @@
 #include "roo_windows_wifi/activity/list_activity.h"
 
+#include "roo_icons.h"
 #include "roo_icons/filled/24/action.h"
 #include "roo_icons/outlined/24/navigation.h"
 #include "roo_scheduler.h"
+#include "roo_windows.h"
 #include "roo_windows/config.h"
 #include "roo_windows/containers/flex_layout.h"
 #include "roo_windows/containers/list_layout.h"

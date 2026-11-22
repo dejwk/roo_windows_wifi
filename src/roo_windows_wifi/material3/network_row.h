@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 
+#include "roo_windows.h"
 #include "roo_windows/core/widget.h"
 #include "roo_windows/material3/list/list.h"
 #include "roo_windows_wifi/material3/presentation_model.h"

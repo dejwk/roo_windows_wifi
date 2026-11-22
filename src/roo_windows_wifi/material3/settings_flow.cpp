@@ -1,6 +1,7 @@
 #include "roo_windows_wifi/material3/settings_flow.h"
 
 #include "roo_logging.h"
+#include "roo_windows.h"
 #include "roo_windows/core/navigation_host.h"
 
 namespace roo_windows_wifi {

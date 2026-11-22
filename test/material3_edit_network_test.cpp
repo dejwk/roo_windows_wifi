@@ -3,6 +3,7 @@
 
 #include "backend_fakes.h"
 #include "gtest/gtest.h"
+#include "roo_windows.h"
 #include "roo_windows/core/environment.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/text_field/text_field.h"

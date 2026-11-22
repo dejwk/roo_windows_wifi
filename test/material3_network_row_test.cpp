@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "roo_scheduler.h"
+#include "roo_windows.h"
 #include "roo_windows/core/environment.h"
 #include "roo_windows/widgets/text_label.h"
 #include "roo_windows_wifi/material3/network_row.h"

@@ -1,5 +1,6 @@
 #include "roo_windows_wifi/material3/saved_networks_destination.h"
 
+#include "roo_windows.h"
 #include "roo_windows/containers/scrollable_panel.h"
 #include "roo_windows/material3/app_bar/app_bar.h"
 #include "roo_windows/material3/button/button.h"

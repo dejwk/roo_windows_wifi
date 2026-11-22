@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "roo_windows.h"
 #include "roo_windows/core/application_context.h"
 #include "roo_windows/core/destination.h"
 #include "roo_windows/material3/dialog/dialog_types.h"
