@@ -1,3 +1,16 @@
+# roo_windows_wifi 2.1.0
+
+- Material 3 Wi-Fi settings scan on entry and every 10 seconds while visible. A progress bar leaves cached results interactive, and completing a manual scan resets the interval.
+- Show scan and connection failures in Wi-Fi settings, including the reason for automatic connection retries.
+- Simplify Add, Edit, and Connect with compact inline dropdowns for Security, Privacy, Metered, IP settings, and Proxy. Add supports manual SSID and security entry. Edit and Connect keep the selected identity fixed and show a password field only for secured networks. Connect returns to the list once the request is accepted.
+- Redesign Network details with live signal and connection status. Forget returns to the previous list after removal and policy cleanup succeed. The Wi-Fi and Saved networks lists scroll to the top on return, and embedded settings can opt into a Back button.
+- Remove `WifiConfigForm::setOnChoose` as part of the move to inline dropdowns. Update the legacy configurator and example for the `roo_windows` Material 2 APIs, fix Polish locale selection, and fix Arduino dependency discovery.
+- Upgrade `roo_wifi` to 3.2.0 and `roo_windows` to 1.11.0. Declare `roo_scheduler` 2.4.0 as a direct dependency.
+- Upgrade Bazel host testing to `roo_testing` 2.7.1 and CI to 2.7.0. Expand the local test runner to nine profiles across ESP32, ESP32-S3, ESP32-C3, and RP2040.
+- Add ESP32 rendering benchmarks and regression coverage for scanning, navigation, forms, and scrolling.
+
+---
+
 # roo_windows_wifi 2.0.0
 
 - Add Material 3 Wi-Fi settings through `WifiSettingsFlow`, with scrollable network lists, saved-network browsing, connection details, add/edit forms, and confirmed removal.

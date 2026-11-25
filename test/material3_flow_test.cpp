@@ -946,6 +946,10 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   WifiSettingsFlow flow(app.context(), controller);
   auto& task = app.addTaskFullScreen();
   auto& navigation = task.navigation();
+  struct ClearNavigation {
+    decltype(navigation) host;
+    ~ClearNavigation() { host.clear(); }
+  } cleanup{navigation};
   navigation.push(flow.main());
   device.reset();
   app.refresh();
@@ -968,7 +972,7 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   EXPECT_LE(*std::max_element(device.writes.begin(), device.writes.end()), 1);
 
   flow.settingsDestination().activateNetwork(0);
-  EXPECT_TRUE(navigation.isCurrent(flow.editDestination()));
+  ASSERT_TRUE(navigation.isCurrent(flow.editDestination()));
   auto& editor = flow.editDestination();
   app.refresh();
   Golden(device.raster(), "wifi_connect_network");
@@ -995,6 +999,11 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
   roo_wifi::Pump(scheduler);
   EXPECT_EQ(editor.feedback(), "Connected");
   EXPECT_TRUE(navigation.isCurrent(flow.main()));
+  // Returning to Wi-Fi settings starts a scan. Capture the settled screen.
+  ASSERT_TRUE(controller.isScanning());
+  station.emit({roo_wifi::NativeStation::Event::kScanDone});
+  roo_wifi::Pump(scheduler);
+  ASSERT_FALSE(controller.isScanning());
   app.refresh();
   Golden(device.raster(), "wifi_connected");
 
@@ -1041,7 +1050,6 @@ TEST(WifiFlow, NavigationPersistenceAndConfirmation) {
       roo_wifi::Status::kNotFound);
   EXPECT_FALSE(details.network().current);
   EXPECT_EQ(flow.savedNetworksDestination().profileCount(), 0u);
-  navigation.clear();
 }
 // Verifies bounded row recycling, final-pixel writes, and list scroll reset
 // after returning from Connect, Details, Saved networks, and Forget.

@@ -114,7 +114,13 @@ cc_test(
     name = "material3_flow_test",
     srcs = ["test/material3_flow_test.cpp"],
     data = glob(["test/goldens/*.ppm"], allow_empty = True),
-    deps = [":roo_windows_wifi", "@googletest//:gtest_main", "@roo_wifi//test:test_support"],
+    deps = [
+        ":roo_windows_wifi",
+        "@googletest//:gtest_main",
+        # Advance Wi-Fi deadlines and animation time only through test actions.
+        "@roo_testing//roo_testing/system:manual_time_mode",
+        "@roo_wifi//test:test_support",
+    ],
 )
 
 cc_test(
